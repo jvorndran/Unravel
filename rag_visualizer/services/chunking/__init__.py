@@ -10,7 +10,7 @@ from .core import (
 )
 from .providers import (
     ChunkingProvider,
-    LangChainProvider,
+    DoclingProvider,
     ParameterInfo,
     SplitterInfo,
 )
@@ -27,5 +27,5 @@ __all__ = [
     "ChunkingProvider",
     "SplitterInfo",
     "ParameterInfo",
-    "LangChainProvider",
+    "DoclingProvider",
 ]

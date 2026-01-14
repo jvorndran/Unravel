@@ -7,46 +7,6 @@ Each template is a string with placeholders that get filled in by the generator.
 # PARSING TEMPLATES
 # =============================================================================
 
-PARSING_PYPDF = '''"""Document Parsing with pypdf
-
-Configuration:
-- Output Format: {output_format}
-- Normalize Whitespace: {normalize_whitespace}
-- Remove Special Characters: {remove_special_chars}
-"""
-
-from pypdf import PdfReader
-import re
-
-
-def parse_pdf(file_path: str) -> str:
-    """Parse PDF file and return extracted text.
-
-    Args:
-        file_path: Path to the PDF file
-
-    Returns:
-        Extracted text content
-    """
-    with open(file_path, "rb") as f:
-        reader = PdfReader(f)
-        text_parts = []
-
-        for page in reader.pages:
-            text = page.extract_text()
-            if text:
-                text_parts.append(text)
-
-    text = "{separator}".join(text_parts)
-{post_processing}
-    return text
-
-
-# Example usage:
-# text = parse_pdf("document.pdf")
-# print(f"Extracted {{len(text)}} characters")
-'''
-
 PARSING_DOCLING = '''"""Document Parsing with Docling
 
 Advanced PDF parsing with optional OCR and table extraction.
@@ -106,47 +66,6 @@ def parse_pdf(file_path: str) -> str:
 
 # Example usage:
 # text = parse_pdf("document.pdf")
-# print(f"Extracted {{len(text)}} characters")
-'''
-
-PARSING_LLAMAPARSE = '''"""Document Parsing with LlamaParse
-
-Cloud-based PDF parsing with high accuracy.
-
-Configuration:
-- Output Format: markdown
-"""
-
-import os
-from llama_parse import LlamaParse
-
-
-def parse_pdf(file_path: str, api_key: str) -> str:
-    """Parse PDF file using LlamaParse.
-
-    Args:
-        file_path: Path to the PDF file
-        api_key: LlamaParse API key
-
-    Returns:
-        Extracted text in markdown format
-    """
-    parser = LlamaParse(
-        api_key=api_key,
-        result_type="markdown",
-        verbose=False
-    )
-
-    documents = parser.load_data(file_path)
-    text_parts = [doc.text for doc in documents]
-    text = "\\n\\n".join(text_parts)
-{post_processing}
-    return text
-
-
-# Example usage:
-# api_key = os.environ.get("LLAMAPARSE_API_KEY")  # Set your API key
-# text = parse_pdf("document.pdf", api_key)
 # print(f"Extracted {{len(text)}} characters")
 '''
 
@@ -750,9 +669,7 @@ def embed_query(query: str) -> np.ndarray:
 # =============================================================================
 
 PARSING_TEMPLATES = {
-    "pypdf": PARSING_PYPDF,
     "docling": PARSING_DOCLING,
-    "llamaparse": PARSING_LLAMAPARSE,
 }
 
 CHUNKING_TEMPLATES = {

@@ -11,11 +11,6 @@ import streamlit as st
 from PIL import Image as PILImage
 
 try:
-    from pypdf import PdfReader
-except ImportError:
-    PdfReader = None
-
-try:
     from docx import Document
 except ImportError:
     Document = None
@@ -36,7 +31,6 @@ from docling.pipeline.standard_pdf_pipeline import (
     ThreadedPdfPipelineOptions,
 )
 from docling_core.types.doc import DocItemLabel, PictureItem
-from llama_parse import LlamaParse
 
 
 def get_available_devices() -> list[str]:
@@ -102,52 +96,6 @@ class ExtractedImage:
     pil_image: PILImage.Image
     caption: str | None = None
     page_number: int | None = None
-
-
-def parse_pdf_pypdf(content: bytes, params: dict | None = None) -> str:
-    """Parse PDF content using pypdf engine.
-
-    Args:
-        content: PDF file content as bytes
-        params: Optional parsing configuration
-
-    Returns:
-        Extracted text content
-
-    Raises:
-        ImportError: If pypdf is not installed
-        ValueError: If PDF parsing fails
-    """
-    params = params or {}
-    if PdfReader is None:
-        raise ImportError(
-            "pypdf is required for PDF parsing. Install with: pip install pypdf"
-        )
-
-    try:
-        from io import BytesIO
-
-        pdf_file = BytesIO(content)
-        reader = PdfReader(pdf_file)
-        text_parts = []
-
-        for page in reader.pages:
-            text = page.extract_text()
-            if text:
-                text_parts.append(text)
-
-        # Use custom separator based on output format
-        output_format = params.get("output_format", "original")
-        if output_format == "markdown" and params.get("preserve_structure", True):
-            separator = "\n\n---\n\n"  # Markdown-style page separator
-        elif params.get("preserve_structure", True):
-            separator = "\n\n---PAGE BREAK---\n\n"
-        else:
-            separator = "\n\n"
-
-        return separator.join(text_parts)
-    except Exception as e:
-        raise ValueError(f"Failed to parse PDF with pypdf: {str(e)}") from e
 
 
 @st.cache_resource(show_spinner=False)
@@ -387,59 +335,10 @@ def parse_pdf_docling(
         raise ValueError(f"Failed to parse PDF with docling: {str(e)}") from e
 
 
-def parse_pdf_llamaparse(content: bytes, params: dict | None = None) -> str:
-    """Parse PDF content using LlamaParse engine.
-
-    Args:
-        content: PDF file content as bytes
-        params: Optional parsing configuration (must include llamaparse_api_key)
-
-    Returns:
-        Extracted markdown content
-
-    Raises:
-        ValueError: If PDF parsing fails or API key is missing
-    """
-    params = params or {}
-    api_key = params.get("llamaparse_api_key", "")
-    if not api_key:
-        raise ValueError(
-            "LlamaParse API key is required. "
-            "Please configure it in the sidebar (Advanced Parsing Options)."
-        )
-
-    try:
-        import tempfile
-
-        # LlamaParse requires a file path
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp.write(content)
-            tmp_path = tmp.name
-
-        try:
-            parser = LlamaParse(
-                api_key=api_key,
-                result_type="markdown",  # Request markdown output
-                verbose=False
-            )
-            documents = parser.load_data(tmp_path)
-            # Combine all pages
-            text_parts = [doc.text for doc in documents]
-            return "\n\n".join(text_parts)
-        finally:
-            # Clean up temp file
-            try:
-                Path(tmp_path).unlink()
-            except Exception:
-                pass
-    except Exception as e:
-        raise ValueError(f"Failed to parse PDF with LlamaParse: {str(e)}") from e
-
-
 def parse_pdf(
     content: bytes, params: dict | None = None
 ) -> tuple[str, list[ExtractedImage]]:
-    """Parse PDF content using the configured engine.
+    """Parse PDF content using Docling.
 
     Args:
         content: PDF file content as bytes
@@ -449,18 +348,9 @@ def parse_pdf(
         Tuple of (text_content, extracted_images)
 
     Raises:
-        ImportError: If required library is not installed
         ValueError: If PDF parsing fails
     """
-    params = params or {}
-    engine = params.get("pdf_parser", "pypdf")
-
-    if engine == "docling":
-        return parse_pdf_docling(content, params)
-    elif engine == "llamaparse":
-        return parse_pdf_llamaparse(content, params), []
-    else:
-        return parse_pdf_pypdf(content, params), []
+    return parse_pdf_docling(content, params)
 
 
 def _extract_table_as_markdown(table: object) -> str:

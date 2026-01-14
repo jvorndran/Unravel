@@ -34,9 +34,7 @@ EMBEDDING_MODELS = {
 
 # Dependency mappings
 PARSER_DEPENDENCIES = {
-    "pypdf": ["pypdf"],
     "docling": ["docling"],
-    "llamaparse": ["llama-parse"],
 }
 
 SPLITTER_DEPENDENCIES = {
@@ -96,7 +94,6 @@ def _get_separator(params: dict[str, Any]) -> str:
 def generate_parsing_code(config: ExportConfig) -> str:
     """Generate document parsing code based on configuration."""
     params = config.parsing_params
-    parser = params.get("pdf_parser", "pypdf")
     file_format = config.file_format
 
     # Handle non-PDF formats
@@ -114,30 +111,14 @@ def generate_parsing_code(config: ExportConfig) -> str:
             post_processing=_build_post_processing(params),
         )
 
-    # PDF parsing
-    template = PARSING_TEMPLATES.get(parser, PARSING_TEMPLATES["pypdf"])
-
-    if parser == "pypdf":
-        return template.format(
-            output_format=params.get("output_format", "markdown"),
-            normalize_whitespace=params.get("normalize_whitespace", False),
-            remove_special_chars=params.get("remove_special_chars", False),
-            separator=_get_separator(params),
-            post_processing=_build_post_processing(params),
-        )
-    elif parser == "docling":
-        return template.format(
-            enable_ocr=params.get("docling_enable_ocr", False),
-            enable_tables=params.get("docling_table_structure", True),
-            num_threads=params.get("docling_threads", 4),
-            post_processing=_build_post_processing(params),
-        )
-    elif parser == "llamaparse":
-        return template.format(
-            post_processing=_build_post_processing(params),
-        )
-
-    return template
+    # PDF parsing with Docling
+    template = PARSING_TEMPLATES["docling"]
+    return template.format(
+        enable_ocr=params.get("docling_enable_ocr", False),
+        enable_tables=params.get("docling_table_structure", True),
+        num_threads=params.get("docling_threads", 4),
+        post_processing=_build_post_processing(params),
+    )
 
 
 def generate_chunking_code(config: ExportConfig) -> str:
@@ -248,14 +229,12 @@ def generate_installation_command(config: ExportConfig) -> str:
     deps = set()
 
     # Parser dependencies
-    parser = config.parsing_params.get("pdf_parser", "pypdf")
     file_format = config.file_format
 
     if file_format == "DOCX":
         deps.add("python-docx")
     elif file_format in ["PDF", None]:
-        parser_deps = PARSER_DEPENDENCIES.get(parser, ["pypdf"])
-        deps.update(parser_deps)
+        deps.update(PARSER_DEPENDENCIES["docling"])
 
     # Splitter dependencies
     splitter = config.chunking_params.get("splitter", "RecursiveCharacterTextSplitter")
@@ -273,13 +252,12 @@ def generate_installation_command(config: ExportConfig) -> str:
 
 def get_config_summary(config: ExportConfig) -> dict[str, str]:
     """Get a summary of the configuration for display."""
-    parser = config.parsing_params.get("pdf_parser", "pypdf")
     splitter = config.chunking_params.get("splitter", "RecursiveCharacterTextSplitter")
     chunk_size = config.chunking_params.get("chunk_size", 500)
     chunk_overlap = config.chunking_params.get("chunk_overlap", 50)
 
     return {
-        "parser": parser,
+        "parser": "docling",
         "splitter": splitter,
         "chunk_size": str(chunk_size),
         "chunk_overlap": str(chunk_overlap),

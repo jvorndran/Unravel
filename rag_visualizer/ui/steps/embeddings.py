@@ -99,15 +99,16 @@ def render_embeddings_step() -> None:
             if source_text:
                 # Use applied params, not current
                 params = st.session_state.get("applied_chunking_params", st.session_state.get("chunking_params", {
-                    "provider": "LangChain",
-                    "splitter": "RecursiveCharacterTextSplitter",
-                    "chunk_size": 500,
+                    "provider": "Docling",
+                    "splitter": "HybridChunker",
+                    "max_tokens": 512,
                     "chunk_overlap": 50,
+                    "tokenizer": "cl100k_base",
                 }))
 
                 try:
-                    provider = params.get("provider", "LangChain")
-                    splitter = params.get("splitter", "RecursiveCharacterTextSplitter")
+                    provider = params.get("provider", "Docling")
+                    splitter = params.get("splitter", "HybridChunker")
                     splitter_params = {k: v for k, v in params.items()
                                        if k not in ["provider", "splitter"]}
                     new_chunks = get_chunks(

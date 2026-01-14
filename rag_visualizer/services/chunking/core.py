@@ -102,9 +102,9 @@ def get_chunks(
 
 def _init_providers() -> None:
     """Initialize and register all providers."""
-    from .providers.langchain_provider import LangChainProvider
+    from .providers.docling_provider import DoclingProvider
 
-    register_provider(LangChainProvider())
+    register_provider(DoclingProvider())
 
 
 # Auto-initialize on import

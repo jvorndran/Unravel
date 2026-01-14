@@ -83,10 +83,11 @@ def render_chunks_step() -> None:
         st.session_state.get(
             "chunking_params",
             {
-                "provider": "LangChain",
-                "splitter": "RecursiveCharacterTextSplitter",
-                "chunk_size": 500,
+                "provider": "Docling",
+                "splitter": "HybridChunker",
+                "max_tokens": 512,
                 "chunk_overlap": 50,
+                "tokenizer": "cl100k_base",
             },
         ),
     )
@@ -99,9 +100,9 @@ def render_chunks_step() -> None:
     parsing_params = applied_parsing_params
     use_markdown_output = parsing_params.get("output_format") == "markdown"
 
-    provider = chunking_params.get("provider", "LangChain")
-    splitter = chunking_params.get("splitter", "RecursiveCharacterTextSplitter")
-    chunk_size = chunking_params.get("chunk_size", 500)
+    provider = chunking_params.get("provider", "Docling")
+    splitter = chunking_params.get("splitter", "HybridChunker")
+    max_tokens = chunking_params.get("max_tokens", 512)
     overlap_size = chunking_params.get("chunk_overlap", 50)
 
     # Check if document is selected
@@ -132,7 +133,7 @@ def render_chunks_step() -> None:
             st.markdown(f"**Strategy:** {splitter_display}")
 
         with col2:
-            st.markdown(f"**Chunk Size:** {chunk_size}")
+            st.markdown(f"**Max Tokens:** {max_tokens}")
 
         with col3:
             st.markdown(f"**Overlap:** {overlap_size}")

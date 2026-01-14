@@ -96,10 +96,11 @@ if "session_restored" not in st.session_state:
     
     if "chunking_params" not in st.session_state:
         st.session_state.chunking_params = {
-            "provider": "LangChain",
-            "splitter": "RecursiveCharacterTextSplitter",
-            "chunk_size": 500,
+            "provider": "Docling",
+            "splitter": "HybridChunker",
+            "max_tokens": 512,
             "chunk_overlap": 50,
+            "tokenizer": "cl100k_base",
         }
     if "embedding_model_name" not in st.session_state:
         st.session_state.embedding_model_name = DEFAULT_MODEL

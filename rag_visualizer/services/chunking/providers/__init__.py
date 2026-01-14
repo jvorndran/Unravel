@@ -1,11 +1,11 @@
 """Chunking providers."""
 
 from .base import ChunkingProvider, ParameterInfo, SplitterInfo
-from .langchain_provider import LangChainProvider
+from .docling_provider import DoclingProvider
 
 __all__ = [
     "ChunkingProvider",
     "SplitterInfo",
     "ParameterInfo",
-    "LangChainProvider",
+    "DoclingProvider",
 ]

@@ -31,14 +31,11 @@ dependencies = [
     "faiss-cpu>=1.7",
     "umap-learn>=0.5",
     "plotly>=5.18",
-    "pypdf>=3.17",
     "python-docx>=1.1",
     "markdown>=3.5",
     "docling>=1.0",
-    "llama-parse>=0.4",
     "click>=8.1",
     "streamlit-shadcn-ui>=0.8.0",
-    "langchain-text-splitters>=0.3",
     "tiktoken>=0.5",
 ]
 
