@@ -1,15 +1,9 @@
 import hashlib
 import html
 import json
-import time
 
 import streamlit as st
 import streamlit_shadcn_ui as ui
-
-try:
-    import markdown as markdown_lib
-except ImportError:
-    markdown_lib = None
 
 from rag_visualizer.services.chunking import get_chunks
 from rag_visualizer.services.storage import get_storage_dir, load_document
@@ -234,9 +228,6 @@ def render_chunks_step() -> None:
     applied_parsing_params = st.session_state.get(
         "applied_parsing_params", current_parsing_params.copy()
     )
-    # Use applied params for display/chunking, but check current for changes
-    parsing_params = applied_parsing_params
-    use_markdown_output = parsing_params.get("output_format") == "markdown"
 
     provider = chunking_params.get("provider", "Docling")
     splitter = chunking_params.get("splitter", "HybridChunker")
@@ -507,32 +498,67 @@ def render_chunks_step() -> None:
         "#fffbeb", # Yellowish
     ]
 
-    # Build continuous HTML
+    # Build continuous HTML with expandable chunks
     chunks_html_parts = []
     chunks_html_parts.append(
         '<div style="font-family: -apple-system, BlinkMacSystemFont, '
         'sans-serif; line-height: 1.6; color: #111;">'
     )
+    # Add CSS for details/summary styling
+    chunks_html_parts.append('''
+        <style>
+            .chunk-details summary { cursor: pointer; list-style: none; }
+            .chunk-details summary::-webkit-details-marker { display: none; }
+            .chunk-details[open] .chunk-expand-icon { transform: rotate(180deg); }
+            .chunk-details .chunk-expand-icon {
+                transition: transform 0.15s ease;
+                display: inline-block;
+                color: #9ca3af;
+            }
+            .chunk-expanded-content {
+                margin-top: 8px;
+                padding-top: 8px;
+                border-top: 1px solid rgba(0,0,0,0.08);
+            }
+            .chunk-context-box {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 10px;
+                font-family: monospace;
+                font-size: 0.8rem;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            .chunk-context-label {
+                font-size: 0.7rem;
+                color: #6b7280;
+                margin-bottom: 6px;
+                font-weight: 500;
+            }
+        </style>
+    ''')
 
-    def render_chunk_body(text: str) -> str:
-        """Render chunk text as markdown when enabled, fallback to escaped HTML."""
-        if use_markdown_output and markdown_lib:
-            try:
-                return markdown_lib.markdown(text, extensions=['tables'])
-            except Exception:
-                return html.escape(text)
-        return html.escape(text)
-    
     for i, data in enumerate(chunk_display_data):
         color_idx = i % len(colors)
         bg_color = colors[color_idx]
-        
-        chunks_html_parts.append(
-            f'<div style="background-color: {bg_color}; padding: 4px 12px; '
-            f'margin: 0; position: relative;" title="Chunk {i+1}">'
-        )
-        
         meta = data["docling_metadata"]
+
+        # Calculate extra context (prefix added during contextualization)
+        chunk_text = data["chunk"].text
+        contextualized = data["contextualized_text"]
+        extra_context = ""
+        if contextualized != chunk_text and contextualized.endswith(chunk_text):
+            extra_context = contextualized[: len(contextualized) - len(chunk_text)].strip()
+
+        # Wrap each chunk in a details element for expand/collapse
+        chunks_html_parts.append(
+            f'<details class="chunk-details" style="background-color: {bg_color}; '
+            f'padding: 4px 12px; margin: 0; position: relative;">'
+        )
+
+        # Summary (always visible part - shows full chunk text)
+        chunks_html_parts.append('<summary style="outline: none; display: block;">')
 
         # Metadata badges row (floating right)
         chunks_html_parts.append(
@@ -588,12 +614,38 @@ def render_chunks_step() -> None:
             )
             chunks_html_parts.append(html.escape(data["overlap_text"]))
             chunks_html_parts.append('</span>')
-        
-        # Render main text
-        chunks_html_parts.append(render_chunk_body(data["main_text"]))
-        
-        chunks_html_parts.append('</div>')
-        
+
+        # Render full main text
+        chunks_html_parts.append(html.escape(data["main_text"]))
+
+        # Expand icon at bottom of chunk
+        chunks_html_parts.append(
+            '<div style="text-align: center; margin-top: 6px;">'
+            '<span class="chunk-expand-icon" style="font-size: 0.6rem;" '
+            'title="Click to show added context">▼</span></div>'
+        )
+
+        chunks_html_parts.append('</summary>')
+
+        # Expanded content (shows ONLY the extra context prefix)
+        chunks_html_parts.append('<div class="chunk-expanded-content">')
+
+        if extra_context:
+            chunks_html_parts.append(
+                '<div class="chunk-context-label">Added Context (prepended for embedding)</div>'
+            )
+            chunks_html_parts.append(
+                f'<div class="chunk-context-box">{html.escape(extra_context)}</div>'
+            )
+        else:
+            chunks_html_parts.append(
+                '<div style="font-size: 0.8rem; color: #9ca3af; font-style: italic;">'
+                'No extra context added to this chunk.</div>'
+            )
+
+        chunks_html_parts.append('</div>')  # End expanded content
+        chunks_html_parts.append('</details>')
+
     chunks_html_parts.append('</div>')
     chunks_html = "".join(chunks_html_parts)
 
@@ -605,61 +657,3 @@ def render_chunks_step() -> None:
     st.write("")
     with st.container(border=True):
         st.markdown(chunks_html, unsafe_allow_html=True)
-
-    # Contextualize Preview Section
-    if chunks and chunk_display_data:
-        st.write("")
-        st.markdown("### Contextualized Preview")
-        st.caption(
-            "Preview how chunks will appear when enriched with metadata context "
-            "for embedding. This shows the output of contextualization."
-        )
-
-        # Chunk selector for contextualized preview
-        chunk_options = [f"Chunk {i+1}" for i in range(len(chunk_display_data))]
-        selected_chunk_idx = st.selectbox(
-            "Select chunk to preview",
-            range(len(chunk_options)),
-            format_func=lambda x: chunk_options[x],
-            key="contextualize_preview_selector",
-        )
-
-        if selected_chunk_idx is not None:
-            selected_data = chunk_display_data[selected_chunk_idx]
-            meta = selected_data["docling_metadata"]
-
-            # Display chunk metadata summary
-            meta_cols = st.columns(4)
-            with meta_cols[0]:
-                element_type = meta.get("element_type", "unknown")
-                type_label, _ = _format_element_type(element_type)
-                st.metric("Element Type", type_label)
-            with meta_cols[1]:
-                st.metric("Characters", selected_data["len"])
-            with meta_cols[2]:
-                strategy = meta.get("strategy", "-")
-                st.metric("Strategy", strategy)
-            with meta_cols[3]:
-                page = meta.get("page_number", "-")
-                st.metric("Page", page)
-
-            # Show section hierarchy if available
-            if "section_hierarchy" in meta and meta["section_hierarchy"]:
-                st.markdown("**Section Path:**")
-                hierarchy_display = " → ".join(meta["section_hierarchy"])
-                st.code(hierarchy_display, language=None)
-
-            # Show original vs contextualized comparison
-            tab_original, tab_contextualized = st.tabs(
-                ["Original Text", "Contextualized (for Embedding)"]
-            )
-
-            with tab_original:
-                st.code(selected_data["chunk"].text, language=None)
-
-            with tab_contextualized:
-                st.code(selected_data["contextualized_text"], language=None)
-                st.caption(
-                    "This is the text that would be sent to the embedding model, "
-                    "enriched with section context for better semantic retrieval."
-                )

@@ -161,3 +161,151 @@ def create_embedding_plot(
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#f1f5f9', zeroline=False)
     
     return fig
+
+
+def calculate_similarity_matrix(embeddings: np.ndarray) -> np.ndarray:
+    """Calculate pairwise cosine similarities between embeddings.
+    
+    Assumes embeddings are already L2-normalized (which they are from our embedders).
+    For normalized vectors, cosine similarity = dot product.
+    
+    Args:
+        embeddings: numpy array of shape (n_samples, n_features), L2-normalized
+        
+    Returns:
+        numpy array of shape (n_samples, n_samples) with similarity scores
+    """
+    if embeddings.shape[0] == 0:
+        return np.array([])
+    
+    # For normalized vectors, cosine similarity = dot product
+    similarity_matrix = np.dot(embeddings, embeddings.T)
+    
+    return similarity_matrix
+
+
+def create_similarity_histogram(
+    similarity_matrix: np.ndarray,
+    title: str = "Pairwise Similarity Distribution"
+) -> go.Figure:
+    """Create a histogram of pairwise similarity scores.
+    
+    Args:
+        similarity_matrix: Square matrix of pairwise similarities
+        title: Plot title
+        
+    Returns:
+        Plotly Figure object
+    """
+    # Extract upper triangle (excluding diagonal) to avoid duplicates and self-similarity
+    n = similarity_matrix.shape[0]
+    if n < 2:
+        # Not enough data points for meaningful distribution
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Need at least 2 chunks for similarity analysis",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=14, color="#666")
+        )
+        fig.update_layout(
+            height=300,
+            margin=dict(l=20, r=20, t=40, b=20),
+            plot_bgcolor='white',
+        )
+        return fig
+    
+    # Get upper triangle indices (excluding diagonal)
+    upper_triangle_indices = np.triu_indices(n, k=1)
+    similarities = similarity_matrix[upper_triangle_indices]
+    
+    fig = go.Figure()
+    
+    fig.add_trace(
+        go.Histogram(
+            x=similarities,
+            nbinsx=30,
+            marker=dict(
+                color='#7dd3fc',
+                line=dict(width=1, color='#0ea5e9')
+            ),
+            name='Similarity Scores',
+            hovertemplate="Similarity: %{x:.3f}<br>Count: %{y}<extra></extra>"
+        )
+    )
+    
+    fig.update_layout(
+        title=dict(
+            text=title,
+            x=0.5,
+            xanchor='center',
+            font=dict(size=14)
+        ),
+        xaxis_title="Cosine Similarity",
+        yaxis_title="Frequency",
+        height=300,
+        margin=dict(l=20, r=20, t=40, b=20),
+        plot_bgcolor='white',
+        showlegend=False,
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=12,
+            font_family="sans-serif"
+        )
+    )
+    
+    # Add grid
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='#f1f5f9', zeroline=False)
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#f1f5f9', zeroline=False)
+    
+    return fig
+
+
+def find_outliers(
+    embeddings: np.ndarray,
+    chunks: list[Any],
+    n_outliers: int = 5
+) -> list[dict[str, Any]]:
+    """Identify chunks that are semantically distant from others.
+    
+    An outlier is a chunk with low average similarity to all other chunks.
+    This can indicate unique concepts, noise, or headers/footers.
+    
+    Args:
+        embeddings: numpy array of shape (n_samples, n_features)
+        chunks: List of chunk objects corresponding to embeddings
+        n_outliers: Number of outliers to return
+        
+    Returns:
+        List of dicts with keys: 'index', 'chunk', 'avg_similarity', 'text_preview'
+    """
+    if embeddings.shape[0] < 2:
+        return []
+    
+    # Calculate similarity matrix
+    similarity_matrix = calculate_similarity_matrix(embeddings)
+    
+    # Calculate average similarity for each chunk (excluding self-similarity)
+    n = similarity_matrix.shape[0]
+    avg_similarities = np.zeros(n)
+    
+    for i in range(n):
+        # Exclude diagonal (self-similarity = 1.0)
+        mask = np.ones(n, dtype=bool)
+        mask[i] = False
+        avg_similarities[i] = similarity_matrix[i, mask].mean()
+    
+    # Find indices of chunks with lowest average similarity
+    outlier_indices = np.argsort(avg_similarities)[:n_outliers]
+    
+    outliers = []
+    for idx in outlier_indices:
+        chunk = chunks[idx]
+        outliers.append({
+            'index': int(idx),
+            'chunk': chunk,
+            'avg_similarity': float(avg_similarities[idx]),
+            'text_preview': chunk.text[:100] + "..." if len(chunk.text) > 100 else chunk.text
+        })
+    
+    return outliers

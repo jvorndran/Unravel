@@ -14,7 +14,13 @@ from rag_visualizer.services.storage import (
 )
 from rag_visualizer.services.vector_store import create_vector_store
 from rag_visualizer.utils.parsers import parse_document
-from rag_visualizer.utils.visualization import create_embedding_plot, reduce_dimensions
+from rag_visualizer.utils.visualization import (
+    calculate_similarity_matrix,
+    create_embedding_plot,
+    create_similarity_histogram,
+    find_outliers,
+    reduce_dimensions,
+)
 
 
 def _extract_section_hierarchy(metadata: dict) -> list[str]:
@@ -225,7 +231,7 @@ def render_embeddings_step() -> None:
     st.write("") # Spacer
 
     # 4. Tabs for Content Organization
-    active_tab = ui.tabs(options=["Visual Explorer", "Data Inspector"], default_value="Visual Explorer", key="embed_main_tabs")
+    active_tab = ui.tabs(options=["Visual Explorer", "Vector Analysis"], default_value="Visual Explorer", key="embed_main_tabs")
 
     # --- TAB 1: Visual Explorer ---
     if active_tab == "Visual Explorer":
@@ -322,37 +328,93 @@ def render_embeddings_step() -> None:
         else:
             st.info("Enter a query above to see the most similar chunks here.")
 
-    # --- TAB 2: Data Inspector ---
-    elif active_tab == "Data Inspector":
+    # --- TAB 2: Vector Analysis ---
+    elif active_tab == "Vector Analysis":
         st.write("")
-        st.markdown("#### Under the Hood")
+        st.markdown("#### Semantic Cohesion & Outliers")
+        st.caption("Analyze how similar your chunks are to each other and identify outliers")
         
-        col_d1, col_d2 = st.columns(2)
+        # Get embeddings from vector store
+        vectors = vector_store.get_all_embeddings()
         
-        with col_d1:
-            st.markdown("**Chunk Data**")
-            # Create a clean dataframe for display
-            chunk_data = []
-            for i, c in enumerate(chunks):
-                chunk_data.append({
-                    "Index": i,
-                    "Length": len(c.text),
-                    "Preview": c.text[:50] + "..."
-                })
-            # Using st.dataframe as it's better for scrolling through data
-            st.dataframe(pd.DataFrame(chunk_data), use_container_width=True, hide_index=True)
+        if len(vectors) < 2:
+            st.info("Need at least 2 chunks for similarity analysis.")
+        else:
+            # Calculate similarity matrix
+            with st.spinner("Analyzing vector space..."):
+                similarity_matrix = calculate_similarity_matrix(vectors)
+                
+                # Calculate global metrics
+                # Get upper triangle (excluding diagonal) for pairwise similarities
+                n = similarity_matrix.shape[0]
+                upper_triangle_indices = np.triu_indices(n, k=1)
+                pairwise_similarities = similarity_matrix[upper_triangle_indices]
+                
+                avg_similarity = float(pairwise_similarities.mean())
+                embedding_variance = float(vectors.var())
+                
+                # Find outliers
+                outliers = find_outliers(vectors, chunks, n_outliers=5)
             
-        with col_d2:
-            st.markdown("**Vector Representations**")
-            vectors = vector_store.get_all_embeddings()
-            st.write(f"Shape: {len(vectors)} chunks × {len(vectors[0])} dimensions")
+            # Display global metrics
+            st.write("")
+            col_m1, col_m2, col_m3 = st.columns(3)
+            with col_m1:
+                ui.metric_card(
+                    title="Avg. Similarity",
+                    content=f"{avg_similarity:.3f}",
+                    description="Higher = more cohesive",
+                    key="metric_avg_sim"
+                )
+            with col_m2:
+                ui.metric_card(
+                    title="Embedding Variance",
+                    content=f"{embedding_variance:.4f}",
+                    description="Spread in vector space",
+                    key="metric_variance"
+                )
+            with col_m3:
+                ui.metric_card(
+                    title="Total Chunks",
+                    content=len(chunks),
+                    description="analyzed",
+                    key="metric_chunks_analyzed"
+                )
             
-            # Show a few dimensions of the first few vectors
-            vec_data = []
-            for i in range(min(10, len(vectors))):
-                vec_preview = vectors[i][:5].tolist() # First 5 dims
-                vec_data.append({
-                    "Chunk Index": i,
-                    "Vector Preview (First 5 dims)": [round(v, 4) for v in vec_preview]
-                })
-            st.dataframe(pd.DataFrame(vec_data), use_container_width=True, hide_index=True)
+            # Similarity Distribution
+            st.write("")
+            with st.container(border=True):
+                st.markdown("##### Similarity Distribution")
+                st.caption("How similar are chunks to each other? Peaks near 1.0 indicate high cohesion.")
+                
+                fig_hist = create_similarity_histogram(similarity_matrix)
+                st.plotly_chart(fig_hist, use_container_width=True)
+            
+            # Outlier Analysis
+            st.write("")
+            st.markdown("##### Least Similar Chunks (Potential Outliers)")
+            st.caption("These chunks are semantically distant from the rest. They may represent unique concepts, noise, or structural elements like headers.")
+            
+            if outliers:
+                for i, outlier_data in enumerate(outliers):
+                    chunk = outlier_data['chunk']
+                    with st.expander(
+                        f"**Chunk #{outlier_data['index']}** · Similarity: `{outlier_data['avg_similarity']:.3f}` · {len(chunk.text)} chars",
+                        expanded=False
+                    ):
+                        # Show section hierarchy if available
+                        section_hierarchy = _extract_section_hierarchy(chunk.metadata)
+                        if section_hierarchy:
+                            breadcrumb = " > ".join(section_hierarchy)
+                            st.caption(f"📍 {breadcrumb}")
+                        
+                        # Show full text
+                        st.markdown("**Full Text:**")
+                        st.text(chunk.text)
+                        
+                        # Show metadata if available
+                        if chunk.metadata:
+                            st.markdown("**Metadata:**")
+                            st.json(chunk.metadata, expanded=False)
+            else:
+                st.info("No outliers detected.")
