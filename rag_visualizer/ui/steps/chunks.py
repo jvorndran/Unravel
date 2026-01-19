@@ -61,26 +61,23 @@ def render_chunks_step() -> None:
 
     # Display current configuration
     st.write("")
-    with st.container(border=True):
-        col1, col2, col3 = st.columns([2, 1, 1])
-
+    with st.expander("Configuration Details", expanded=False):
+        # Get display name from splitter info
+        from rag_visualizer.services.chunking import get_provider_splitters
+        splitter_infos = get_provider_splitters(provider)
+        splitter_display = next(
+            (info.display_name for info in splitter_infos if info.name == splitter),
+            splitter,
+        )
+        
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.markdown(f"**Document:** {selected_doc}")
-            # Get display name from splitter info
-            from rag_visualizer.services.chunking import get_provider_splitters
-            splitter_infos = get_provider_splitters(provider)
-            splitter_display = next(
-                (info.display_name for info in splitter_infos if info.name == splitter),
-                splitter,
-            )
             st.markdown(f"**Strategy:** {splitter_display}")
-
         with col2:
             st.markdown(f"**Max Tokens:** {max_tokens}")
-
         with col3:
             st.markdown(f"**Overlap:** {overlap_size}")
-
+        
         st.caption(f"Using {provider} | Configure in sidebar (RAG Config tab)")
 
     # Check if parsing settings have changed (compare current vs applied)
@@ -223,11 +220,34 @@ def render_chunks_step() -> None:
             key="stat_overlap_sz",
         )
 
-    # Render chunks using the reusable component
+    # View mode selector
     st.write("")
-    with st.container(border=True):
-        render_chunk_cards(
-            chunk_display_data=chunk_display_data,
-            show_overlap=True,
-            display_mode="continuous",
-        )
+    view_mode = ui.tabs(
+        options=["Visual View", "Raw JSON"],
+        default_value="Visual View",
+        key="chunks_view_tab"
+    )
+    
+    # Render based on selected view
+    st.write("")
+    if view_mode == "Visual View":
+        with st.container(border=True):
+            render_chunk_cards(
+                chunk_display_data=chunk_display_data,
+                show_overlap=True,
+                display_mode="continuous",
+            )
+    else:  # Raw JSON
+        # Convert chunks to serializable format for JSON display
+        chunks_json = []
+        for chunk in chunks:
+            chunk_dict = {
+                "text": chunk.text,
+                "start_index": chunk.start_index,
+                "end_index": chunk.end_index,
+                "metadata": chunk.metadata,
+            }
+            chunks_json.append(chunk_dict)
+        
+        with st.container(border=True):
+            st.json(chunks_json, expanded=True)
