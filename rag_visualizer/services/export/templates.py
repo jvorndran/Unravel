@@ -22,7 +22,7 @@ import tempfile
 from docling.document_converter import DocumentConverter, FormatOption
 from docling.datamodel.base_models import InputFormat
 from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline, ThreadedPdfPipelineOptions
-from docling.datamodel.accelerator_options import AcceleratorOptions
+from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
 from docling.backend.docling_parse_v4_backend import DoclingParseV4DocumentBackend
 
 
@@ -38,7 +38,7 @@ def parse_pdf(file_path: str) -> str:
     pipeline_options = ThreadedPdfPipelineOptions(
         accelerator_options=AcceleratorOptions(
             num_threads={num_threads},
-            device="auto",
+            device=AcceleratorDevice.AUTO,
         ),
         do_ocr={enable_ocr},
         do_table_structure={enable_tables},

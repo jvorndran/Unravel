@@ -8,6 +8,7 @@ from rag_visualizer.services.chunking import (
     get_provider,
     get_provider_splitters,
 )
+from rag_visualizer.services.chunking.providers.docling_provider import METADATA_OPTIONS
 from rag_visualizer.services.embedders import DEFAULT_MODEL, list_available_models
 from rag_visualizer.services.llm import (
     DEFAULT_SYSTEM_PROMPT,
@@ -428,6 +429,33 @@ def render_rag_config_sidebar() -> None:
                         help=param.description,
                         key=f"sidebar_param_{param.name}"
                     )
+                elif param.type == "multiselect" and param.options:
+                    # Handle multiselect parameters with display-to-value mapping
+                    # Use centralized METADATA_OPTIONS from docling_provider
+                    metadata_value_to_display = {v: k for k, v in METADATA_OPTIONS.items()}
+
+                    # Convert stored internal values to display names for the widget
+                    current_list = current_value if isinstance(current_value, list) else param.default
+                    current_display_list = [
+                        metadata_value_to_display.get(v, v) for v in current_list
+                    ]
+                    # Filter to only valid options
+                    current_display_list = [v for v in current_display_list if v in param.options]
+                    if not current_display_list:
+                        current_display_list = param.default
+
+                    selected_display = st.multiselect(
+                        param.name.replace("_", " ").title(),
+                        options=param.options,
+                        default=current_display_list,
+                        help=param.description,
+                        key=f"sidebar_param_{param.name}"
+                    )
+
+                    # Convert display names back to internal values for storage
+                    value = [
+                        METADATA_OPTIONS.get(d, d) for d in selected_display
+                    ]
                 else:
                     value = current_value
 

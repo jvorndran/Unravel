@@ -22,7 +22,7 @@ except ImportError:
 
 # These are now required dependencies
 from docling.backend.docling_parse_v4_backend import DoclingParseV4DocumentBackend
-from docling.datamodel.accelerator_options import AcceleratorOptions
+from docling.datamodel.accelerator_options import AcceleratorOptions, AcceleratorDevice
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import TableStructureOptions
 from docling.document_converter import DocumentConverter, FormatOption
@@ -71,7 +71,7 @@ def _get_docling_converter(
     pipeline_options = ThreadedPdfPipelineOptions(
         accelerator_options=AcceleratorOptions(
             num_threads=safe_threads,
-            device=device,
+            device=AcceleratorDevice.AUTO,
         ),
         do_ocr=enable_ocr,
         do_table_structure=enable_table_structure,
@@ -123,7 +123,7 @@ def _get_docling_converter_with_images(
     pipeline_options = ThreadedPdfPipelineOptions(
         accelerator_options=AcceleratorOptions(
             num_threads=safe_threads,
-            device=device,
+            device=AcceleratorDevice.AUTO,
         ),
         do_ocr=enable_ocr,
         do_table_structure=enable_table_structure,

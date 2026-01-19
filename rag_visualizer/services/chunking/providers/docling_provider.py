@@ -19,6 +19,24 @@ except ImportError:
     HAS_TIKTOKEN = False
 
 
+# Centralized metadata options for all chunking strategies
+# Maps display name -> internal key
+METADATA_OPTIONS = {
+    "Section Hierarchy": "section_hierarchy",
+    "Element Type": "element_type",
+    "Token Count": "token_count",
+    "Heading Text": "heading_text",
+    "Start Index": "start_index",
+    "End Index": "end_index",
+}
+
+# Default metadata to include
+DEFAULT_METADATA = ["Section Hierarchy", "Element Type"]
+
+# All available display options (for UI)
+METADATA_DISPLAY_OPTIONS = list(METADATA_OPTIONS.keys())
+
+
 def _count_tokens(text: str, tokenizer: str = "cl100k_base") -> int:
     """Count tokens in text using tiktoken or fallback to character estimate."""
     if HAS_TIKTOKEN:
@@ -161,12 +179,6 @@ class DoclingProvider(ChunkingProvider):
                 category="Structure-Aware",
                 parameters=[
                     ParameterInfo(
-                        "include_headers",
-                        "bool",
-                        True,
-                        "Include section headers in chunk metadata for context",
-                    ),
-                    ParameterInfo(
                         "merge_small_chunks",
                         "bool",
                         True,
@@ -179,6 +191,13 @@ class DoclingProvider(ChunkingProvider):
                         "Minimum chunk size in characters before merging",
                         min_value=10,
                         max_value=500,
+                    ),
+                    ParameterInfo(
+                        "include_metadata",
+                        "multiselect",
+                        DEFAULT_METADATA,
+                        "Metadata fields to include in each chunk",
+                        options=METADATA_DISPLAY_OPTIONS,
                     ),
                 ],
             ),
@@ -211,6 +230,13 @@ class DoclingProvider(ChunkingProvider):
                         "Tokenizer to use for counting",
                         options=["cl100k_base", "p50k_base", "o200k_base"],
                     ),
+                    ParameterInfo(
+                        "include_metadata",
+                        "multiselect",
+                        DEFAULT_METADATA,
+                        "Metadata fields to include in each chunk",
+                        options=METADATA_DISPLAY_OPTIONS,
+                    ),
                 ],
             ),
         ]
@@ -233,30 +259,41 @@ class DoclingProvider(ChunkingProvider):
         self, text: str, **params: Any  # noqa: ANN401
     ) -> list[Chunk]:
         """Hierarchical chunking: one chunk per structural element."""
-        include_headers = params.get("include_headers", True)
         merge_small = params.get("merge_small_chunks", True)
         min_size = params.get("min_chunk_size", 50)
+        include_metadata = params.get("include_metadata", ["section_hierarchy", "element_type"])
+        if include_metadata is None:
+            include_metadata = ["section_hierarchy", "element_type"]
 
         elements = _split_into_elements(text)
         if not elements:
             # Fallback: treat entire text as single chunk
+            metadata: dict[str, Any] = {
+                "strategy": "Hierarchical",
+                "provider": "Docling",
+                "chunk_index": 0,
+                "size": len(text),
+            }
+            if "element_type" in include_metadata:
+                metadata["element_type"] = "text"
+            if "token_count" in include_metadata:
+                metadata["token_count"] = _count_tokens(text)
+            if "start_index" in include_metadata:
+                metadata["start_index"] = 0
+            if "end_index" in include_metadata:
+                metadata["end_index"] = len(text)
             return [
                 Chunk(
                     text=text,
                     start_index=0,
                     end_index=len(text),
-                    metadata={
-                        "strategy": "Hierarchical",
-                        "provider": "Docling",
-                        "element_type": "text",
-                        "chunk_index": 0,
-                        "size": len(text),
-                    },
+                    metadata=metadata,
                 )
             ]
 
         chunks = []
         current_headers: list[str] = []
+        current_heading_text: str = ""
         pending_chunk: dict[str, Any] | None = None
 
         for elem in elements:
@@ -265,18 +302,28 @@ class DoclingProvider(ChunkingProvider):
                 level = int(elem["type"].split("_")[1])
                 # Truncate headers list to current level
                 current_headers = current_headers[: level - 1]
-                current_headers.append(elem["text"].lstrip("#").strip())
+                current_heading_text = elem["text"].lstrip("#").strip()
+                current_headers.append(current_heading_text)
 
             # Build metadata
-            metadata: dict[str, Any] = {
+            metadata = {
                 "strategy": "Hierarchical",
                 "provider": "Docling",
-                "element_type": elem["type"],
                 "size": len(elem["text"]),
             }
 
-            if include_headers and current_headers:
+            if "element_type" in include_metadata:
+                metadata["element_type"] = elem["type"]
+            if "section_hierarchy" in include_metadata and current_headers:
                 metadata["section_hierarchy"] = current_headers.copy()
+            if "heading_text" in include_metadata and current_heading_text:
+                metadata["heading_text"] = current_heading_text
+            if "token_count" in include_metadata:
+                metadata["token_count"] = _count_tokens(elem["text"])
+            if "start_index" in include_metadata:
+                metadata["start_index"] = elem["start"]
+            if "end_index" in include_metadata:
+                metadata["end_index"] = elem["end"]
 
             chunk_data = {
                 "text": elem["text"],
@@ -294,7 +341,12 @@ class DoclingProvider(ChunkingProvider):
                     pending_chunk["text"] += "\n\n" + chunk_data["text"]
                     pending_chunk["end_index"] = chunk_data["end_index"]
                     pending_chunk["metadata"]["size"] = len(pending_chunk["text"])
-                    pending_chunk["metadata"]["element_type"] = "merged"
+                    if "element_type" in include_metadata:
+                        pending_chunk["metadata"]["element_type"] = "merged"
+                    if "token_count" in include_metadata:
+                        pending_chunk["metadata"]["token_count"] = _count_tokens(pending_chunk["text"])
+                    if "end_index" in include_metadata:
+                        pending_chunk["metadata"]["end_index"] = chunk_data["end_index"]
             else:
                 # Flush pending chunk if exists
                 if pending_chunk is not None:
@@ -306,7 +358,12 @@ class DoclingProvider(ChunkingProvider):
                         chunk_data["text"] = pending_chunk["text"] + "\n\n" + chunk_data["text"]
                         chunk_data["start_index"] = pending_chunk["start_index"]
                         chunk_data["metadata"]["size"] = len(chunk_data["text"])
-                        chunk_data["metadata"]["element_type"] = "merged"
+                        if "element_type" in include_metadata:
+                            chunk_data["metadata"]["element_type"] = "merged"
+                        if "token_count" in include_metadata:
+                            chunk_data["metadata"]["token_count"] = _count_tokens(chunk_data["text"])
+                        if "start_index" in include_metadata:
+                            chunk_data["metadata"]["start_index"] = pending_chunk["start_index"]
                     pending_chunk = None
 
                 chunk_data["metadata"]["chunk_index"] = len(chunks)
@@ -326,18 +383,23 @@ class DoclingProvider(ChunkingProvider):
         max_tokens = params.get("max_tokens", 512)
         overlap = params.get("chunk_overlap", 50)
         tokenizer = params.get("tokenizer", "cl100k_base")
+        include_metadata = params.get("include_metadata", ["section_hierarchy"])
 
         # First, get structural elements
         elements = _split_into_elements(text)
 
         if not elements:
             # Fallback to simple token-based splitting
-            return self._split_by_tokens(text, max_tokens, overlap, tokenizer)
+            return self._split_by_tokens(
+                text, max_tokens, overlap, tokenizer,
+                include_metadata=include_metadata,
+            )
 
         chunks = []
         current_text = ""
         current_start = 0
         current_headers: list[str] = []
+        current_element_types: list[str] = []
 
         for elem in elements:
             # Track headers
@@ -358,15 +420,25 @@ class DoclingProvider(ChunkingProvider):
                         current_start,
                         len(chunks),
                         current_headers.copy(),
+                        element_types=current_element_types.copy(),
+                        include_metadata=include_metadata,
+                        tokenizer=tokenizer,
                     ))
+                    current_element_types = []
 
                 # Split the large element by tokens
                 sub_chunks = self._split_by_tokens(
-                    elem_text, max_tokens, overlap, tokenizer, elem["start"]
+                    elem_text, max_tokens, overlap, tokenizer, elem["start"],
+                    include_metadata=include_metadata,
                 )
                 for sub in sub_chunks:
                     sub.metadata["chunk_index"] = len(chunks)
-                    sub.metadata["section_hierarchy"] = current_headers.copy()
+                    if "section_hierarchy" in include_metadata:
+                        sub.metadata["section_hierarchy"] = current_headers.copy()
+                    if "element_type" in include_metadata:
+                        sub.metadata["element_type"] = [elem["type"]]
+                    if "heading_text" in include_metadata and current_headers:
+                        sub.metadata["heading_text"] = current_headers[-1]
                     chunks.append(sub)
 
                 current_text = ""
@@ -384,6 +456,9 @@ class DoclingProvider(ChunkingProvider):
                     current_start,
                     len(chunks),
                     current_headers.copy(),
+                    element_types=current_element_types.copy(),
+                    include_metadata=include_metadata,
+                    tokenizer=tokenizer,
                 ))
 
                 # Handle overlap by keeping some context
@@ -395,10 +470,13 @@ class DoclingProvider(ChunkingProvider):
                 else:
                     current_text = elem_text
                     current_start = elem["start"]
+                # Reset element types for new chunk, start with current element
+                current_element_types = [elem["type"]]
             else:
                 if not current_text:
                     current_start = elem["start"]
                 current_text = combined
+                current_element_types.append(elem["type"])
 
         # Flush remaining text
         if current_text.strip():
@@ -407,6 +485,9 @@ class DoclingProvider(ChunkingProvider):
                 current_start,
                 len(chunks),
                 current_headers.copy(),
+                element_types=current_element_types.copy(),
+                include_metadata=include_metadata,
+                tokenizer=tokenizer,
             ))
 
         return chunks
@@ -417,20 +498,41 @@ class DoclingProvider(ChunkingProvider):
         start_index: int,
         chunk_index: int,
         headers: list[str],
+        element_types: list[str] | None = None,
+        include_metadata: list[str] | None = None,
+        tokenizer: str = "cl100k_base",
     ) -> Chunk:
-        """Create a Chunk object with standard metadata."""
+        """Create a Chunk object with configurable metadata."""
+        if include_metadata is None:
+            include_metadata = ["section_hierarchy"]
+
+        end_index = start_index + len(text)
+
         metadata: dict[str, Any] = {
             "strategy": "Hybrid",
             "provider": "Docling",
             "chunk_index": chunk_index,
             "size": len(text),
         }
-        if headers:
+
+        if "section_hierarchy" in include_metadata and headers:
             metadata["section_hierarchy"] = headers
+        if "element_type" in include_metadata and element_types:
+            # For Hybrid, element_type contains merged types
+            metadata["element_type"] = list(set(element_types))
+        if "token_count" in include_metadata:
+            metadata["token_count"] = _count_tokens(text, tokenizer)
+        if "heading_text" in include_metadata and headers:
+            metadata["heading_text"] = headers[-1] if headers else ""
+        if "start_index" in include_metadata:
+            metadata["start_index"] = start_index
+        if "end_index" in include_metadata:
+            metadata["end_index"] = end_index
+
         return Chunk(
             text=text,
             start_index=start_index,
-            end_index=start_index + len(text),
+            end_index=end_index,
             metadata=metadata,
         )
 
@@ -441,8 +543,11 @@ class DoclingProvider(ChunkingProvider):
         overlap: int,
         tokenizer: str,
         base_offset: int = 0,
+        include_metadata: list[str] | None = None,
     ) -> list[Chunk]:
         """Split text into chunks based on token count."""
+        if include_metadata is None:
+            include_metadata = ["section_hierarchy"]
         chunks = []
         words = text.split()
         current_words: list[str] = []
@@ -456,16 +561,25 @@ class DoclingProvider(ChunkingProvider):
                 # Create chunk (excluding last word that pushed us over)
                 if len(current_words) > 1:
                     chunk_text = " ".join(current_words[:-1])
+                    chunk_start = base_offset + current_start
+                    chunk_end = chunk_start + len(chunk_text)
+                    metadata: dict[str, Any] = {
+                        "strategy": "Hybrid",
+                        "provider": "Docling",
+                        "chunk_index": len(chunks),
+                        "size": len(chunk_text),
+                    }
+                    if "token_count" in include_metadata:
+                        metadata["token_count"] = _count_tokens(chunk_text, tokenizer)
+                    if "start_index" in include_metadata:
+                        metadata["start_index"] = chunk_start
+                    if "end_index" in include_metadata:
+                        metadata["end_index"] = chunk_end
                     chunks.append(Chunk(
                         text=chunk_text,
-                        start_index=base_offset + current_start,
-                        end_index=base_offset + current_start + len(chunk_text),
-                        metadata={
-                            "strategy": "Hybrid",
-                            "provider": "Docling",
-                            "chunk_index": len(chunks),
-                            "size": len(chunk_text),
-                        },
+                        start_index=chunk_start,
+                        end_index=chunk_end,
+                        metadata=metadata,
                     ))
 
                     # Handle overlap
@@ -482,16 +596,25 @@ class DoclingProvider(ChunkingProvider):
         # Add remaining text
         if current_words:
             chunk_text = " ".join(current_words)
+            chunk_start = base_offset + current_start
+            chunk_end = chunk_start + len(chunk_text)
+            metadata = {
+                "strategy": "Hybrid",
+                "provider": "Docling",
+                "chunk_index": len(chunks),
+                "size": len(chunk_text),
+            }
+            if "token_count" in include_metadata:
+                metadata["token_count"] = _count_tokens(chunk_text, tokenizer)
+            if "start_index" in include_metadata:
+                metadata["start_index"] = chunk_start
+            if "end_index" in include_metadata:
+                metadata["end_index"] = chunk_end
             chunks.append(Chunk(
                 text=chunk_text,
-                start_index=base_offset + current_start,
-                end_index=base_offset + current_start + len(chunk_text),
-                metadata={
-                    "strategy": "Hybrid",
-                    "provider": "Docling",
-                    "chunk_index": len(chunks),
-                    "size": len(chunk_text),
-                },
+                start_index=chunk_start,
+                end_index=chunk_end,
+                metadata=metadata,
             ))
 
         return chunks

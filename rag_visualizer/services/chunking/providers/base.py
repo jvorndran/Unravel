@@ -13,12 +13,12 @@ class ParameterInfo:
     """Schema for a splitter parameter."""
 
     name: str
-    type: str  # "int", "float", "str", "bool"
+    type: str  # "int", "float", "str", "bool", "multiselect"
     default: Any
     description: str
     min_value: Any | None = None
     max_value: Any | None = None
-    options: list[Any] | None = None  # For enum-like parameters
+    options: list[Any] | None = None  # For enum-like or multiselect parameters
 
 
 @dataclass

@@ -311,12 +311,22 @@ def render_main_content():
 - Chunk overlap (default: 50 tokens)
 - Tokenizer (cl100k_base, other tiktoken encodings)
 - Merge peers (Hierarchical only)
+- Include metadata (multiselect)
 
-**Chunk Metadata:**
-- Start/end character indices
-- Section hierarchy
-- Element type (paragraph, table, heading, etc.)
-- Page number (if available)
+**Chunk Metadata (Configurable):**
+
+Users can select which metadata fields to include in each chunk via multiselect:
+
+| Metadata Field | Description |
+|----------------|-------------|
+| Section Hierarchy | List of parent headings for context |
+| Element Type | Document element type(s) in the chunk |
+| Token Count | Actual token count using tiktoken |
+| Heading Text | Current section heading text |
+| Start Index | Character start position in source |
+| End Index | Character end position in source |
+
+Default metadata: Section Hierarchy, Element Type
 
 **Chunk Visualization:**
 - Full chunk text displayed inline with colored backgrounds
