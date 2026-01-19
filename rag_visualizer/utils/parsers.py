@@ -197,42 +197,50 @@ def _extract_images_from_docling(doc: Any) -> list[ExtractedImage]:
 
 def _filter_docling_items(doc: Any, filter_labels: list[DocItemLabel]) -> str:
     """Export docling document to markdown with specific items filtered out.
-    
+
     Args:
         doc: Docling document object
         filter_labels: List of DocItemLabel types to filter out
-        
+
     Returns:
         Markdown text with filtered items removed
     """
     if not filter_labels:
         # No filtering needed, use default export
         return cast(str, doc.export_to_markdown())
-    
-    # Manually build markdown by iterating through items and skipping filtered ones
-    
+
+    # Manually build markdown by iterating through items and skipping filtered ones.
+    # This preserves markdown styling for headings when filters are enabled.
     markdown_parts: list[str] = []
-    
-    for item, _level in doc.iterate_items():
+    heading_labels = {DocItemLabel.TITLE, DocItemLabel.SECTION_HEADER}
+
+    for item, level in doc.iterate_items():
         # Skip items with filtered labels
-        if hasattr(item, 'label') and item.label in filter_labels:
+        if hasattr(item, "label") and item.label in filter_labels:
             continue
-        
+
         # Convert item to markdown text
         try:
-            # Get the text representation of the item
-            if hasattr(item, 'export_to_markdown'):
-                item_markdown = item.export_to_markdown()
-                if item_markdown and item_markdown.strip():
-                    markdown_parts.append(item_markdown)
-            elif hasattr(item, 'text'):
-                # For simple text items
-                if item.text and item.text.strip():
-                    markdown_parts.append(item.text)
+            item_markdown = ""
+            if hasattr(item, "export_to_markdown"):
+                item_markdown = item.export_to_markdown() or ""
+            elif hasattr(item, "text"):
+                item_markdown = item.text or ""
+
+            if not item_markdown.strip():
+                continue
+
+            # Ensure heading items keep markdown header markers.
+            if hasattr(item, "label") and item.label in heading_labels:
+                if not item_markdown.lstrip().startswith("#"):
+                    heading_level = max(1, min(int(level) + 1, 6))
+                    item_markdown = f"{'#' * heading_level} {item_markdown.strip()}"
+
+            markdown_parts.append(item_markdown)
         except Exception:
             # Skip items that fail to export
             continue
-    
+
     if markdown_parts:
         return "\n\n".join(markdown_parts)
     return cast(str, doc.export_to_markdown())

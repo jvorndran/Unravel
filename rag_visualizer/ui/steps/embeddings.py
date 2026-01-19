@@ -204,6 +204,16 @@ def render_embeddings_step() -> None:
     reducer = state_data["reducer"]
     model_name = state_data.get("model", selected_model)
 
+    # Restore a usable reducer when session state was loaded from disk
+    # (UMAP reducers are not serialized, so query projection would fail).
+    if reducer is None:
+        vectors = vector_store.get_all_embeddings()
+        if vectors.size:
+            reduced_embeddings, reducer = reduce_dimensions(vectors)
+            state_data["reduced_embeddings"] = reduced_embeddings
+            state_data["reducer"] = reducer
+            st.session_state["last_embeddings_result"] = state_data
+
     # Recreate embedder on-demand (lightweight - model loads lazily)
     embedder = get_embedder(model_name)
 
