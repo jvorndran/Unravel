@@ -1,61 +1,18 @@
-import hashlib
-import json
-
 import streamlit as st
 import streamlit_shadcn_ui as ui
 
 from rag_visualizer.services.chunking import get_chunks
-from rag_visualizer.services.storage import get_storage_dir, load_document
+from rag_visualizer.services.storage import load_document
 from rag_visualizer.ui.components.chunk_viewer import (
     prepare_chunk_display_data,
     render_chunk_cards,
 )
+from rag_visualizer.utils.cache import (
+    get_parsed_text_key,
+    load_parsed_text,
+    save_parsed_text,
+)
 from rag_visualizer.utils.parsers import parse_document
-
-
-def _get_parsed_text_key(doc_name: str, parsing_params: dict) -> str:
-    """Get a stable key for parsed text storage."""
-    # Use JSON serialization with sorted keys for stability
-    params_str = json.dumps(parsing_params, sort_keys=True)
-    return f"parsed_text_{doc_name}_{params_str}"
-
-
-def _get_parsed_text_filename(doc_name: str, parsing_params: dict) -> str:
-    """Get a safe filename for parsed text storage."""
-    key = _get_parsed_text_key(doc_name, parsing_params)
-    # Use hash for filename to avoid filesystem issues with special chars
-    key_hash = hashlib.md5(key.encode("utf-8")).hexdigest()
-    # Basic sanitization: remove path separators and use hash
-    safe_doc_name = doc_name.replace("/", "_").replace("\\", "_").replace(":", "_")
-    return f"{safe_doc_name}_{key_hash}.txt"
-
-
-def _save_parsed_text(doc_name: str, parsing_params: dict, parsed_text: str) -> None:
-    """Save parsed text to persistent storage."""
-    storage_dir = get_storage_dir()
-    parsed_dir = storage_dir / "parsed_texts"
-    parsed_dir.mkdir(parents=True, exist_ok=True)
-    
-    filename = _get_parsed_text_filename(doc_name, parsing_params)
-    file_path = parsed_dir / filename
-    
-    file_path.write_text(parsed_text, encoding="utf-8")
-
-
-def _load_parsed_text(doc_name: str, parsing_params: dict) -> str | None:
-    """Load parsed text from persistent storage."""
-    storage_dir = get_storage_dir()
-    parsed_dir = storage_dir / "parsed_texts"
-    
-    filename = _get_parsed_text_filename(doc_name, parsing_params)
-    file_path = parsed_dir / filename
-    
-    if file_path.exists():
-        try:
-            return file_path.read_text(encoding="utf-8")
-        except Exception:
-            return None
-    return None
 
 
 def render_chunks_step() -> None:
@@ -132,14 +89,14 @@ def render_chunks_step() -> None:
     # Always use applied params for lookup (what was actually used for the current parsed text)
     # This ensures we show the existing parsed document even after "Save & Apply"
     params_for_lookup = applied_parsing_params
-    parsed_text_key = _get_parsed_text_key(selected_doc, params_for_lookup)
+    parsed_text_key = get_parsed_text_key(selected_doc, params_for_lookup)
     
     # Try to load parsed text from session state first, then from persistent storage
     # Use applied params to get the currently displayed parsed text
     source_text = st.session_state.get(parsed_text_key, "")
     if not source_text:
         # Try loading from persistent storage using applied params
-        source_text = _load_parsed_text(selected_doc, params_for_lookup) or ""
+        source_text = load_parsed_text(selected_doc, params_for_lookup) or ""
         if source_text:
             # Restore to session state
             st.session_state[parsed_text_key] = source_text
@@ -172,13 +129,13 @@ def render_chunks_step() -> None:
                                 current_parsing_params.copy()
                             )
                             new_applied_params = current_parsing_params.copy()
-                            new_parsed_text_key = _get_parsed_text_key(
+                            new_parsed_text_key = get_parsed_text_key(
                                 selected_doc, new_applied_params
                             )
                             # Cache parsed text in session state
                             st.session_state[new_parsed_text_key] = parsed_text
                             # Save to persistent storage
-                            _save_parsed_text(selected_doc, new_applied_params, parsed_text)
+                            save_parsed_text(selected_doc, new_applied_params, parsed_text)
                             st.rerun()
                         else:
                             st.error(f"Failed to load document: {selected_doc}")

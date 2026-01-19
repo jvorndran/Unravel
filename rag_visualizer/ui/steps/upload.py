@@ -9,9 +9,69 @@ from rag_visualizer.services.storage import (
     get_current_document,
     save_document,
 )
+from rag_visualizer.utils.cache import (
+    get_parsed_text_key,
+    load_parsed_text,
+    save_parsed_text,
+)
 from rag_visualizer.utils.parsers import get_file_preview, parse_document
 
 DEFAULT_MAX_DOC_CHAR_COUNT = 40_000
+
+
+def _load_or_parse_document(
+    doc_name: str, content: bytes, parsing_params: dict
+) -> tuple[str, str, str | None]:
+    """Load cached parsed text or parse document if cache doesn't exist.
+    
+    Args:
+        doc_name: Name of the document
+        content: File content as bytes
+        parsing_params: Dictionary of parsing parameters
+        
+    Returns:
+        Tuple of (parsed_text, file_format, error_message)
+        - parsed_text: Parsed text content (empty string if parsing failed)
+        - file_format: Detected or inferred file format
+        - error_message: Error message if parsing failed, None otherwise
+    """
+    # Get basic metadata without parsing
+    file_format = Path(doc_name).suffix.upper().lstrip(".")
+    
+    # Try to load cached parsed text first
+    parsed_text_key = get_parsed_text_key(doc_name, parsing_params)
+    parsed_text = st.session_state.get(parsed_text_key)
+    
+    if not parsed_text:
+        # Try loading from persistent storage
+        parsed_text = load_parsed_text(doc_name, parsing_params)
+        if parsed_text:
+            # Cache in session state
+            st.session_state[parsed_text_key] = parsed_text
+    
+    # Only parse if no cache exists
+    if not parsed_text:
+        try:
+            parsed_text, detected_format, _ = parse_document(doc_name, content, parsing_params)
+            # Use detected format if available, otherwise fall back to extension
+            if detected_format:
+                file_format = detected_format
+            # Cache parsed text
+            st.session_state[parsed_text_key] = parsed_text
+            try:
+                save_parsed_text(doc_name, parsing_params, parsed_text)
+            except OSError as cache_error:
+                # Log cache save failure but don't fail the operation
+                # The text is still cached in session state
+                error_msg = f"Warning: Failed to save cache: {cache_error}"
+                return parsed_text, file_format, error_msg
+            return parsed_text, file_format, None
+        except Exception as parse_error:
+            # Return error message for debugging
+            error_msg = f"Failed to parse document: {str(parse_error)}"
+            return "", file_format, error_msg
+    
+    return parsed_text, file_format, None
 
 
 def render_upload_step() -> None:
@@ -98,26 +158,36 @@ def render_upload_step() -> None:
                     # Save document (replaces any existing document)
                     doc_path = save_document(uploaded_file.name, content)
 
-                    # Parse document to get text preview
-                    try:
-                        parsing_params = st.session_state.get("parsing_params", {})
-                        parsed_text, file_format, _ = parse_document(
-                            uploaded_file.name,
-                            content,
-                            parsing_params,
-                        )
+                    # Get basic metadata
+                    size_bytes = len(content)
+                    parsing_params = st.session_state.get("parsing_params", {})
+                    
+                    # Load cached text or parse document
+                    parsed_text, file_format, error_msg = _load_or_parse_document(
+                        uploaded_file.name, content, parsing_params
+                    )
+                    
+                    # Show warning if cache save failed (non-critical)
+                    if error_msg and "Failed to save cache" in error_msg:
+                        st.warning(error_msg)
+                    
+                    # Get preview and char count from parsed text (or empty if parsing failed)
+                    if parsed_text:
                         preview = get_file_preview(parsed_text)
                         char_count = len(parsed_text)
-                    except Exception as parse_error:
-                        preview = f"Error parsing document: {str(parse_error)}"
-                        char_count = len(content)
-                        file_format = Path(uploaded_file.name).suffix.upper().lstrip(".")
+                    else:
+                        # Show error message if parsing failed
+                        if error_msg:
+                            preview = f"Unable to parse document: {error_msg.split(': ', 1)[-1]}"
+                        else:
+                            preview = "Unable to parse document"
+                        char_count = size_bytes  # Fallback to byte count
 
                     # Store metadata in session state (single document)
                     st.session_state.document_metadata = {
                         "name": uploaded_file.name,
                         "format": file_format,
-                        "size_bytes": len(content),
+                        "size_bytes": size_bytes,
                         "char_count": char_count,
                         "preview": preview,
                         "path": str(doc_path),
@@ -139,20 +209,34 @@ def render_upload_step() -> None:
     # Load metadata for existing document if not in session state
     if current_doc and st.session_state.document_metadata is None:
         doc_name, content = current_doc
-        try:
-            parsing_params = st.session_state.get("parsing_params", {})
-            parsed_text, file_format, _ = parse_document(doc_name, content, parsing_params)
+        size_bytes = len(content)
+        parsing_params = st.session_state.get("parsing_params", {})
+        
+        # Load cached text or parse document
+        parsed_text, file_format, error_msg = _load_or_parse_document(
+            doc_name, content, parsing_params
+        )
+        
+        # Show warning if cache save failed (non-critical)
+        if error_msg and "Failed to save cache" in error_msg:
+            st.warning(error_msg)
+        
+        # Get preview and char count from parsed text (or empty if parsing failed)
+        if parsed_text:
             preview = get_file_preview(parsed_text)
             char_count = len(parsed_text)
-        except Exception:
-            preview = "Unable to parse document"
-            char_count = len(content)
-            file_format = Path(doc_name).suffix.upper().lstrip(".")
+        else:
+            # Show error message if parsing failed
+            if error_msg:
+                preview = f"Unable to parse document: {error_msg.split(': ', 1)[-1]}"
+            else:
+                preview = "Unable to parse document"
+            char_count = size_bytes  # Fallback to byte count
 
         st.session_state.document_metadata = {
             "name": doc_name,
             "format": file_format,
-            "size_bytes": len(content),
+            "size_bytes": size_bytes,
             "char_count": char_count,
             "preview": preview,
             "path": "",
