@@ -70,7 +70,8 @@ Empower developers to build better RAG systems by making every step of the pipel
 - ✅ Configurable chunking parameters (max tokens, overlap, tokenizer)
 - ✅ Multiple embedding models (sentence-transformers)
 - ✅ 2D UMAP visualization of embedding space
-- ✅ Query testing with top-K retrieval and similarity scores
+- ✅ Query testing with multiple retrieval strategies (Dense, Sparse, Hybrid)
+- ✅ Optional cross-encoder reranking for improved results
 - ✅ Code export for production deployment
 
 **Document Processing**
@@ -155,6 +156,14 @@ Empower developers to build better RAG systems by making every step of the pipel
 
 *Example:* User configures GPT-4 API key, asks a question, and receives a synthesized answer with citations to specific chunks.
 
+**US-8.1:** As a developer, I want to experiment with different retrieval strategies (dense, sparse, hybrid), so that I can optimize retrieval quality for my use case.
+
+*Example:* User switches between Dense (FAISS), Sparse (BM25), and Hybrid retrieval, comparing which strategy returns the most relevant chunks for technical documentation vs. general narrative text.
+
+**US-8.2:** As a developer, I want to enable reranking to improve my retrieval results, so that I can maximize answer quality.
+
+*Example:* User enables FlashRank reranking and observes improved relevance in the top-5 results, with less relevant chunks filtered out.
+
 ### Export & Integration
 
 **US-9:** As a developer, I want to export my configuration as working Python code, so that I can integrate it into my production application.
@@ -181,10 +190,12 @@ Empower developers to build better RAG systems by making every step of the pipel
 │  │ Parsers  │ │ Chunking │ │Embedders │ │ Vector Store     ││
 │  │ (Docling)│ │(Docling) │ │(ST)      │ │ (FAISS)          ││
 │  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘│
-│  ┌──────────┐ ┌──────────┐ ┌──────────────────────────────┐ │
-│  │   LLM    │ │  Export  │ │         Storage              │ │
-│  │ Service  │ │Generator │ │   (~/.rag-visualizer/)       │ │
-│  └──────────┘ └──────────┘ └──────────────────────────────┘ │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐│
+│  │ Retrieval│ │   LLM    │ │  Export  │ │     Storage      ││
+│  │ (Dense/  │ │ Service  │ │Generator │ │(~/.rag-visualizer││
+│  │  Sparse/ │ │          │ │          │ │                  ││
+│  │  Hybrid) │ │          │ │          │ │                  ││
+│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -205,6 +216,16 @@ rag_visualizer/
 │   │       ├── __init__.py
 │   │       ├── base.py   # Provider interface
 │   │       └── docling_provider.py
+│   ├── retrieval/
+│   │   ├── __init__.py
+│   │   ├── core.py       # Retrieval provider registry
+│   │   ├── reranking.py  # FlashRank reranking
+│   │   └── providers/
+│   │       ├── __init__.py
+│   │       ├── base.py   # Provider interface
+│   │       ├── dense.py  # FAISS retriever
+│   │       ├── sparse.py # BM25 retriever
+│   │       └── hybrid.py # Combined retriever
 │   ├── embedders.py      # Embedding generation
 │   ├── export/
 │   │   ├── __init__.py
@@ -237,6 +258,15 @@ class ChunkingProvider(Protocol):
     name: str
     def get_available_splitters(self) -> list[SplitterInfo]: ...
     def chunk(self, splitter: str, text: str, **params) -> list[Chunk]: ...
+```
+
+**Provider Pattern (Retrieval)**
+```python
+class RetrieverProvider(Protocol):
+    name: str
+    def get_available_retrievers(self) -> list[RetrieverInfo]: ...
+    def search(self, query: str, k: int, vector_store, embedder, **params) -> list[SearchResult]: ...
+    def preprocess(self, vector_store, **params) -> dict[str, Any]: ...
 ```
 
 **Lazy Loading (Embeddings)**
@@ -367,14 +397,37 @@ Default metadata: Section Hierarchy, Element Type
 
 ### 7.5 Query & Retrieval
 
-**Purpose:** Test retrieval quality with semantic search
+**Purpose:** Test retrieval quality with multiple search strategies
 
-**Features:**
+**Retrieval Strategies:**
+
+| Strategy | Description | Best For |
+|----------|-------------|----------|
+| Dense (FAISS) | Vector similarity search using embeddings | Semantic search, finding conceptually similar content |
+| Sparse (BM25) | Keyword-based search using BM25 algorithm | Exact keyword matches, technical terms |
+| Hybrid | Combines dense + sparse with score fusion | Best of both worlds, robust retrieval |
+
+**Hybrid Search Configuration:**
+- **Dense Weight:** Configurable 0.0-1.0 (default 0.7) - controls weighting between vector and keyword search
+- **Fusion Methods:**
+  - **Weighted Sum:** Combines normalized scores with configurable weights
+  - **Reciprocal Rank Fusion (RRF):** Rank-based fusion for combining result lists
+
+**Reranking (Optional):**
+- Cross-encoder reranking using FlashRank
+- Improves result quality by reordering with more accurate models
+- Configurable models:
+  - ms-marco-MiniLM-L-12-v2 (default)
+  - ms-marco-TinyBERT-L-2-v2
+- Configurable top-N results to keep after reranking
+
+**Core Features:**
 - Free-text query input
 - Configurable top-K results (1-20)
-- Cosine similarity scoring
+- Similarity/relevance scoring
 - Source chunk highlighting
 - Query embedding visualization on plot
+- Automatic fallback to dense retrieval if BM25 index unavailable
 
 **LLM Integration:**
 - RAG-augmented answer generation
@@ -406,7 +459,8 @@ Default metadata: Section Hierarchy, Element Type
 | Visualization | plotly | >=5.18 | Interactive charts |
 | Document Parsing | docling | >=1.0 | Universal document conversion |
 | Embeddings | sentence-transformers | >=2.2 | Text embeddings |
-| Vector Search | faiss-cpu | >=1.7 | Similarity search |
+| Vector Search | faiss-cpu | >=1.7 | Dense similarity search |
+| Sparse Retrieval | rank-bm25 | >=0.2.2 | BM25 keyword search |
 | Dim. Reduction | umap-learn | >=0.5 | Embedding visualization |
 | Tokenization | tiktoken | >=0.5 | Token counting |
 | CLI | click | >=8.1 | Command-line interface |
@@ -421,6 +475,13 @@ Default metadata: Section Hierarchy, Element Type
 llm = [
     "openai>=1.0",
     "anthropic>=0.18",
+]
+```
+
+**Reranking:**
+```toml
+reranking = [
+    "flashrank>=0.2.0",
 ]
 ```
 
@@ -468,7 +529,11 @@ dev = [
 ├── chunks/        # Processed chunk data
 ├── embeddings/    # Cached embeddings
 ├── indices/       # FAISS vector indices
-├── session_state.json
+├── session/
+│   ├── session_state.json
+│   ├── bm25_index.pkl        # BM25 sparse index
+│   ├── reduced_embeddings.npy
+│   └── current_vector_store/
 ├── llm_config.json
 └── rag_config.json
 ```
@@ -606,6 +671,21 @@ The MVP is successful when a developer can:
 
 **Validation:** User can export working code and run it independently.
 
+### Phase 5: Advanced Retrieval (Complete)
+
+**Goal:** Enhance retrieval quality with multiple strategies
+
+**Deliverables:**
+- ✅ Dense retrieval (FAISS vector similarity)
+- ✅ Sparse retrieval (BM25 keyword search)
+- ✅ Hybrid retrieval (combined dense + sparse with score fusion)
+- ✅ Weighted sum and Reciprocal Rank Fusion (RRF) methods
+- ✅ Optional cross-encoder reranking with FlashRank
+- ✅ BM25 index persistence
+- ✅ Configurable retrieval parameters in sidebar
+
+**Validation:** User can compare retrieval strategies and improve result quality with reranking.
+
 ---
 
 ## 12. Future Considerations
@@ -616,6 +696,14 @@ The MVP is successful when a developer can:
 - Retrieval quality metrics (precision, recall, MRR)
 - Chunk quality scoring
 - Automated configuration recommendations
+
+**Advanced Retrieval:**
+- Multi-query retrieval strategies
+- Hypothetical Document Embeddings (HyDE)
+- Parent-document retrieval
+- Ensemble retrieval combining multiple strategies
+- Query expansion and rewriting
+- Additional reranking models (Cohere, cross-encoder variants)
 
 **Advanced Embedding:**
 - OpenAI embeddings (text-embedding-3-small/large)

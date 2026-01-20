@@ -277,6 +277,44 @@ def get_storage_stats() -> dict[str, int]:
 
 SESSION_STATE_FILE = "session_state.json"
 VECTOR_STORE_DIR = "current_vector_store"
+BM25_INDEX_FILE = "bm25_index.pkl"
+
+
+def save_bm25_index(index_data: dict[str, Any]) -> None:
+    """Save BM25 index to disk.
+
+    Args:
+        index_data: Dictionary containing BM25 index and metadata
+    """
+    import pickle
+
+    ensure_storage_dir()
+    state_dir = get_storage_dir() / "session"
+    state_dir.mkdir(parents=True, exist_ok=True)
+
+    with (state_dir / BM25_INDEX_FILE).open("wb") as f:
+        pickle.dump(index_data, f)
+
+
+def load_bm25_index() -> dict[str, Any] | None:
+    """Load BM25 index from disk.
+
+    Returns:
+        Dictionary containing BM25 index and metadata, or None if not found
+    """
+    import pickle
+
+    state_dir = get_storage_dir() / "session"
+    index_file = state_dir / BM25_INDEX_FILE
+
+    if not index_file.exists():
+        return None
+
+    try:
+        with index_file.open("rb") as f:
+            return pickle.load(f)  # noqa: S301
+    except (OSError, pickle.UnpicklingError):
+        return None
 
 
 def save_session_state(state_data: dict[str, Any]) -> None:
@@ -340,7 +378,20 @@ def save_session_state(state_data: dict[str, Any]) -> None:
             vs_path = state_dir / VECTOR_STORE_DIR
             emb_result["vector_store"].save(vs_path)
             serializable["has_vector_store"] = True
-    
+
+    # Save retrieval config
+    if "retrieval_config" in state_data:
+        serializable["retrieval_config"] = state_data["retrieval_config"]
+
+    # Save reranking config
+    if "reranking_config" in state_data:
+        serializable["reranking_config"] = state_data["reranking_config"]
+
+    # Save BM25 index if exists
+    if "bm25_index_data" in state_data:
+        save_bm25_index(state_data["bm25_index_data"])
+        serializable["has_bm25_index"] = True
+
     # Write JSON state
     (state_dir / SESSION_STATE_FILE).write_text(json.dumps(serializable, indent=2))
 
@@ -413,9 +464,23 @@ def load_session_state() -> dict[str, Any] | None:
         # Include chunks reference
         if "chunks" in state_data:
             emb_result["chunks"] = state_data["chunks"]
-        
+
         state_data["last_embeddings_result"] = emb_result
-    
+
+    # Restore retrieval config
+    if "retrieval_config" in serializable:
+        state_data["retrieval_config"] = serializable["retrieval_config"]
+
+    # Restore reranking config
+    if "reranking_config" in serializable:
+        state_data["reranking_config"] = serializable["reranking_config"]
+
+    # Restore BM25 index
+    if serializable.get("has_bm25_index"):
+        bm25_data = load_bm25_index()
+        if bm25_data:
+            state_data["bm25_index_data"] = bm25_data
+
     return state_data
 
 

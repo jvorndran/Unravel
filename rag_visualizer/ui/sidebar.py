@@ -454,6 +454,119 @@ def render_rag_config_sidebar() -> None:
         }
 
         st.write("")
+        st.markdown("**Retrieval Strategy**")
+
+        # Get current retrieval config or set defaults
+        current_retrieval_config = st.session_state.get("retrieval_config", {
+            "strategy": "DenseRetriever",
+            "params": {}
+        })
+
+        retrieval_strategies = ["Dense (FAISS)", "Sparse (BM25)", "Hybrid"]
+        strategy_map = {
+            "Dense (FAISS)": "DenseRetriever",
+            "Sparse (BM25)": "SparseRetriever",
+            "Hybrid": "HybridRetriever"
+        }
+        reverse_strategy_map = {v: k for k, v in strategy_map.items()}
+
+        current_strategy_display = reverse_strategy_map.get(
+            current_retrieval_config.get("strategy", "DenseRetriever"),
+            "Dense (FAISS)"
+        )
+
+        if "sidebar_retrieval_strategy" not in st.session_state:
+            st.session_state["sidebar_retrieval_strategy"] = current_strategy_display
+
+        retrieval_strategy = st.selectbox(
+            "Strategy",
+            options=retrieval_strategies,
+            key="sidebar_retrieval_strategy",
+            help="Choose how to retrieve relevant chunks"
+        )
+
+        new_retrieval_params = {}
+
+        if retrieval_strategy == "Hybrid":
+            with st.expander("Hybrid Settings", expanded=False):
+                dense_weight = st.slider(
+                    "Dense weight",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=current_retrieval_config.get("params", {}).get("dense_weight", 0.7),
+                    step=0.05,
+                    help="Weight for vector similarity (1-weight goes to BM25)",
+                    key="sidebar_dense_weight"
+                )
+
+                current_fusion = current_retrieval_config.get("params", {}).get("fusion_method", "weighted_sum")
+                fusion_display_map = {"weighted_sum": "Weighted Sum", "rrf": "Reciprocal Rank Fusion"}
+                reverse_fusion_map = {v: k for k, v in fusion_display_map.items()}
+
+                fusion_method = st.radio(
+                    "Fusion method",
+                    options=["Weighted Sum", "Reciprocal Rank Fusion"],
+                    index=0 if current_fusion == "weighted_sum" else 1,
+                    key="sidebar_fusion_method"
+                )
+
+                new_retrieval_params = {
+                    "dense_weight": dense_weight,
+                    "fusion_method": reverse_fusion_map.get(fusion_method, "weighted_sum")
+                }
+        elif retrieval_strategy == "Sparse (BM25)":
+            with st.expander("BM25 Settings", expanded=False):
+                st.markdown("_Using rank-bm25 library with Okapi BM25_")
+
+        new_retrieval_config = {
+            "strategy": strategy_map.get(retrieval_strategy, "DenseRetriever"),
+            "params": new_retrieval_params
+        }
+
+        st.write("")
+        st.markdown("**Reranking (Optional)**")
+
+        current_reranking_config = st.session_state.get("reranking_config", {"enabled": False})
+
+        enable_reranking = st.checkbox(
+            "Enable reranking",
+            value=current_reranking_config.get("enabled", False),
+            key="sidebar_enable_reranking",
+            help="Use cross-encoder to rerank results"
+        )
+
+        new_reranking_config = {"enabled": False}
+        if enable_reranking:
+            with st.expander("Reranking Settings", expanded=False):
+                st.markdown("_Using FlashRank library_")
+
+                rerank_models = [
+                    "ms-marco-MiniLM-L-12-v2",
+                    "ms-marco-TinyBERT-L-2-v2",
+                ]
+
+                rerank_model = st.selectbox(
+                    "Model",
+                    options=rerank_models,
+                    index=rerank_models.index(current_reranking_config.get("model", rerank_models[0])) if current_reranking_config.get("model") in rerank_models else 0,
+                    key="sidebar_rerank_model"
+                )
+
+                rerank_top_n = st.slider(
+                    "Keep top N after reranking",
+                    min_value=1,
+                    max_value=20,
+                    value=current_reranking_config.get("top_n", 5),
+                    key="sidebar_rerank_top_n"
+                )
+
+            new_reranking_config = {
+                "enabled": True,
+                "model": rerank_model,
+                "top_n": rerank_top_n
+            }
+
+        st.write("")
         st.markdown("**Embedding Model**")
 
         # Embedding model selection
@@ -482,6 +595,7 @@ def render_rag_config_sidebar() -> None:
         model_changed = new_embedding_model != st.session_state.embedding_model_name
         parsing_changed = new_parsing_params != st.session_state.applied_parsing_params
         chunking_changed = new_chunking_params != st.session_state.applied_chunking_params
+        retrieval_changed = new_retrieval_config != st.session_state.get("retrieval_config", {})
 
         st.session_state.doc_name = form_doc_name
         st.session_state.embedding_model_name = new_embedding_model
@@ -489,13 +603,17 @@ def render_rag_config_sidebar() -> None:
         st.session_state.chunking_params = new_chunking_params
         st.session_state.applied_parsing_params = new_parsing_params.copy()
         st.session_state.applied_chunking_params = new_chunking_params.copy()
+        st.session_state.retrieval_config = new_retrieval_config
+        st.session_state.reranking_config = new_reranking_config
 
         if doc_changed or parsing_changed or chunking_changed:
             if "chunks" in st.session_state:
                 del st.session_state["chunks"]
-        if doc_changed or parsing_changed or chunking_changed or model_changed:
+        if doc_changed or parsing_changed or chunking_changed or model_changed or retrieval_changed:
             if "last_embeddings_result" in st.session_state:
                 del st.session_state["last_embeddings_result"]
+            if "bm25_index_data" in st.session_state:
+                del st.session_state["bm25_index_data"]
             if "search_results" in st.session_state:
                 del st.session_state["search_results"]
 

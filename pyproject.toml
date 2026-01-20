@@ -37,6 +37,7 @@ dependencies = [
     "click>=8.1",
     "streamlit-shadcn-ui>=0.8.0",
     "tiktoken>=0.5",
+    "rank-bm25>=0.2.2",
 ]
 
 [project.optional-dependencies]
@@ -47,6 +48,9 @@ llm = [
 nlp = [
     "nltk>=3.8",
     "spacy>=3.7",
+]
+reranking = [
+    "flashrank>=0.2.0",
 ]
 dev = [
     "pytest>=7.0",

@@ -167,9 +167,9 @@ def render_embeddings_step() -> None:
 
                 vector_store = create_vector_store(dimension=dimension)
                 vector_store.add(embeddings, texts, metadata=[c.metadata for c in chunks])
-                
+
                 reduced_embeddings, reducer = reduce_dimensions(embeddings)
-                
+
                 st.session_state["last_embeddings_result"] = {
                     "key": current_state_key,
                     "vector_store": vector_store,
@@ -180,7 +180,23 @@ def render_embeddings_step() -> None:
                     # Don't store embedder - PyTorch models aren't serializable
                     # It will be recreated on-demand from the model name
                 }
-                
+
+                # Build BM25 index if needed for sparse/hybrid retrieval
+                retrieval_config = st.session_state.get("retrieval_config", {})
+                if retrieval_config.get("strategy") in ["SparseRetriever", "HybridRetriever"]:
+                    with st.spinner("Building BM25 index for sparse/hybrid retrieval..."):
+                        try:
+                            from rag_visualizer.services.retrieval import preprocess_retriever
+
+                            bm25_data = preprocess_retriever(
+                                "SparseRetriever",
+                                vector_store,
+                                **retrieval_config.get("params", {})
+                            )
+                            st.session_state["bm25_index_data"] = bm25_data
+                        except Exception as e:
+                            st.warning(f"Failed to build BM25 index: {str(e)}")
+
                 # Persist session state to disk for refresh resilience
                 save_session_state({
                     "doc_name": st.session_state.get("doc_name"),
@@ -188,6 +204,9 @@ def render_embeddings_step() -> None:
                     "chunking_params": st.session_state.get("chunking_params"),
                     "chunks": chunks,
                     "last_embeddings_result": st.session_state["last_embeddings_result"],
+                    "retrieval_config": st.session_state.get("retrieval_config"),
+                    "reranking_config": st.session_state.get("reranking_config"),
+                    "bm25_index_data": st.session_state.get("bm25_index_data"),
                 })
             except Exception as e:
                 st.error(f"Error: {str(e)}")

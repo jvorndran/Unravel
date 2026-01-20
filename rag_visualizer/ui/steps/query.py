@@ -259,14 +259,62 @@ def render_query_step() -> None:
             st.info("Please configure your LLM settings in the sidebar.")
             return
         
-        # Step 1: Retrieve chunks
+        # Step 1: Retrieve chunks using configured strategy
         with st.spinner("Retrieving context..."):
-            query_embedding = embedder.embed_query(query_text.strip())
-            all_results = vector_store.search(query_embedding, k=top_k)
-            
+            from rag_visualizer.services.retrieval import retrieve
+            from rag_visualizer.services.retrieval.reranking import (
+                RerankerConfig,
+                rerank_results,
+            )
+
+            retrieval_config = st.session_state.get("retrieval_config", {
+                "strategy": "DenseRetriever",
+                "params": {}
+            })
+
+            # Add BM25 data to params if needed
+            params = retrieval_config.get("params", {}).copy()
+            if retrieval_config["strategy"] in ["SparseRetriever", "HybridRetriever"]:
+                params["bm25_index_data"] = st.session_state.get("bm25_index_data")
+
+                if not params["bm25_index_data"]:
+                    st.warning("BM25 index not found. Falling back to dense retrieval.")
+                    retrieval_config["strategy"] = "DenseRetriever"
+                    params = {}
+
+            # Retrieve
+            try:
+                all_results = retrieve(
+                    query=query_text.strip(),
+                    vector_store=vector_store,
+                    embedder=embedder,
+                    retriever_name=retrieval_config["strategy"],
+                    k=top_k,
+                    **params
+                )
+            except Exception as e:
+                st.error(f"Retrieval failed: {str(e)}")
+                all_results = []
+
             # Apply threshold filter
             search_results = [r for r in all_results if r.score >= threshold]
-            
+
+            # Optional reranking
+            reranking_config = st.session_state.get("reranking_config", {"enabled": False})
+            if reranking_config["enabled"] and search_results:
+                with st.spinner("Reranking results..."):
+                    try:
+                        rerank_cfg = RerankerConfig(
+                            enabled=True,
+                            model=reranking_config["model"],
+                            top_n=reranking_config["top_n"]
+                        )
+                        search_results = rerank_results(query_text.strip(), search_results, rerank_cfg)
+                    except ImportError:
+                        st.warning("FlashRank not installed. Install with: pip install rag-visualizer[reranking]")
+                    except Exception as e:
+                        st.error(f"Reranking failed: {str(e)}")
+
             # Store for later display
             st.session_state.last_search_results = search_results
 
