@@ -90,6 +90,8 @@ python -m rag_visualizer
 - Content filtering by document element type
 - Configurable output formats (Markdown, HTML, DocTags, JSON)
 
+![Document Upload](docs/images/upload.png)
+
 ### Chunk Visualization
 - Multiple chunking strategies (Hierarchical, Hybrid)
 - Token-aware chunking with configurable limits and overlap
@@ -99,6 +101,8 @@ python -m rag_visualizer
 - Expandable context previews
 - Configurable metadata fields
 
+![Chunk Visualization](docs/images/chunks.png)
+
 ### Embedding Explorer
 - Multiple embedding models via sentence-transformers
 - 2D UMAP visualization of embedding space
@@ -107,6 +111,8 @@ python -m rag_visualizer
 - Color coding by document or cluster
 - Click-to-inspect chunk details
 
+![Embedding Explorer](docs/images/embeddings.png)
+
 ### Query Testing
 - Semantic search with adjustable top-K results
 - Cosine similarity scoring
@@ -114,6 +120,8 @@ python -m rag_visualizer
 - Query visualization on embedding plot
 - LLM integration for RAG answer generation
 - Support for OpenAI, Anthropic, and OpenAI-compatible local models
+
+![Query Testing](docs/images/query.png)
 
 ### Code Export
 - Production-ready Python code generation
