@@ -131,15 +131,20 @@ CHUNKING_HIERARCHICAL = '''"""Text Chunking with Hierarchical Strategy
 Structure-aware chunking that creates one chunk per document element (paragraph,
 header, list, code block). Best for preserving document structure.
 
+Uses Docling's native HierarchicalChunker for accurate structure detection.
+
 Configuration:
-- Include Headers: {include_headers}
-- Merge Small Chunks: {merge_small_chunks}
-- Min Chunk Size: {min_chunk_size} characters
+- Merge List Items: {merge_small_chunks}
+- Min Chunk Size: {min_chunk_size} characters (for reference, not used by chunker)
 """
 
-import re
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+
+from docling.chunking import HierarchicalChunker
+from docling.document_converter import DocumentConverter
 
 
 @dataclass
@@ -151,80 +156,36 @@ class Chunk:
     metadata: dict[str, Any]
 
 
-def _split_into_elements(text: str) -> list[dict[str, Any]]:
-    """Split text into structural elements."""
-    elements = []
-    current_pos = 0
-
-    header_pattern = r"^(#{{1,6}})\\s+(.+)$"
-    list_pattern = r"^(\\s*[-*+]|\\s*\\d+\\.)\\s+(.+)$"
-
-    lines = text.split("\\n")
-    i = 0
-
-    while i < len(lines):
-        line = lines[i]
-        line_start = text.find(line, current_pos)
-        if line_start == -1:
-            line_start = current_pos
-
-        # Check for code block
-        if line.strip().startswith("```"):
-            code_content = [line]
-            j = i + 1
-            while j < len(lines) and not lines[j].strip().startswith("```"):
-                code_content.append(lines[j])
-                j += 1
-            if j < len(lines):
-                code_content.append(lines[j])
-            code_text = "\\n".join(code_content)
-            code_end = line_start + len(code_text)
-            elements.append({{"type": "code", "text": code_text, "start": line_start, "end": code_end}})
-            current_pos = code_end + 1
-            i = j + 1
-            continue
-
-        # Check for header
-        header_match = re.match(header_pattern, line)
-        if header_match:
-            level = len(header_match.group(1))
-            elements.append({{"type": f"header_{{level}}", "text": line, "start": line_start, "end": line_start + len(line)}})
-            current_pos = line_start + len(line) + 1
-            i += 1
-            continue
-
-        # Check for list item
-        if re.match(list_pattern, line):
-            elements.append({{"type": "list_item", "text": line, "start": line_start, "end": line_start + len(line)}})
-            current_pos = line_start + len(line) + 1
-            i += 1
-            continue
-
-        # Empty line
-        if not line.strip():
-            current_pos = line_start + len(line) + 1
-            i += 1
-            continue
-
-        # Paragraph
-        para_lines = [line]
-        j = i + 1
-        while j < len(lines) and lines[j].strip() and not re.match(header_pattern, lines[j]) and not lines[j].strip().startswith("```"):
-            if re.match(list_pattern, lines[j]):
-                break
-            para_lines.append(lines[j])
-            j += 1
-        para_text = "\\n".join(para_lines)
-        para_end = line_start + len(para_text)
-        elements.append({{"type": "paragraph", "text": para_text, "start": line_start, "end": para_end}})
-        current_pos = para_end + 1
-        i = j
-
-    return elements
+def _text_to_docling_document(text: str):
+    """Convert plain text/markdown to a DoclingDocument for chunking.
+    
+    Uses Docling's document converter to parse markdown text into a structured document.
+    
+    Args:
+        text: Plain text or markdown content
+        
+    Returns:
+        DoclingDocument instance
+    """
+    # Create a temporary markdown file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as f:
+        f.write(text)
+        temp_path = f.name
+    
+    try:
+        converter = DocumentConverter()
+        result = converter.convert(Path(temp_path))
+        return result.document
+    finally:
+        # Clean up temp file
+        try:
+            Path(temp_path).unlink()
+        except Exception:
+            pass
 
 
 def chunk_text(text: str) -> list[Chunk]:
-    """Split text into hierarchical chunks.
+    """Split text into hierarchical chunks using Docling's HierarchicalChunker.
 
     Args:
         text: Source text to split
@@ -232,57 +193,73 @@ def chunk_text(text: str) -> list[Chunk]:
     Returns:
         List of Chunk objects
     """
-    include_headers = {include_headers}
-    merge_small = {merge_small_chunks}
-    min_size = {min_chunk_size}
-
-    elements = _split_into_elements(text)
-    if not elements:
-        return [Chunk(text=text, start_index=0, end_index=len(text),
-                      metadata={{"strategy": "Hierarchical", "element_type": "text", "chunk_index": 0}})]
-
-    chunks = []
-    current_headers: list[str] = []
-    pending_chunk: dict[str, Any] | None = None
-
-    for elem in elements:
-        if elem["type"].startswith("header_"):
-            level = int(elem["type"].split("_")[1])
-            current_headers = current_headers[:level - 1]
-            current_headers.append(elem["text"].lstrip("#").strip())
-
-        metadata = {{"strategy": "Hierarchical", "element_type": elem["type"], "size": len(elem["text"])}}
-        if include_headers and current_headers:
-            metadata["section_hierarchy"] = current_headers.copy()
-
-        chunk_data = {{"text": elem["text"], "start_index": elem["start"], "end_index": elem["end"], "metadata": metadata}}
-
-        if merge_small and len(elem["text"]) < min_size:
-            if pending_chunk is None:
-                pending_chunk = chunk_data
-            else:
-                pending_chunk["text"] += "\\n\\n" + chunk_data["text"]
-                pending_chunk["end_index"] = chunk_data["end_index"]
-                pending_chunk["metadata"]["size"] = len(pending_chunk["text"])
-                pending_chunk["metadata"]["element_type"] = "merged"
-        else:
-            if pending_chunk is not None:
-                if len(pending_chunk["text"]) >= min_size:
-                    pending_chunk["metadata"]["chunk_index"] = len(chunks)
-                    chunks.append(Chunk(**pending_chunk))
-                else:
-                    chunk_data["text"] = pending_chunk["text"] + "\\n\\n" + chunk_data["text"]
-                    chunk_data["start_index"] = pending_chunk["start_index"]
-                    chunk_data["metadata"]["size"] = len(chunk_data["text"])
-                    chunk_data["metadata"]["element_type"] = "merged"
-                pending_chunk = None
-            chunk_data["metadata"]["chunk_index"] = len(chunks)
-            chunks.append(Chunk(**chunk_data))
-
-    if pending_chunk is not None:
-        pending_chunk["metadata"]["chunk_index"] = len(chunks)
-        chunks.append(Chunk(**pending_chunk))
-
+    merge_list_items = {merge_small_chunks}
+    
+    # Convert text to DoclingDocument
+    try:
+        doc = _text_to_docling_document(text)
+    except Exception as e:
+        # Fallback: return single chunk on conversion error
+        return [Chunk(
+            text=text,
+            start_index=0,
+            end_index=len(text),
+            metadata={{"strategy": "Hierarchical", "error": str(e), "chunk_index": 0}}
+        )]
+    
+    # Create native HierarchicalChunker
+    chunker = HierarchicalChunker(merge_list_items=merge_list_items)
+    
+    # Generate chunks using native chunker
+    try:
+        native_chunks = list(chunker.chunk(doc))
+    except Exception as e:
+        # Fallback: return single chunk on chunking error
+        return [Chunk(
+            text=text,
+            start_index=0,
+            end_index=len(text),
+            metadata={{"strategy": "Hierarchical", "error": str(e), "chunk_index": 0}}
+        )]
+    
+    # Convert native chunks to our Chunk dataclass
+    chunks: list[Chunk] = []
+    for i, native_chunk in enumerate(native_chunks):
+        chunk_text_str = native_chunk.text
+        
+        # Extract metadata from native chunk
+        metadata: dict[str, Any] = {{
+            "strategy": "Hierarchical",
+            "chunk_index": i,
+            "size": len(chunk_text_str),
+        }}
+        
+        # Extract section hierarchy from headings if available
+        if hasattr(native_chunk, "meta") and native_chunk.meta:
+            meta = native_chunk.meta
+            if hasattr(meta, "headings") and meta.headings:
+                metadata["section_hierarchy"] = [
+                    h.text if hasattr(h, "text") else str(h) for h in meta.headings
+                ]
+            
+            # Extract element type from doc_items if available
+            if hasattr(meta, "doc_items") and meta.doc_items:
+                labels = list(set(str(item.label) for item in meta.doc_items))
+                metadata["element_type"] = labels if len(labels) > 1 else labels[0] if labels else "text"
+        
+        # Find chunk position in original text (approximate)
+        start_index = text.find(chunk_text_str[:50]) if len(chunk_text_str) >= 50 else text.find(chunk_text_str)
+        if start_index == -1:
+            start_index = 0
+        end_index = start_index + len(chunk_text_str)
+        
+        chunks.append(Chunk(
+            text=chunk_text_str,
+            start_index=start_index,
+            end_index=end_index,
+            metadata=metadata,
+        ))
+    
     return chunks
 
 
@@ -290,7 +267,8 @@ def chunk_text(text: str) -> list[Chunk]:
 # chunks = chunk_text(text)
 # print(f"Created {{len(chunks)}} chunks")
 # for chunk in chunks[:3]:
-#     print(f"[{{chunk.metadata['element_type']}}] {{chunk.text[:100]}}...")
+#     element_type = chunk.metadata.get('element_type', 'text')
+#     print(f"[{{element_type}}] {{chunk.text[:100]}}...")
 '''
 
 CHUNKING_HYBRID = '''"""Text Chunking with Hybrid Strategy
