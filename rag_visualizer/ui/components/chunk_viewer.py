@@ -94,6 +94,19 @@ def _extract_docling_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _normalize_element_type(value: Any) -> str:
+    if not value:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            if isinstance(item, str) and item:
+                return item
+        return ""
+    return str(value)
+
+
 def _contextualize_chunk(chunk_text: str, metadata: dict[str, Any]) -> str:
     """Create contextualized text for embedding by prepending section context.
 
@@ -116,7 +129,7 @@ def _contextualize_chunk(chunk_text: str, metadata: dict[str, Any]) -> str:
             context_parts.append(" > ".join(hierarchy))
 
     # Add element type indicator for non-paragraph content
-    element_type = metadata.get("element_type", "")
+    element_type = _normalize_element_type(metadata.get("element_type", ""))
     if element_type and element_type not in ("paragraph", "text", "merged"):
         type_label = element_type.replace("_", " ").title()
         context_parts.append(f"[{type_label}]")
@@ -128,7 +141,7 @@ def _contextualize_chunk(chunk_text: str, metadata: dict[str, Any]) -> str:
     return chunk_text
 
 
-def _format_element_type(element_type: str) -> tuple[str, str]:
+def _format_element_type(element_type: Any) -> tuple[str, str]:
     """Format element type for display, returning (label, color).
 
     Returns:
@@ -149,9 +162,12 @@ def _format_element_type(element_type: str) -> tuple[str, str]:
         "figure": ("Figure", "#f3e8ff"),
         "merged": ("Merged", "#f1f5f9"),
     }
-    if element_type in type_styles:
-        return type_styles[element_type]
-    return (element_type.replace("_", " ").title(), "#f1f5f9")
+    normalized_type = _normalize_element_type(element_type)
+    if normalized_type in type_styles:
+        return type_styles[normalized_type]
+    if normalized_type:
+        return (normalized_type.replace("_", " ").title(), "#f1f5f9")
+    return ("Unknown", "#f1f5f9")
 
 
 def prepare_chunk_display_data(

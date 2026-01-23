@@ -35,7 +35,7 @@ dependencies = [
     "markdown>=3.5",
     "docling>=1.0",
     "click>=8.1",
-    "streamlit-shadcn-ui>=0.8.0",
+    "streamlit-shadcn-ui>=0.1.18",
     "tiktoken>=0.5",
     "rank-bm25>=0.2.2",
 ]
@@ -59,7 +59,7 @@ dev = [
     "ruff>=0.1",
 ]
 all = [
-    "rag-visualizer[llm,nlp,dev]",
+    "rag-visualizer[llm,nlp,reranking,dev]",
 ]
 
 [project.scripts]
