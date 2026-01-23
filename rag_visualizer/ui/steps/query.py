@@ -205,7 +205,7 @@ def render_query_step() -> None:
                 "Ask", 
                 type="primary",
                 key="ask_button", 
-                use_container_width=True
+                width='stretch'
             )
 
         # Configuration
@@ -267,19 +267,26 @@ def render_query_step() -> None:
                 rerank_results,
             )
 
-            retrieval_config = st.session_state.get("retrieval_config", {
-                "strategy": "DenseRetriever",
-                "params": {}
-            })
+            retrieval_config_raw = st.session_state.get("retrieval_config")
+            if retrieval_config_raw is None or not isinstance(retrieval_config_raw, dict):
+                retrieval_config = {
+                    "strategy": "DenseRetriever",
+                    "params": {}
+                }
+            else:
+                retrieval_config = retrieval_config_raw
 
             # Add BM25 data to params if needed
             params = retrieval_config.get("params", {}).copy()
-            if retrieval_config["strategy"] in ["SparseRetriever", "HybridRetriever"]:
+            if retrieval_config.get("strategy") in ["SparseRetriever", "HybridRetriever"]:
                 params["bm25_index_data"] = st.session_state.get("bm25_index_data")
 
                 if not params["bm25_index_data"]:
                     st.warning("BM25 index not found. Falling back to dense retrieval.")
-                    retrieval_config["strategy"] = "DenseRetriever"
+                    retrieval_config = {
+                        "strategy": "DenseRetriever",
+                        "params": {}
+                    }
                     params = {}
 
             # Retrieve
@@ -300,14 +307,15 @@ def render_query_step() -> None:
             search_results = [r for r in all_results if r.score >= threshold]
 
             # Optional reranking
-            reranking_config = st.session_state.get("reranking_config", {"enabled": False})
-            if reranking_config["enabled"] and search_results:
+            reranking_config_raw = st.session_state.get("reranking_config")
+            reranking_config = reranking_config_raw if isinstance(reranking_config_raw, dict) else {"enabled": False}
+            if reranking_config.get("enabled", False) and search_results:
                 with st.spinner("Reranking results..."):
                     try:
                         rerank_cfg = RerankerConfig(
                             enabled=True,
-                            model=reranking_config["model"],
-                            top_n=reranking_config["top_n"]
+                            model=reranking_config.get("model", "ms-marco-MiniLM-L-12-v2"),
+                            top_n=reranking_config.get("top_n", 5)
                         )
                         search_results = rerank_results(query_text.strip(), search_results, rerank_cfg)
                     except ImportError:

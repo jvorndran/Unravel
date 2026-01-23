@@ -182,7 +182,8 @@ def render_embeddings_step() -> None:
                 }
 
                 # Build BM25 index if needed for sparse/hybrid retrieval
-                retrieval_config = st.session_state.get("retrieval_config", {})
+                retrieval_config_raw = st.session_state.get("retrieval_config")
+                retrieval_config = retrieval_config_raw if isinstance(retrieval_config_raw, dict) else {}
                 if retrieval_config.get("strategy") in ["SparseRetriever", "HybridRetriever"]:
                     with st.spinner("Building BM25 index for sparse/hybrid retrieval..."):
                         try:
@@ -269,7 +270,7 @@ def render_embeddings_step() -> None:
                     label_visibility="collapsed",
                 )
             with c2:
-                submit_button = st.form_submit_button("Search", type="primary", use_container_width=True)
+                submit_button = st.form_submit_button("Search", type="primary", width='stretch')
 
         # Process Query
         if "search_results" not in st.session_state:
@@ -325,7 +326,7 @@ def render_embeddings_step() -> None:
                 query_point=query_point_2d,
                 neighbors_indices=neighbor_indices
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             
         # Nearest Neighbors Section
         st.write("")
@@ -439,7 +440,7 @@ def render_embeddings_step() -> None:
                 st.caption("How similar are chunks to each other? Peaks near 1.0 indicate high cohesion.")
                 
                 fig_hist = create_similarity_histogram(similarity_matrix)
-                st.plotly_chart(fig_hist, use_container_width=True)
+                st.plotly_chart(fig_hist, width='stretch')
             
             # Outlier Analysis
             st.write("")

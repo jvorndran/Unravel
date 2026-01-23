@@ -277,7 +277,8 @@ def render_rag_config_sidebar() -> None:
                 # Show warning if captioning enabled but no vision model configured
                 if docling_enable_captioning:
                     from rag_visualizer.services.llm import VISION_CAPABLE_MODELS
-                    llm_config = st.session_state.get("llm_config", {})
+                    llm_config_raw = st.session_state.get("llm_config")
+                    llm_config = llm_config_raw if isinstance(llm_config_raw, dict) else {}
                     llm_provider = llm_config.get("provider", "")
                     llm_model = llm_config.get("model", "")
                     llm_api_key = llm_config.get("api_key", "")
@@ -457,10 +458,21 @@ def render_rag_config_sidebar() -> None:
         st.markdown("**Retrieval Strategy**")
 
         # Get current retrieval config or set defaults
-        current_retrieval_config = st.session_state.get("retrieval_config", {
-            "strategy": "DenseRetriever",
-            "params": {}
-        })
+        retrieval_config_raw = st.session_state.get("retrieval_config")
+        if retrieval_config_raw is None or not isinstance(retrieval_config_raw, dict):
+            current_retrieval_config = {
+                "strategy": "DenseRetriever",
+                "params": {}
+            }
+        else:
+            current_retrieval_config = retrieval_config_raw
+        
+        # Ensure current_retrieval_config is always a dict (defensive check)
+        if not isinstance(current_retrieval_config, dict):
+            current_retrieval_config = {
+                "strategy": "DenseRetriever",
+                "params": {}
+            }
 
         retrieval_strategies = ["Dense (FAISS)", "Sparse (BM25)", "Hybrid"]
         strategy_map = {
@@ -526,7 +538,16 @@ def render_rag_config_sidebar() -> None:
         st.write("")
         st.markdown("**Reranking (Optional)**")
 
-        current_reranking_config = st.session_state.get("reranking_config", {"enabled": False})
+        # Get current reranking config or set defaults
+        reranking_config_raw = st.session_state.get("reranking_config")
+        if reranking_config_raw is None or not isinstance(reranking_config_raw, dict):
+            current_reranking_config = {"enabled": False}
+        else:
+            current_reranking_config = reranking_config_raw
+        
+        # Ensure current_reranking_config is always a dict (defensive check)
+        if not isinstance(current_reranking_config, dict):
+            current_reranking_config = {"enabled": False}
 
         enable_reranking = st.checkbox(
             "Enable reranking",
