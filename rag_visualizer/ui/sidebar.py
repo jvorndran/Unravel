@@ -1,15 +1,8 @@
-import os
 from typing import cast
 
 import streamlit as st
 import streamlit_shadcn_ui as ui
 
-from rag_visualizer.services.chunking import (
-    get_available_providers,
-    get_provider,
-    get_provider_splitters,
-)
-from rag_visualizer.services.chunking.providers.docling_provider import METADATA_OPTIONS
 from rag_visualizer.services.embedders import DEFAULT_MODEL, list_available_models
 from rag_visualizer.services.llm import (
     LLM_PROVIDERS,
@@ -96,11 +89,6 @@ def render_rag_config_sidebar() -> None:
         else:
             st.session_state.doc_name = None
 
-    form_doc_name = st.session_state.doc_name
-    new_parsing_params = st.session_state.parsing_params
-    new_chunking_params = st.session_state.chunking_params
-    new_embedding_model = st.session_state.embedding_model_name
-
     if all_docs:
         if "sidebar_doc_selector" not in st.session_state:
             st.session_state["sidebar_doc_selector"] = st.session_state.doc_name or all_docs[0]
@@ -118,341 +106,9 @@ def render_rag_config_sidebar() -> None:
         form_doc_name = st.selectbox(
             "Document",
             options=all_docs,
-            key="sidebar_doc_selector"
+            key="sidebar_doc_selector",
+            label_visibility="collapsed"
         )
-
-        st.write("")
-        st.markdown("**Document Parsing & Text Splitting**")
-
-        # Output Format selector - Docling native export formats
-        format_display_map = {
-            "Markdown (Recommended)": "markdown",
-            "HTML": "html",
-            "DocTags": "doctags",
-            "JSON (Lossless)": "json",
-        }
-        output_formats = list(format_display_map.keys())
-        current_output_format = st.session_state.parsing_params.get("output_format", "markdown")
-
-        format_value_map = {v: k for k, v in format_display_map.items()}
-        current_format_display = format_value_map.get(current_output_format, "Markdown (Recommended)")
-
-        # Sync widget state only if needed
-        if "sidebar_output_format" not in st.session_state:
-            st.session_state["sidebar_output_format"] = current_format_display
-        elif st.session_state.get("sidebar_output_format") not in output_formats:
-            st.session_state["sidebar_output_format"] = current_format_display
-
-        output_format = st.selectbox(
-            "Output Format",
-            options=output_formats,
-            key="sidebar_output_format"
-        )
-
-        st.write("")
-
-        # Advanced parsing options (Docling)
-        with st.expander("Advanced Parsing Options", expanded=False):
-            # Global character cap (affects all steps)
-            max_characters = st.number_input(
-                "Max characters to parse",
-                min_value=1_000,
-                max_value=1_000_000,
-                step=1_000,
-                value=int(st.session_state.parsing_params.get("max_characters", 40_000) or 40_000),
-                key="sidebar_max_characters",
-                help="Only the first N characters will be parsed. Set to a higher value to process more content.",
-            )
-
-            max_threads = max(1, min((os.cpu_count() or 4), 16))
-
-            docling_enable_ocr = st.checkbox(
-                "Enable OCR (slower, use for scanned PDFs)",
-                value=st.session_state.parsing_params.get("docling_enable_ocr", False),
-                key="sidebar_docling_enable_ocr",
-                help="Skip this for digital PDFs to speed up parsing.",
-            )
-            docling_table_structure = st.checkbox(
-                "Extract tables and layout",
-                value=st.session_state.parsing_params.get("docling_table_structure", True),
-                key="sidebar_docling_table_structure",
-                help="Disable to speed up parsing when table fidelity is not needed.",
-            )
-            docling_threads = st.slider(
-                "Docling worker threads",
-                min_value=1,
-                max_value=max_threads,
-                value=min(
-                    max(1, st.session_state.parsing_params.get("docling_threads", 4)),
-                    max_threads,
-                ),
-                key="sidebar_docling_threads",
-                help="Increase on larger CPUs to process pages in parallel.",
-            )
-
-            st.divider()
-            st.markdown("**Content Filtering**")
-
-            # All available DocItemLabel options with human-readable names
-            docling_filter_options = {
-                "Page Header": "PAGE_HEADER",
-                "Page Footer": "PAGE_FOOTER",
-                "Section Header": "SECTION_HEADER",
-                "Caption": "CAPTION",
-                "Chart": "CHART",
-                "Checkbox (Selected)": "CHECKBOX_SELECTED",
-                "Checkbox (Unselected)": "CHECKBOX_UNSELECTED",
-                "Code": "CODE",
-                "Document Index": "DOCUMENT_INDEX",
-                "Empty Value": "EMPTY_VALUE",
-                "Footnote": "FOOTNOTE",
-                "Form": "FORM",
-                "Formula": "FORMULA",
-                "Grading Scale": "GRADING_SCALE",
-                "Handwritten Text": "HANDWRITTEN_TEXT",
-                "Key-Value Region": "KEY_VALUE_REGION",
-                "List Item": "LIST_ITEM",
-                "Paragraph": "PARAGRAPH",
-                "Picture": "PICTURE",
-                "Reference": "REFERENCE",
-                "Table": "TABLE",
-                "Text": "TEXT",
-                "Title": "TITLE",
-            }
-
-            # Reverse mapping for display
-            filter_value_to_display = {
-                v: k for k, v in docling_filter_options.items()
-            }
-
-            # Default filters (common noise)
-            default_filters = ["PAGE_HEADER", "PAGE_FOOTER"]
-
-            # Get current selection from session state
-            current_filter_labels = st.session_state.parsing_params.get(
-                "docling_filter_labels", default_filters
-            )
-
-            # Convert stored values to display names
-            current_display_labels = [
-                filter_value_to_display.get(label, label)
-                for label in current_filter_labels
-                if label in filter_value_to_display
-            ]
-
-            # Multi-select for filter labels
-            selected_display_labels = st.multiselect(
-                "Filter document items",
-                options=sorted(docling_filter_options.keys()),
-                default=current_display_labels,
-                key="sidebar_docling_filter_labels",
-                help="Selected items will be excluded from the parsed output.",
-            )
-
-            # Convert display names back to internal values
-            docling_filter_labels = [
-                docling_filter_options[label]
-                for label in selected_display_labels
-            ]
-
-            st.divider()
-            st.markdown("**Image Extraction**")
-
-            docling_extract_images = st.checkbox(
-                "Extract images from PDF",
-                value=st.session_state.parsing_params.get("docling_extract_images", False),
-                key="sidebar_docling_extract_images",
-                help="Extract embedded images from PDF. May increase parsing time.",
-            )
-
-            docling_enable_captioning = False
-            if docling_extract_images:
-                docling_enable_captioning = st.checkbox(
-                    "Caption images with LLM",
-                    value=st.session_state.parsing_params.get("docling_enable_captioning", False),
-                    key="sidebar_docling_enable_captioning",
-                    help="Generate searchable captions using configured LLM.",
-                )
-
-                # Show warning if captioning enabled but no vision model configured
-                if docling_enable_captioning:
-                    from rag_visualizer.services.llm import VISION_CAPABLE_MODELS
-                    llm_config_raw = st.session_state.get("llm_config")
-                    llm_config = llm_config_raw if isinstance(llm_config_raw, dict) else {}
-                    llm_provider = llm_config.get("provider", "")
-                    llm_model = llm_config.get("model", "")
-                    llm_api_key = llm_config.get("api_key", "")
-
-                    if not llm_api_key:
-                        st.warning("Configure a vision-capable LLM in the LLM Config tab.")
-                    elif llm_provider != "OpenAI-Compatible" and llm_model not in VISION_CAPABLE_MODELS.get(llm_provider, []):
-                        st.warning(f"Model '{llm_model}' may not support vision. Use GPT-4o or Claude 3.")
-
-        # Update parsing params (but don't apply yet)
-        new_parsing_params = {
-            "output_format": format_display_map.get(output_format, "markdown"),
-            "docling_device": "auto",  # Always use auto device detection
-            "docling_enable_ocr": docling_enable_ocr,
-            "docling_table_structure": docling_table_structure,
-            "docling_threads": docling_threads,
-            "docling_filter_labels": docling_filter_labels,
-            "docling_extract_images": docling_extract_images,
-            "docling_enable_captioning": docling_enable_captioning,
-            "max_characters": max_characters,
-        }
-
-        st.write("")
-        st.markdown("**Text Splitting**")
-
-        # Provider selection
-        providers = get_available_providers()
-        current_provider = st.session_state.chunking_params.get("provider", "Docling")
-        if current_provider not in providers:
-            current_provider = providers[0] if providers else "Docling"
-
-        if "sidebar_chunking_provider" not in st.session_state:
-            st.session_state["sidebar_chunking_provider"] = current_provider
-
-        provider = st.selectbox(
-            "Library",
-            options=providers,
-            key="sidebar_chunking_provider"
-        )
-
-        # Get splitters for selected provider
-        splitter_infos = get_provider_splitters(provider)
-        splitter_options = [info.display_name for info in splitter_infos]
-        splitter_name_map = {info.display_name: info.name for info in splitter_infos}
-        splitter_display_map = {info.name: info.display_name for info in splitter_infos}
-
-        current_splitter = st.session_state.chunking_params.get("splitter", "HybridChunker")
-        current_display = splitter_display_map.get(current_splitter, splitter_options[0] if splitter_options else "")
-
-        if "sidebar_splitter" not in st.session_state:
-            st.session_state["sidebar_splitter"] = current_display
-        elif st.session_state.get("sidebar_splitter") not in splitter_options:
-            st.session_state["sidebar_splitter"] = current_display
-
-        st.write("")
-        splitter_display = st.selectbox(
-            "Strategy",
-            options=splitter_options,
-            key="sidebar_splitter"
-        )
-
-        splitter_name = splitter_name_map.get(splitter_display, "HybridChunker")
-
-        # Detailed explanations for each splitter strategy
-        splitter_details = {
-            "HierarchicalChunker": {
-                "title": "Hierarchical Chunker",
-                "when_to_use": "Use when preserving document structure is important. Creates one chunk per logical element (paragraph, header, list, code block).",
-                "how_it_works": "Analyzes document structure and splits at natural boundaries like paragraphs, headers, and code blocks. Optionally merges very small chunks and tracks section hierarchy for better context.",
-                "best_for": "Structured documents, documentation, articles with clear sections",
-            },
-            "HybridChunker": {
-                "title": "Hybrid Chunker",
-                "when_to_use": "Best default choice for embedding-based RAG. Respects structure while ensuring chunks fit within model token limits.",
-                "how_it_works": "Combines structure-aware splitting with token counting. Accumulates structural elements until reaching the token limit, then creates a chunk. Supports overlap for continuity.",
-                "best_for": "RAG applications, embedding models with fixed context windows",
-            },
-        }
-
-        # Show detailed explanation for selected splitter
-        if splitter_name in splitter_details:
-            details = splitter_details[splitter_name]
-            with st.expander(f"About {details['title']}", expanded=False):
-                st.markdown(f"**When to use:** {details['when_to_use']}")
-                st.markdown(f"**How it works:** {details['how_it_works']}")
-                st.markdown(f"**Best for:** {details['best_for']}")
-
-        # Get parameter schema for selected splitter
-        selected_info = next((info for info in splitter_infos if info.name == splitter_name), None)
-
-        # Render dynamic parameters
-        splitter_params = {}
-        if selected_info:
-            st.write("")
-
-            for param in selected_info.parameters:
-                current_value = st.session_state.chunking_params.get(param.name, param.default)
-
-                if param.type == "int":
-                    value = st.number_input(
-                        param.name.replace("_", " ").title(),
-                        min_value=param.min_value or 0,
-                        max_value=param.max_value or 10000,
-                        value=int(current_value) if current_value is not None else param.default,
-                        step=50 if "size" in param.name else 10,
-                        help=param.description,
-                        key=f"sidebar_param_{param.name}"
-                    )
-                elif param.type == "str":
-                    if param.options:
-                        if f"sidebar_param_{param.name}" not in st.session_state:
-                            st.session_state[f"sidebar_param_{param.name}"] = str(current_value)
-                        value = st.selectbox(
-                            param.name.replace("_", " ").title(),
-                            options=param.options,
-                            key=f"sidebar_param_{param.name}"
-                        )
-                    else:
-                        value = st.text_input(
-                            param.name.replace("_", " ").title(),
-                            value=str(current_value),
-                            help=param.description,
-                            key=f"sidebar_param_{param.name}"
-                        )
-                elif param.type == "bool":
-                    value = st.checkbox(
-                        param.name.replace("_", " ").title(),
-                        value=bool(current_value),
-                        help=param.description,
-                        key=f"sidebar_param_{param.name}"
-                    )
-                elif param.type == "multiselect" and param.options:
-                    # Handle multiselect parameters with display-to-value mapping
-                    # Use centralized METADATA_OPTIONS from docling_provider
-                    metadata_value_to_display = {v: k for k, v in METADATA_OPTIONS.items()}
-
-                    # Convert stored internal values to display names for the widget
-                    current_list = current_value if isinstance(current_value, list) else param.default
-                    current_display_list = [
-                        metadata_value_to_display.get(v, v) for v in current_list
-                    ]
-                    # Filter to only valid options
-                    current_display_list = [v for v in current_display_list if v in param.options]
-                    if not current_display_list:
-                        current_display_list = param.default
-
-                    selected_display = st.multiselect(
-                        param.name.replace("_", " ").title(),
-                        options=param.options,
-                        default=current_display_list,
-                        help=param.description,
-                        key=f"sidebar_param_{param.name}"
-                    )
-
-                    # Convert display names back to internal values for storage
-                    value = [
-                        METADATA_OPTIONS.get(d, d) for d in selected_display
-                    ]
-                else:
-                    value = current_value
-
-                splitter_params[param.name] = value
-
-        # Show provider attribution
-        provider_instance = get_provider(provider)
-        if provider_instance and provider_instance.attribution:
-            st.caption(f"_{provider_instance.attribution}_")
-
-        # Update chunking params (but don't apply yet)
-        new_chunking_params = {
-            "provider": provider,
-            "splitter": splitter_name,
-            **splitter_params,
-        }
 
         st.write("")
         st.markdown("**Retrieval Strategy**")
@@ -614,23 +270,22 @@ def render_rag_config_sidebar() -> None:
     if apply_clicked:
         doc_changed = form_doc_name != st.session_state.doc_name
         model_changed = new_embedding_model != st.session_state.embedding_model_name
-        parsing_changed = new_parsing_params != st.session_state.applied_parsing_params
-        chunking_changed = new_chunking_params != st.session_state.applied_chunking_params
         retrieval_changed = new_retrieval_config != st.session_state.get("retrieval_config", {})
 
         st.session_state.doc_name = form_doc_name
         st.session_state.embedding_model_name = new_embedding_model
-        st.session_state.parsing_params = new_parsing_params
-        st.session_state.chunking_params = new_chunking_params
-        st.session_state.applied_parsing_params = new_parsing_params.copy()
-        st.session_state.applied_chunking_params = new_chunking_params.copy()
         st.session_state.retrieval_config = new_retrieval_config
         st.session_state.reranking_config = new_reranking_config
 
-        if doc_changed or parsing_changed or chunking_changed:
-            if "chunks" in st.session_state:
-                del st.session_state["chunks"]
-        if doc_changed or parsing_changed or chunking_changed or model_changed or retrieval_changed:
+        # Invalidate caches based on what changed
+        if doc_changed:
+            # Document changed - invalidate everything
+            for key in ["chunks", "last_embeddings_result", "bm25_index_data", "search_results"]:
+                if key in st.session_state:
+                    del st.session_state[key]
+
+        if model_changed or retrieval_changed:
+            # Model or retrieval changed - invalidate embeddings and search results
             if "last_embeddings_result" in st.session_state:
                 del st.session_state["last_embeddings_result"]
             if "bm25_index_data" in st.session_state:
@@ -638,16 +293,17 @@ def render_rag_config_sidebar() -> None:
             if "search_results" in st.session_state:
                 del st.session_state["search_results"]
 
+        # Save configuration (use current parsing/chunking params from session state)
         current_rag_config = {
             "doc_name": st.session_state.doc_name,
             "embedding_model_name": st.session_state.embedding_model_name,
-            "chunking_params": st.session_state.chunking_params,
-            "parsing_params": st.session_state.parsing_params,
+            "chunking_params": st.session_state.get("chunking_params", {}),
+            "parsing_params": st.session_state.get("parsing_params", {}),
         }
         save_rag_config(current_rag_config)
         st.session_state["_last_saved_rag_config"] = current_rag_config.copy()
 
-        st.success("✓ Changes applied! Processing will use new settings.")
+        st.success("Changes applied!")
         st.rerun()
 
     # Clear session state button

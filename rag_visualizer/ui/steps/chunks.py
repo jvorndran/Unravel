@@ -2,11 +2,12 @@ import streamlit as st
 import streamlit_shadcn_ui as ui
 
 from rag_visualizer.services.chunking import get_chunks
-from rag_visualizer.services.storage import load_document
+from rag_visualizer.services.storage import load_document, save_rag_config
 from rag_visualizer.ui.components.chunk_viewer import (
     prepare_chunk_display_data,
     render_chunk_cards,
 )
+from rag_visualizer.ui.components.chunking_config import render_chunking_configuration
 from rag_visualizer.utils.cache import (
     get_parsed_text_key,
     load_parsed_text,
@@ -16,11 +17,61 @@ from rag_visualizer.utils.parsers import parse_document
 
 
 def render_chunks_step() -> None:
-    st.markdown("## Text Splitting")
-    st.caption(
-        "Visualize how documents are split into meaningful chunks "
-        "while preserving semantic coherence"
-    )
+    st.markdown("## Document Processing & Text Splitting")
+    st.caption("Configure document parsing and text splitting")
+
+    # Render chunking configuration
+    st.write("")
+    with st.expander("Configuration", expanded=True):
+        new_parsing_params, new_chunking_params, has_changes = (
+            render_chunking_configuration()
+        )
+
+        st.write("")
+
+        # Custom styling for disabled button
+        if not has_changes:
+            st.markdown(
+                """
+                <style>
+                button[kind="primary"][disabled] {
+                    opacity: 0.4;
+                    cursor: not-allowed;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        if st.button(
+            "Apply Configuration",
+            type="primary",
+            disabled=not has_changes,
+            key="apply_chunking_config_btn",
+        ):
+            # Update session state
+            st.session_state.parsing_params = new_parsing_params
+            st.session_state.chunking_params = new_chunking_params
+            st.session_state.applied_parsing_params = new_parsing_params.copy()
+            st.session_state.applied_chunking_params = new_chunking_params.copy()
+
+            # Invalidate downstream caches
+            for key in ["chunks", "last_embeddings_result", "search_results", "bm25_index_data"]:
+                if key in st.session_state:
+                    del st.session_state[key]
+
+            # Persist to disk
+            save_rag_config(
+                {
+                    "doc_name": st.session_state.doc_name,
+                    "parsing_params": new_parsing_params,
+                    "chunking_params": new_chunking_params,
+                    "embedding_model_name": st.session_state.embedding_model_name,
+                }
+            )
+
+            st.success("Configuration applied successfully!")
+            st.rerun()
 
     # Read configuration from session state
     selected_doc = st.session_state.get("doc_name")
@@ -51,34 +102,13 @@ def render_chunks_step() -> None:
     # Check if document is selected
     if not selected_doc:
         st.info(
-            "👋 No document selected. Upload a file in the **Upload** step or "
+            "No document selected. Upload a file in the Upload step or "
             "select a document in the sidebar (RAG Config tab)."
         )
         if ui.button("Go to Upload Step", key="goto_upload_chunks"):
             st.session_state.current_step = "upload"
             st.rerun()
         return
-
-    # Display current configuration
-    st.write("")
-    with st.expander("Configuration Details", expanded=False):
-        # Get display name from splitter info
-        from rag_visualizer.services.chunking import get_provider_splitters
-        splitter_infos = get_provider_splitters(provider)
-        splitter_display = next(
-            (info.display_name for info in splitter_infos if info.name == splitter),
-            splitter,
-        )
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown(f"**Strategy:** {splitter_display}")
-        with col2:
-            st.markdown(f"**Max Tokens:** {max_tokens}")
-        with col3:
-            st.markdown(f"**Overlap:** {overlap_size}")
-        
-        st.caption(f"Using {provider} | Configure in sidebar (RAG Config tab)")
 
     # Check if parsing settings have changed (compare current vs applied)
     parsing_settings_changed = current_parsing_params != applied_parsing_params
