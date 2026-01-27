@@ -35,6 +35,12 @@ from docling.pipeline.standard_pdf_pipeline import (  # type: ignore[attr-define
     ThreadedPdfPipelineOptions,
 )
 from docling_core.types.doc import DocItemLabel, PictureItem  # type: ignore[attr-defined]
+try:
+    from docling_core.transforms.serializer.html import HTMLDocSerializer
+    from docling_core.transforms.serializer.markdown import MarkdownDocSerializer
+except Exception:
+    HTMLDocSerializer = None
+    MarkdownDocSerializer = None
 
 # Mapping of file extensions to Docling InputFormat
 DOCLING_FORMAT_MAP = {
@@ -224,19 +230,26 @@ def export_document(
     Returns:
         Exported document text in the specified format
     """
-    if output_format == "markdown":
+    normalized_format = (output_format or "markdown").strip().lower()
+    if normalized_format == "markdown":
         # Use native Docling filtering by computing the set of allowed labels
         if filter_labels:
             # Get all possible labels and exclude the filtered ones
             all_labels = set(DocItemLabel)
             allowed_labels = all_labels - set(filter_labels)
             return cast(str, doc.export_to_markdown(labels=allowed_labels))
+        serialized = _serialize_docling_document(doc, normalized_format)
+        if serialized is not None:
+            return serialized
         return cast(str, doc.export_to_markdown())
-    elif output_format == "html":
+    elif normalized_format == "html":
+        serialized = _serialize_docling_document(doc, normalized_format)
+        if serialized is not None:
+            return serialized
         return cast(str, doc.export_to_html())
-    elif output_format == "doctags":
+    elif normalized_format == "doctags":
         return cast(str, doc.export_to_document_tokens())
-    elif output_format == "json":
+    elif normalized_format == "json":
         return cast(str, doc.model_dump_json())
     else:
         # Default to markdown
@@ -245,6 +258,24 @@ def export_document(
             allowed_labels = all_labels - set(filter_labels)
             return cast(str, doc.export_to_markdown(labels=allowed_labels))
         return cast(str, doc.export_to_markdown())
+
+
+def _serialize_docling_document(doc: Any, output_format: str) -> str | None:
+    """Serialize a Docling document using the document serializer API."""
+    normalized = (output_format or "markdown").strip().lower()
+    if normalized == "markdown" and MarkdownDocSerializer is not None:
+        try:
+            serializer = MarkdownDocSerializer(doc=doc)
+            return serializer.serialize().text
+        except Exception:
+            return None
+    if normalized == "html" and HTMLDocSerializer is not None:
+        try:
+            serializer = HTMLDocSerializer(doc=doc)
+            return serializer.serialize().text
+        except Exception:
+            return None
+    return None
 
 
 def parse_pdf_docling(

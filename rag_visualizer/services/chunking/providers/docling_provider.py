@@ -4,8 +4,11 @@ Provides structure-aware and token-aware chunking strategies using Docling's
 native HierarchicalChunker and HybridChunker.
 """
 
-import tiktoken
+import re
+from bisect import bisect_right
 from typing import Any
+
+import tiktoken
 
 from docling.chunking import HierarchicalChunker, HybridChunker
 from docling.document_converter import DocumentConverter
@@ -42,6 +45,161 @@ def _count_tokens(text: str, tokenizer_name: str = "cl100k_base") -> int:
         return len(text) // 4
 
 
+def _get_token_offsets(
+    text: str, tokenizer_name: str
+) -> tuple[tiktoken.Encoding, list[int], list[int]]:
+    """Return tokenizer, tokens, and token start offsets in characters."""
+    enc = tiktoken.get_encoding(tokenizer_name)
+    tokens = enc.encode(text)
+    offsets: list[int] = []
+    cursor = 0
+    for token in tokens:
+        offsets.append(cursor)
+        cursor += len(enc.decode([token]))
+    return enc, tokens, offsets
+
+
+def _chunk_raw_hierarchical(
+    text: str,
+    merge_small_chunks: bool,
+    min_chunk_size: int,
+    include_metadata: list[str],
+    heading_index: tuple[list[int], list[list[str]], list[str]] | None,
+) -> list[Chunk]:
+    """Chunk raw text by paragraph boundaries while preserving markdown."""
+    if not text:
+        return []
+
+    blocks: list[tuple[int, int]] = []
+    start = 0
+    for match in re.finditer(r"\n{2,}", text):
+        end = match.end()
+        if end > start:
+            block_text = text[start:end]
+            if block_text.strip():
+                blocks.append((start, end))
+        start = end
+    if start < len(text):
+        block_text = text[start:]
+        if block_text.strip():
+            blocks.append((start, len(text)))
+
+    if not blocks:
+        return [
+            Chunk(
+                text=text,
+                start_index=0,
+                end_index=len(text),
+                metadata={
+                    "strategy": "Hierarchical",
+                    "provider": "Docling",
+                    "chunk_index": 0,
+                    "size": len(text),
+                },
+            )
+        ]
+
+    chunks: list[Chunk] = []
+    current_start = blocks[0][0]
+    current_end = blocks[0][1]
+
+    for block_start, block_end in blocks[1:]:
+        current_size = current_end - current_start
+        if merge_small_chunks and current_size < min_chunk_size:
+            current_end = block_end
+            continue
+
+        chunks.append(
+            _build_raw_chunk(
+                text=text,
+                start=current_start,
+                end=current_end,
+                chunk_index=len(chunks),
+                strategy="Hierarchical",
+                include_metadata=include_metadata,
+                heading_index=heading_index,
+            )
+        )
+        current_start = block_start
+        current_end = block_end
+
+    if current_end > current_start:
+        chunks.append(
+            _build_raw_chunk(
+                text=text,
+                start=current_start,
+                end=current_end,
+                chunk_index=len(chunks),
+                strategy="Hierarchical",
+                include_metadata=include_metadata,
+                heading_index=heading_index,
+            )
+        )
+
+    return chunks
+
+
+def _chunk_raw_hybrid(
+    text: str,
+    tokenizer_name: str,
+    max_tokens: int,
+    chunk_overlap: int,
+    include_metadata: list[str],
+    heading_index: tuple[list[int], list[list[str]], list[str]] | None,
+) -> list[Chunk]:
+    """Chunk raw text by tokens while preserving original formatting."""
+    if not text:
+        return []
+    safe_max_tokens = max(1, int(max_tokens or 1))
+    safe_overlap = max(0, int(chunk_overlap or 0))
+    if safe_overlap >= safe_max_tokens:
+        safe_overlap = max(0, safe_max_tokens - 1)
+
+    enc, tokens, offsets = _get_token_offsets(text, tokenizer_name)
+    if not tokens:
+        return [
+            Chunk(
+                text=text,
+                start_index=0,
+                end_index=len(text),
+                metadata={
+                    "strategy": "Hybrid",
+                    "provider": "Docling",
+                    "chunk_index": 0,
+                    "size": len(text),
+                    "token_count": 0,
+                },
+            )
+        ]
+
+    chunks: list[Chunk] = []
+    start_token = 0
+    while start_token < len(tokens):
+        end_token = min(start_token + safe_max_tokens, len(tokens))
+        start_char = offsets[start_token]
+        end_char = len(text) if end_token >= len(tokens) else offsets[end_token]
+        chunk_text = text[start_char:end_char]
+
+        chunk = _build_raw_chunk(
+            text=text,
+            start=start_char,
+            end=end_char,
+            chunk_index=len(chunks),
+            strategy="Hybrid",
+            include_metadata=include_metadata,
+            heading_index=heading_index,
+        )
+        if "token_count" in include_metadata:
+            chunk.metadata["token_count"] = end_token - start_token
+        chunks.append(chunk)
+
+        if end_token >= len(tokens):
+            break
+        start_token = end_token - safe_overlap if safe_overlap else end_token
+
+    return chunks
+
+
 def _extract_metadata_from_chunk(
     native_chunk: Any,
     include_metadata: list[str],
@@ -73,18 +231,17 @@ def _extract_metadata_from_chunk(
     if hasattr(native_chunk, "meta") and native_chunk.meta:
         meta = native_chunk.meta
         
-        # Section hierarchy from headings
-        if "section_hierarchy" in include_metadata and hasattr(meta, "headings"):
-            if meta.headings:
-                # Headings might be strings or objects with .text attribute
-                metadata["section_hierarchy"] = [
-                    h.text if hasattr(h, "text") else str(h) for h in meta.headings
-                ]
-                if "heading_text" in include_metadata and meta.headings:
-                    last_heading = meta.headings[-1]
-                    metadata["heading_text"] = (
-                        last_heading.text if hasattr(last_heading, "text") else str(last_heading)
-                    )
+    # Section hierarchy from headings (always include for UI)
+    if hasattr(meta, "headings"):
+        if meta.headings:
+            # Headings might be strings or objects with .text attribute
+            metadata["section_hierarchy"] = [
+                h.text if hasattr(h, "text") else str(h) for h in meta.headings
+            ]
+            last_heading = meta.headings[-1]
+            metadata["heading_text"] = (
+                last_heading.text if hasattr(last_heading, "text") else str(last_heading)
+            )
         
         # Element type from doc_items
         if "element_type" in include_metadata and hasattr(meta, "doc_items"):
@@ -121,7 +278,60 @@ def _extract_metadata_from_chunk(
     return metadata
 
 
-def _text_to_docling_document(text: str):
+def _build_markdown_heading_index(
+    text: str,
+) -> tuple[list[int], list[list[str]], list[str]]:
+    """Build an index of markdown headings for section hierarchy lookup."""
+    positions: list[int] = []
+    hierarchies: list[list[str]] = []
+    headings: list[str] = []
+    current: list[str] = []
+
+    for match in re.finditer(r"^(#{1,6})\s+(.*)$", text, flags=re.MULTILINE):
+        level = len(match.group(1))
+        title = match.group(2).strip()
+        if not title:
+            continue
+        current = current[: level - 1]
+        current.append(title)
+        positions.append(match.start())
+        hierarchies.append(current.copy())
+        headings.append(title)
+
+    return positions, hierarchies, headings
+
+
+def _build_raw_chunk(
+    text: str,
+    start: int,
+    end: int,
+    chunk_index: int,
+    strategy: str,
+    include_metadata: list[str],
+    heading_index: tuple[list[int], list[list[str]], list[str]] | None,
+) -> Chunk:
+    metadata: dict[str, Any] = {
+        "strategy": strategy,
+        "provider": "Docling",
+        "chunk_index": chunk_index,
+        "size": max(0, end - start),
+    }
+    if heading_index:
+        positions, hierarchies, headings = heading_index
+        idx = bisect_right(positions, start) - 1
+        if idx >= 0:
+            metadata["section_hierarchy"] = hierarchies[idx]
+            metadata["heading_text"] = headings[idx]
+
+    return Chunk(
+        text=text[start:end],
+        start_index=start,
+        end_index=end,
+        metadata=metadata,
+    )
+
+
+def _text_to_docling_document(text: str, output_format: str):
     """Convert plain text/markdown to a DoclingDocument for chunking.
     
     Uses Docling's document converter to parse markdown text into a structured document.
@@ -129,8 +339,16 @@ def _text_to_docling_document(text: str):
     import tempfile
     from pathlib import Path
     
-    # Create a temporary markdown file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False, encoding='utf-8') as f:
+    normalized = (output_format or "markdown").strip().lower()
+    if normalized == "html":
+        suffix = ".html"
+    else:
+        suffix = ".md"
+
+    # Create a temporary file matching the parsed output format
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=suffix, delete=False, encoding="utf-8"
+    ) as f:
         f.write(text)
         temp_path = f.name
     
@@ -242,9 +460,43 @@ class DoclingProvider(ChunkingProvider):
         if not text:
             return []
 
+        output_format = params.pop("output_format", "markdown")
+        normalized_format = (output_format or "markdown").strip().lower()
+        if normalized_format in ("markdown", "html"):
+            include_metadata = params.get("include_metadata", DEFAULT_METADATA)
+            if include_metadata is None:
+                include_metadata = DEFAULT_METADATA
+            heading_index = (
+                _build_markdown_heading_index(text)
+                if normalized_format == "markdown"
+                else None
+            )
+            if splitter_name == "HierarchicalChunker":
+                merge_small_chunks = params.get("merge_small_chunks", True)
+                min_chunk_size = int(params.get("min_chunk_size", 50) or 50)
+                return _chunk_raw_hierarchical(
+                    text=text,
+                    merge_small_chunks=merge_small_chunks,
+                    min_chunk_size=min_chunk_size,
+                    include_metadata=include_metadata,
+                    heading_index=heading_index,
+                )
+            if splitter_name == "HybridChunker":
+                tokenizer_name = params.get("tokenizer", "cl100k_base")
+                max_tokens = params.get("max_tokens", 512)
+                chunk_overlap = params.get("chunk_overlap", 50)
+                return _chunk_raw_hybrid(
+                    text=text,
+                    tokenizer_name=tokenizer_name,
+                    max_tokens=max_tokens,
+                    chunk_overlap=chunk_overlap,
+                    include_metadata=include_metadata,
+                    heading_index=heading_index,
+                )
+
         # Convert text to DoclingDocument
         try:
-            doc = _text_to_docling_document(text)
+            doc = _text_to_docling_document(text, output_format)
         except Exception as e:
             # Fallback: if conversion fails, return single chunk
             return [
@@ -270,7 +522,10 @@ class DoclingProvider(ChunkingProvider):
             raise ValueError(f"Unknown splitter: {splitter_name}")
 
     def _chunk_hierarchical(
-        self, doc: Any, original_text: str, **params: Any  # noqa: ANN401
+        self,
+        doc: Any,
+        original_text: str,
+        **params: Any,  # noqa: ANN401
     ) -> list[Chunk]:
         """Hierarchical chunking using native HierarchicalChunker."""
         merge_list_items = params.get("merge_small_chunks", True)
@@ -279,13 +534,11 @@ class DoclingProvider(ChunkingProvider):
             include_metadata = DEFAULT_METADATA
 
         # Create native HierarchicalChunker
-        chunker = HierarchicalChunker(
-            merge_list_items=merge_list_items,
-        )
+        chunker = HierarchicalChunker(merge_list_items=merge_list_items)
 
         # Generate chunks using native chunker
         try:
-            native_chunks = list(chunker.chunk(doc))
+            native_chunks = list(chunker.chunk(dl_doc=doc))
         except Exception as e:
             # Fallback: return single chunk on error
             return [
@@ -331,7 +584,10 @@ class DoclingProvider(ChunkingProvider):
         return chunks
 
     def _chunk_hybrid(
-        self, doc: Any, original_text: str, **params: Any  # noqa: ANN401
+        self,
+        doc: Any,
+        original_text: str,
+        **params: Any,  # noqa: ANN401
     ) -> list[Chunk]:
         """Hybrid chunking using native HybridChunker."""
         max_tokens = params.get("max_tokens", 512)
@@ -351,14 +607,11 @@ class DoclingProvider(ChunkingProvider):
             tokenizer = OpenAITokenizer(tokenizer=enc, max_tokens=max_tokens)
 
         # Create native HybridChunker
-        chunker = HybridChunker(
-            tokenizer=tokenizer,
-            merge_peers=merge_peers,
-        )
+        chunker = HybridChunker(tokenizer=tokenizer, merge_peers=merge_peers)
 
         # Generate chunks using native chunker
         try:
-            native_chunks = list(chunker.chunk(doc))
+            native_chunks = list(chunker.chunk(dl_doc=doc))
         except Exception as e:
             # Fallback: return single chunk on error
             return [

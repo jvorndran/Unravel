@@ -77,6 +77,10 @@ def _extract_docling_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     if "element_type" in metadata:
         result["element_type"] = metadata["element_type"]
 
+    # Heading text
+    if "heading_text" in metadata:
+        result["heading_text"] = metadata["heading_text"]
+
     # Chunking strategy
     if "strategy" in metadata:
         result["strategy"] = metadata["strategy"]
@@ -189,7 +193,7 @@ def prepare_chunk_display_data(
     if not chunks:
         return []
 
-    sorted_chunks = sorted(chunks, key=lambda c: c.start_index)
+    sorted_chunks = chunks
     chunk_display_data = []
 
     for i, chunk in enumerate(sorted_chunks):
@@ -263,26 +267,7 @@ def prepare_chunk_display_data(
                         overlap_text = chunk.text[:overlap_len]
                         main_text = chunk.text[overlap_len:]
 
-        if source_text:
-            start_index = getattr(chunk, "start_index", None)
-            end_index = getattr(chunk, "end_index", None)
-            if (
-                isinstance(start_index, int)
-                and isinstance(end_index, int)
-                and 0 <= start_index < end_index <= len(source_text)
-            ):
-                source_slice = source_text[start_index:end_index]
-                if source_slice.strip():
-                    display_text = source_slice
-                else:
-                    used_fallback = True
-                    fallback_reason = "empty_source_slice"
-            else:
-                used_fallback = True
-                fallback_reason = "invalid_source_indices"
-        else:
-            used_fallback = True
-            fallback_reason = "missing_source_text"
+        display_text = chunk.text
 
         docling_meta = _extract_docling_metadata(chunk.metadata)
         chunk_display_data.append(
@@ -306,6 +291,7 @@ def render_chunk_cards(
     custom_badges: list[dict[str, Any]] | None = None,
     show_overlap: bool = True,
     display_mode: str = "continuous",
+    render_format: str = "markdown",
 ) -> None:
     """Render chunk cards as HTML with expandable metadata.
 
@@ -315,6 +301,7 @@ def render_chunk_cards(
                       Each dict can have keys like {"label": "Score", "value": "0.85", "color": "#..."}
         show_overlap: Whether to render overlap highlighting (default: True)
         display_mode: Display style - "continuous" (colored flow) or "card" (individual cards with borders)
+        render_format: Chunk render format (markdown, html, doctags, json)
     """
     if not chunk_display_data:
         st.markdown(
@@ -408,9 +395,39 @@ def render_chunk_cards(
                 margin: 4px 0;
                 white-space: pre-wrap;
             }
+            .chunk-rendered table {
+                border-collapse: collapse;
+                margin: 6px 0 10px 0;
+                width: 100%;
+                font-size: 0.85rem;
+            }
+            .chunk-rendered th,
+            .chunk-rendered td {
+                border: 1px solid #e2e8f0;
+                padding: 4px 6px;
+                text-align: left;
+                vertical-align: top;
+            }
+            .chunk-rendered th {
+                background: #f8fafc;
+                font-weight: 600;
+            }
+            .chunk-raw {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 8px;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                    "Liberation Mono", "Courier New", monospace;
+                font-size: 0.8rem;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
         </style>
     """
     )
+
+    normalized_format = (render_format or "markdown").strip().lower()
 
     for i, data in enumerate(chunk_display_data):
         meta = data["docling_metadata"]
@@ -511,23 +528,37 @@ def render_chunk_cards(
 
         chunks_html_parts.append("</span>")
 
-        # Section hierarchy breadcrumb (when available)
-        if "section_hierarchy" in meta and meta["section_hierarchy"]:
-            hierarchy = meta["section_hierarchy"]
-            breadcrumb = " > ".join(html.escape(h) for h in hierarchy)
+        # Section heading label (when available)
+        heading_text = meta.get("heading_text")
+        if heading_text:
             chunks_html_parts.append(
                 f'<div style="font-size: 0.75rem; color: #6b7280; '
-                f'margin-bottom: 4px; font-weight: 500;">{breadcrumb}</div>'
+                f'margin-bottom: 4px; font-weight: 500;">{html.escape(str(heading_text))}</div>'
             )
 
-        # Render rendered markdown in summary (Default View)
-        try:
-            rendered_html = markdown.markdown(display_text)
+        # Render chunk content by format
+        if normalized_format == "html":
+            rendered_html = display_text
             render_failed = False
-        except Exception:
-            # Fallback to plain text if markdown fails
-            rendered_html = html.escape(display_text)
-            render_failed = True
+        elif normalized_format in ("json", "doctags"):
+            rendered_html = f'<pre class="chunk-raw">{html.escape(display_text)}</pre>'
+            render_failed = False
+        else:
+            try:
+                rendered_html = markdown.markdown(
+                    display_text,
+                    extensions=[
+                        "nl2br",
+                        "tables",
+                        "fenced_code",
+                        "sane_lists",
+                    ],
+                )
+                render_failed = False
+            except Exception:
+                # Fallback to plain text if markdown fails
+                rendered_html = html.escape(display_text)
+                render_failed = True
         if render_failed:
             chunks_html_parts.append(
                 '<div style="font-size: 0.7rem; color: #b45309; margin-top: 4px;">'

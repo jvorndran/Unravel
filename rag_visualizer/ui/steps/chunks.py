@@ -165,6 +165,7 @@ def render_chunks_step() -> None:
             return
     
     # Generate Chunks (only if we have parsed text)
+    output_format = applied_parsing_params.get("output_format", "markdown")
     if source_text:
         # Extract splitter-specific params (exclude provider/splitter keys)
         splitter_params = {k: v for k, v in chunking_params.items()
@@ -173,6 +174,7 @@ def render_chunks_step() -> None:
             provider=provider,
             splitter=splitter,
             text=source_text,
+            output_format=output_format,
             **splitter_params
         )
 
@@ -251,6 +253,7 @@ def render_chunks_step() -> None:
                 chunk_display_data=chunk_display_data,
                 show_overlap=True,
                 display_mode="continuous",
+                render_format=output_format,
             )
     else:  # Raw JSON
         # Convert chunks to serializable format for JSON display
