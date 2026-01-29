@@ -100,182 +100,222 @@ def render_rag_config_sidebar() -> None:
         st.session_state.doc_name = None
         return  # Exit early before the form to avoid missing submit button error
 
-    with st.form("rag_config_form"):
-        st.write("")
-        st.markdown("**Document**")
-        form_doc_name = st.selectbox(
-            "Document",
-            options=all_docs,
-            key="sidebar_doc_selector",
-            label_visibility="collapsed"
-        )
+    st.write("")
+    st.markdown("**Document**")
+    st.selectbox(
+        "Document",
+        options=all_docs,
+        key="sidebar_doc_selector",
+        label_visibility="collapsed"
+    )
 
-        st.write("")
-        st.markdown("**Retrieval Strategy**")
+    st.write("")
+    st.markdown("**Retrieval Strategy**")
 
-        # Get current retrieval config or set defaults
-        retrieval_config_raw = st.session_state.get("retrieval_config")
-        if retrieval_config_raw is None or not isinstance(retrieval_config_raw, dict):
-            current_retrieval_config = {
-                "strategy": "DenseRetriever",
-                "params": {}
-            }
-        else:
-            current_retrieval_config = retrieval_config_raw
-        
-        # Ensure current_retrieval_config is always a dict (defensive check)
-        if not isinstance(current_retrieval_config, dict):
-            current_retrieval_config = {
-                "strategy": "DenseRetriever",
-                "params": {}
-            }
-
-        retrieval_strategies = ["Dense (FAISS)", "Sparse (BM25)", "Hybrid"]
-        strategy_map = {
-            "Dense (FAISS)": "DenseRetriever",
-            "Sparse (BM25)": "SparseRetriever",
-            "Hybrid": "HybridRetriever"
+    # Get current retrieval config or set defaults
+    retrieval_config_raw = st.session_state.get("retrieval_config")
+    if retrieval_config_raw is None or not isinstance(retrieval_config_raw, dict):
+        current_retrieval_config = {
+            "strategy": "DenseRetriever",
+            "params": {}
         }
-        reverse_strategy_map = {v: k for k, v in strategy_map.items()}
+    else:
+        current_retrieval_config = retrieval_config_raw
 
-        current_strategy_display = reverse_strategy_map.get(
-            current_retrieval_config.get("strategy", "DenseRetriever"),
-            "Dense (FAISS)"
-        )
-
-        if "sidebar_retrieval_strategy" not in st.session_state:
-            st.session_state["sidebar_retrieval_strategy"] = current_strategy_display
-
-        retrieval_strategy = st.selectbox(
-            "Strategy",
-            options=retrieval_strategies,
-            key="sidebar_retrieval_strategy",
-            help="Choose how to retrieve relevant chunks"
-        )
-
-        new_retrieval_params = {}
-
-        if retrieval_strategy == "Hybrid":
-            with st.expander("Hybrid Settings", expanded=False):
-                dense_weight = st.slider(
-                    "Dense weight",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=current_retrieval_config.get("params", {}).get("dense_weight", 0.7),
-                    step=0.05,
-                    help="Weight for vector similarity (1-weight goes to BM25)",
-                    key="sidebar_dense_weight"
-                )
-
-                current_fusion = current_retrieval_config.get("params", {}).get("fusion_method", "weighted_sum")
-                fusion_display_map = {"weighted_sum": "Weighted Sum", "rrf": "Reciprocal Rank Fusion"}
-                reverse_fusion_map = {v: k for k, v in fusion_display_map.items()}
-
-                fusion_method = st.radio(
-                    "Fusion method",
-                    options=["Weighted Sum", "Reciprocal Rank Fusion"],
-                    index=0 if current_fusion == "weighted_sum" else 1,
-                    key="sidebar_fusion_method"
-                )
-
-                new_retrieval_params = {
-                    "dense_weight": dense_weight,
-                    "fusion_method": reverse_fusion_map.get(fusion_method, "weighted_sum")
-                }
-        elif retrieval_strategy == "Sparse (BM25)":
-            with st.expander("BM25 Settings", expanded=False):
-                st.markdown("_Using rank-bm25 library with Okapi BM25_")
-
-        new_retrieval_config = {
-            "strategy": strategy_map.get(retrieval_strategy, "DenseRetriever"),
-            "params": new_retrieval_params
+    # Ensure current_retrieval_config is always a dict (defensive check)
+    if not isinstance(current_retrieval_config, dict):
+        current_retrieval_config = {
+            "strategy": "DenseRetriever",
+            "params": {}
         }
 
-        st.write("")
-        st.markdown("**Reranking (Optional)**")
+    retrieval_strategies = ["Dense (FAISS)", "Sparse (BM25)", "Hybrid"]
+    strategy_map = {
+        "Dense (FAISS)": "DenseRetriever",
+        "Sparse (BM25)": "SparseRetriever",
+        "Hybrid": "HybridRetriever"
+    }
+    reverse_strategy_map = {v: k for k, v in strategy_map.items()}
 
-        # Get current reranking config or set defaults
-        reranking_config_raw = st.session_state.get("reranking_config")
-        if reranking_config_raw is None or not isinstance(reranking_config_raw, dict):
-            current_reranking_config = {"enabled": False}
-        else:
-            current_reranking_config = reranking_config_raw
-        
-        # Ensure current_reranking_config is always a dict (defensive check)
-        if not isinstance(current_reranking_config, dict):
-            current_reranking_config = {"enabled": False}
+    # Fusion method mappings (needed for pending config building)
+    fusion_display_map = {"weighted_sum": "Weighted Sum", "rrf": "Reciprocal Rank Fusion"}
+    reverse_fusion_map = {v: k for k, v in fusion_display_map.items()}
 
-        enable_reranking = st.checkbox(
-            "Enable reranking",
-            value=current_reranking_config.get("enabled", False),
-            key="sidebar_enable_reranking",
-            help="Use cross-encoder to rerank results"
-        )
+    current_strategy_display = reverse_strategy_map.get(
+        current_retrieval_config.get("strategy", "DenseRetriever"),
+        "Dense (FAISS)"
+    )
 
-        new_reranking_config = {"enabled": False}
-        if enable_reranking:
-            with st.expander("Reranking Settings", expanded=False):
-                st.markdown("_Using FlashRank library_")
+    if "sidebar_retrieval_strategy" not in st.session_state:
+        st.session_state["sidebar_retrieval_strategy"] = current_strategy_display
 
-                rerank_models = [
-                    "ms-marco-MiniLM-L-12-v2",
-                    "ms-marco-TinyBERT-L-2-v2",
-                ]
+    retrieval_strategy = st.selectbox(
+        "Strategy",
+        options=retrieval_strategies,
+        key="sidebar_retrieval_strategy",
+        help="Choose how to retrieve relevant chunks"
+    )
 
-                rerank_model = st.selectbox(
-                    "Model",
-                    options=rerank_models,
-                    index=rerank_models.index(current_reranking_config.get("model", rerank_models[0])) if current_reranking_config.get("model") in rerank_models else 0,
-                    key="sidebar_rerank_model"
-                )
+    if retrieval_strategy == "Hybrid":
+        with st.expander("Hybrid Settings", expanded=False):
+            st.slider(
+                "Dense weight",
+                min_value=0.0,
+                max_value=1.0,
+                value=current_retrieval_config.get("params", {}).get("dense_weight", 0.7),
+                step=0.05,
+                help="Weight for vector similarity (1-weight goes to BM25)",
+                key="sidebar_dense_weight"
+            )
 
-                rerank_top_n = st.slider(
-                    "Keep top N after reranking",
-                    min_value=1,
-                    max_value=20,
-                    value=current_reranking_config.get("top_n", 5),
-                    key="sidebar_rerank_top_n"
-                )
+            current_fusion = current_retrieval_config.get("params", {}).get("fusion_method", "weighted_sum")
 
-            new_reranking_config = {
-                "enabled": True,
-                "model": rerank_model,
-                "top_n": rerank_top_n
-            }
+            st.radio(
+                "Fusion method",
+                options=["Weighted Sum", "Reciprocal Rank Fusion"],
+                index=0 if current_fusion == "weighted_sum" else 1,
+                key="sidebar_fusion_method"
+            )
+    elif retrieval_strategy == "Sparse (BM25)":
+        with st.expander("BM25 Settings", expanded=False):
+            st.markdown("_Using rank-bm25 library with Okapi BM25_")
 
-        st.write("")
-        st.markdown("**Embedding Model**")
+    st.write("")
+    st.markdown("**Reranking (Optional)**")
 
-        # Embedding model selection
-        models = list_available_models()
-        model_names = [m["name"] for m in models]
+    # Get current reranking config or set defaults
+    reranking_config_raw = st.session_state.get("reranking_config")
+    if reranking_config_raw is None or not isinstance(reranking_config_raw, dict):
+        current_reranking_config = {"enabled": False}
+    else:
+        current_reranking_config = reranking_config_raw
 
-        current_model_name = st.session_state.embedding_model_name
-        if current_model_name not in model_names:
-            current_model_name = model_names[0]
+    # Ensure current_reranking_config is always a dict (defensive check)
+    if not isinstance(current_reranking_config, dict):
+        current_reranking_config = {"enabled": False}
 
-        if "sidebar_embedding_model" not in st.session_state:
-            st.session_state["sidebar_embedding_model"] = current_model_name
-        elif st.session_state.get("sidebar_embedding_model") not in model_names:
-            st.session_state["sidebar_embedding_model"] = current_model_name
+    enable_reranking = st.checkbox(
+        "Enable reranking",
+        value=current_reranking_config.get("enabled", False),
+        key="sidebar_enable_reranking",
+        help="Use cross-encoder to rerank results"
+    )
 
-        new_embedding_model = st.selectbox(
-            "Embedding Model",
-            options=model_names,
-            key="sidebar_embedding_model"
-        )
+    if enable_reranking:
+        with st.expander("Reranking Settings", expanded=False):
+            st.markdown("_Using FlashRank library_")
 
-        apply_clicked = st.form_submit_button("Save & Apply")
+            rerank_models = [
+                "ms-marco-MiniLM-L-12-v2",
+                "ms-marco-TinyBERT-L-2-v2",
+            ]
 
-    if apply_clicked:
-        doc_changed = form_doc_name != st.session_state.doc_name
-        model_changed = new_embedding_model != st.session_state.embedding_model_name
-        retrieval_changed = new_retrieval_config != st.session_state.get("retrieval_config", {})
+            st.selectbox(
+                "Model",
+                options=rerank_models,
+                index=rerank_models.index(current_reranking_config.get("model", rerank_models[0])) if current_reranking_config.get("model") in rerank_models else 0,
+                key="sidebar_rerank_model"
+            )
 
-        st.session_state.doc_name = form_doc_name
-        st.session_state.embedding_model_name = new_embedding_model
-        st.session_state.retrieval_config = new_retrieval_config
-        st.session_state.reranking_config = new_reranking_config
+            st.slider(
+                "Keep top N after reranking",
+                min_value=1,
+                max_value=20,
+                value=current_reranking_config.get("top_n", 5),
+                key="sidebar_rerank_top_n"
+            )
+
+    st.write("")
+    st.markdown("**Embedding Model**")
+
+    # Embedding model selection
+    models = list_available_models()
+    model_names = [m["name"] for m in models]
+
+    current_model_name = st.session_state.embedding_model_name
+    if current_model_name not in model_names:
+        current_model_name = model_names[0]
+
+    if "sidebar_embedding_model" not in st.session_state:
+        st.session_state["sidebar_embedding_model"] = current_model_name
+    elif st.session_state.get("sidebar_embedding_model") not in model_names:
+        st.session_state["sidebar_embedding_model"] = current_model_name
+
+    st.selectbox(
+        "Embedding Model",
+        options=model_names,
+        key="sidebar_embedding_model"
+    )
+
+    # Build pending configuration from widget values
+    pending_doc_name = st.session_state.get("sidebar_doc_selector")
+    pending_embedding_model = st.session_state.get("sidebar_embedding_model")
+
+    # Build retrieval config from widgets
+    retrieval_strategy = st.session_state.get("sidebar_retrieval_strategy", "Dense (FAISS)")
+    pending_retrieval_params = {}
+
+    if retrieval_strategy == "Hybrid":
+        pending_retrieval_params = {
+            "dense_weight": st.session_state.get("sidebar_dense_weight", 0.7),
+            "fusion_method": reverse_fusion_map.get(
+                st.session_state.get("sidebar_fusion_method", "Weighted Sum"),
+                "weighted_sum"
+            )
+        }
+
+    pending_retrieval_config = {
+        "strategy": strategy_map.get(retrieval_strategy, "DenseRetriever"),
+        "params": pending_retrieval_params
+    }
+
+    # Build reranking config from widgets
+    enable_reranking = st.session_state.get("sidebar_enable_reranking", False)
+    pending_reranking_config = {"enabled": False}
+
+    if enable_reranking:
+        pending_reranking_config = {
+            "enabled": True,
+            "model": st.session_state.get("sidebar_rerank_model", "ms-marco-MiniLM-L-12-v2"),
+            "top_n": st.session_state.get("sidebar_rerank_top_n", 5)
+        }
+
+    # Check for changes between pending and applied configuration
+    has_changes = (
+        pending_doc_name != st.session_state.doc_name or
+        pending_embedding_model != st.session_state.embedding_model_name or
+        pending_retrieval_config != st.session_state.get("retrieval_config", {}) or
+        pending_reranking_config != st.session_state.get("reranking_config", {})
+    )
+
+    # Show status badge
+    st.write("")
+    status_badge_html = (
+        '<span style="background-color: #f59e0b; color: white; padding: 2px 8px; '
+        'border-radius: 4px; font-size: 12px; font-weight: 500;">Changes pending</span>'
+        if has_changes
+        else '<span style="background-color: #10b981; color: white; padding: 2px 8px; '
+        'border-radius: 4px; font-size: 12px; font-weight: 500;">Configuration applied</span>'
+    )
+    st.markdown(status_badge_html, unsafe_allow_html=True)
+
+    st.write("")
+    if st.button(
+        "Save & Apply",
+        type="primary",
+        disabled=not has_changes,
+        key="save_rag_config_btn"
+    ):
+        # Detect specific changes for targeted cache invalidation
+        doc_changed = pending_doc_name != st.session_state.doc_name
+        model_changed = pending_embedding_model != st.session_state.embedding_model_name
+        retrieval_changed = pending_retrieval_config != st.session_state.get("retrieval_config", {})
+
+        # Update session state with pending configuration
+        st.session_state.doc_name = pending_doc_name
+        st.session_state.embedding_model_name = pending_embedding_model
+        st.session_state.retrieval_config = pending_retrieval_config
+        st.session_state.reranking_config = pending_reranking_config
 
         # Invalidate caches based on what changed
         if doc_changed:
@@ -286,14 +326,11 @@ def render_rag_config_sidebar() -> None:
 
         if model_changed or retrieval_changed:
             # Model or retrieval changed - invalidate embeddings and search results
-            if "last_embeddings_result" in st.session_state:
-                del st.session_state["last_embeddings_result"]
-            if "bm25_index_data" in st.session_state:
-                del st.session_state["bm25_index_data"]
-            if "search_results" in st.session_state:
-                del st.session_state["search_results"]
+            for key in ["last_embeddings_result", "bm25_index_data", "search_results"]:
+                if key in st.session_state:
+                    del st.session_state[key]
 
-        # Save configuration (use current parsing/chunking params from session state)
+        # Save configuration to disk
         current_rag_config = {
             "doc_name": st.session_state.doc_name,
             "embedding_model_name": st.session_state.embedding_model_name,
