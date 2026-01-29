@@ -73,17 +73,6 @@ def render_embeddings_step() -> None:
             st.rerun()
         return
 
-    # Display current configuration
-    st.write("")
-    with st.container(border=True):
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown(f"**Embedding Model:** {selected_model}")
-        with c2:
-            st.markdown(f"**Document:** {selected_doc}")
-        
-        st.caption("Configure these settings in the sidebar (RAG Config tab)")
-
     # Document Processing Logic (Runs if chunks are missing)
     if not chunks:
         with st.spinner(f"Processing {selected_doc}..."):

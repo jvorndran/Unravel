@@ -81,6 +81,10 @@ if "session_restored" not in st.session_state:
             st.session_state.embedding_model_name = saved_rag_config["embedding_model_name"]
         if "doc_name" not in st.session_state and "doc_name" in saved_rag_config:
             st.session_state.doc_name = saved_rag_config["doc_name"]
+        if "retrieval_config" not in st.session_state and "retrieval_config" in saved_rag_config:
+            st.session_state.retrieval_config = saved_rag_config["retrieval_config"]
+        if "reranking_config" not in st.session_state and "reranking_config" in saved_rag_config:
+            st.session_state.reranking_config = saved_rag_config["reranking_config"]
 
     # Initialize RAG config defaults if not present
     if "doc_name" not in st.session_state:
