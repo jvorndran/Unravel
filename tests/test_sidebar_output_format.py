@@ -111,7 +111,6 @@ class TestOutputFormatSessionState:
                 "output_format": "plain_text",
                 "normalize_whitespace": True,
                 "remove_special_chars": False,
-                "max_characters": 40000,
             }
             at.session_state["parsing_params"] = parsing_params
             at.session_state["applied_parsing_params"] = parsing_params.copy()
@@ -229,7 +228,6 @@ class TestOutputFormatFormSubmission:
 
             # Get initial values
             initial_device = at.session_state["parsing_params"]["docling_device"]
-            initial_max_chars = at.session_state["parsing_params"]["max_characters"]
 
             # Change output format only
             at.selectbox(key="sidebar_output_format").set_value("Original Format")
@@ -238,7 +236,6 @@ class TestOutputFormatFormSubmission:
 
             # Verify other params are preserved
             assert at.session_state["parsing_params"]["docling_device"] == initial_device
-            assert at.session_state["parsing_params"]["max_characters"] == initial_max_chars
             assert at.session_state["parsing_params"]["output_format"] == "original"
 
 

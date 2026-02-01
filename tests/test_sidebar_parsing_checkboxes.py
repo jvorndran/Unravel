@@ -87,7 +87,6 @@ class TestNormalizeWhitespaceSessionState:
                 "output_format": "markdown",
                 "normalize_whitespace": False,  # Set to False
                 "remove_special_chars": False,
-                "max_characters": 40000,
             }
             at.session_state["parsing_params"] = parsing_params
             at.session_state["applied_parsing_params"] = parsing_params.copy()
@@ -240,7 +239,6 @@ class TestRemoveSpecialCharsSessionState:
                 "output_format": "markdown",
                 "normalize_whitespace": True,
                 "remove_special_chars": True,  # Set to True
-                "max_characters": 40000,
             }
             at.session_state["parsing_params"] = parsing_params
             at.session_state["applied_parsing_params"] = parsing_params.copy()
@@ -363,7 +361,6 @@ class TestParsingCheckboxesCombined:
 
             initial_device = at.session_state["parsing_params"]["docling_device"]
             initial_output_format = at.session_state["parsing_params"]["output_format"]
-            initial_max_chars = at.session_state["parsing_params"]["max_characters"]
             initial_table_structure = at.session_state["parsing_params"]["docling_table_structure"]
 
             # Change checkboxes
@@ -379,5 +376,4 @@ class TestParsingCheckboxesCombined:
             # Verify other params preserved
             assert at.session_state["parsing_params"]["docling_device"] == initial_device
             assert at.session_state["parsing_params"]["output_format"] == initial_output_format
-            assert at.session_state["parsing_params"]["max_characters"] == initial_max_chars
             assert at.session_state["parsing_params"]["docling_table_structure"] == initial_table_structure

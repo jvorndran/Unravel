@@ -112,7 +112,6 @@ if "parsing_params" not in st.session_state:
         "output_format": "markdown",
         "normalize_whitespace": True,
         "remove_special_chars": False,
-        "max_characters": 40000,
     }
 if "applied_parsing_params" not in st.session_state:
     st.session_state.applied_parsing_params = st.session_state.parsing_params.copy()
@@ -121,6 +120,46 @@ if "applied_chunking_params" not in st.session_state:
 
 with st.sidebar:
     render_rag_config_sidebar()
+'''
+
+
+@pytest.fixture
+def chunking_config_app_script() -> str:
+    """Return the app script string for testing the chunking config UI."""
+    return '''
+import streamlit as st
+from rag_visualizer.ui.components.chunking_config import render_chunking_configuration
+
+# Initialize required session state (mirrors production initialization)
+if "chunking_params" not in st.session_state:
+    st.session_state.chunking_params = {
+        "provider": "Docling",
+        "splitter": "HybridChunker",
+        "max_tokens": 512,
+        "chunk_overlap": 50,
+        "tokenizer": "cl100k_base",
+    }
+if "parsing_params" not in st.session_state:
+    st.session_state.parsing_params = {
+        # Docling options
+        "docling_enable_ocr": False,
+        "docling_table_structure": True,
+        "docling_threads": 4,
+        "docling_filter_labels": ["PAGE_HEADER", "PAGE_FOOTER"],
+        "docling_extract_images": False,
+        "docling_enable_captioning": False,
+        "docling_device": "auto",
+        # Output options
+        "output_format": "markdown",
+        "normalize_whitespace": True,
+        "remove_special_chars": False,
+    }
+if "applied_parsing_params" not in st.session_state:
+    st.session_state.applied_parsing_params = st.session_state.parsing_params.copy()
+if "applied_chunking_params" not in st.session_state:
+    st.session_state.applied_chunking_params = st.session_state.chunking_params.copy()
+
+render_chunking_configuration()
 '''
 
 

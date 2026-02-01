@@ -139,6 +139,148 @@ def _chunk_raw_hierarchical(
     return chunks
 
 
+def _iter_lines_with_offsets(text: str) -> list[tuple[int, int, str]]:
+    lines = text.splitlines(keepends=True)
+    offsets: list[tuple[int, int, str]] = []
+    cursor = 0
+    for line in lines:
+        start = cursor
+        end = cursor + len(line)
+        offsets.append((start, end, line))
+        cursor = end
+    return offsets
+
+
+def _merge_ranges(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    if not ranges:
+        return []
+    ranges_sorted = sorted(ranges, key=lambda r: r[0])
+    merged = [list(ranges_sorted[0])]
+    for start, end in ranges_sorted[1:]:
+        last = merged[-1]
+        if start <= last[1]:
+            last[1] = max(last[1], end)
+        else:
+            merged.append([start, end])
+    return [(start, end) for start, end in merged]
+
+
+def _find_fenced_code_ranges(text: str) -> list[tuple[int, int]]:
+    ranges: list[tuple[int, int]] = []
+    fence = None
+    fence_start = None
+    for start, end, line in _iter_lines_with_offsets(text):
+        stripped = line.lstrip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            marker = "```" if stripped.startswith("```") else "~~~"
+            if fence is None:
+                fence = marker
+                fence_start = start
+            elif marker == fence and fence_start is not None:
+                ranges.append((fence_start, end))
+                fence = None
+                fence_start = None
+    if fence is not None and fence_start is not None:
+        ranges.append((fence_start, len(text)))
+    return ranges
+
+
+def _is_markdown_table_separator(line: str) -> bool:
+    return bool(re.match(r"^\s*\|?(\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$", line))
+
+
+def _find_markdown_table_ranges(text: str) -> list[tuple[int, int]]:
+    ranges: list[tuple[int, int]] = []
+    lines = _iter_lines_with_offsets(text)
+    for i, (start, end, line) in enumerate(lines):
+        if not _is_markdown_table_separator(line):
+            continue
+        if i == 0:
+            continue
+        prev_line = lines[i - 1][2]
+        if "|" not in prev_line:
+            continue
+        table_start = lines[i - 1][0]
+        table_end = end
+        j = i + 1
+        while j < len(lines):
+            next_line = lines[j][2]
+            if not next_line.strip() or "|" not in next_line:
+                break
+            table_end = lines[j][1]
+            j += 1
+        ranges.append((table_start, table_end))
+    return ranges
+
+
+def _is_list_item(line: str) -> bool:
+    return bool(re.match(r"^\s*(?:[-+*]|\d+[.)])\s+", line))
+
+
+def _is_indented_continuation(line: str) -> bool:
+    return bool(re.match(r"^\s+", line)) and bool(line.strip())
+
+
+def _find_list_block_ranges(text: str) -> list[tuple[int, int]]:
+    ranges: list[tuple[int, int]] = []
+    lines = _iter_lines_with_offsets(text)
+    i = 0
+    while i < len(lines):
+        start, _, line = lines[i]
+        if not _is_list_item(line):
+            i += 1
+            continue
+        block_start = start
+        block_end = lines[i][1]
+        i += 1
+        while i < len(lines):
+            _, end, next_line = lines[i]
+            if not next_line.strip():
+                break
+            if _is_list_item(next_line) or _is_indented_continuation(next_line):
+                block_end = end
+                i += 1
+                continue
+            break
+        ranges.append((block_start, block_end))
+    return ranges
+
+
+def _find_blank_line_boundaries(text: str) -> list[int]:
+    boundaries: list[int] = []
+    for match in re.finditer(r"\n{2,}", text):
+        boundaries.append(match.end())
+    return boundaries
+
+
+def _find_last_boundary(
+    boundaries: list[int], start_char: int, end_char: int
+) -> int | None:
+    if not boundaries:
+        return None
+    idx = bisect_right(boundaries, end_char) - 1
+    while idx >= 0 and boundaries[idx] <= start_char:
+        idx -= 1
+    return boundaries[idx] if idx >= 0 else None
+
+
+def _adjust_for_protected_ranges(
+    start_char: int,
+    end_char: int,
+    protected_ranges: list[tuple[int, int]],
+) -> tuple[int, int]:
+    if not protected_ranges:
+        return start_char, end_char
+    for range_start, range_end in protected_ranges:
+        if range_start <= start_char < range_end:
+            start_char = range_start
+            if end_char < range_end:
+                end_char = range_end
+        if range_start < end_char <= range_end:
+            end_char = range_end
+    return start_char, end_char
+
+
 def _chunk_raw_hybrid(
     text: str,
     tokenizer_name: str,
@@ -146,6 +288,10 @@ def _chunk_raw_hybrid(
     chunk_overlap: int,
     include_metadata: list[str],
     heading_index: tuple[list[int], list[list[str]], list[str]] | None,
+    paragraph_aligned: bool = False,
+    merge_list_items: bool = False,
+    keep_code_blocks: bool = False,
+    keep_tables: bool = False,
 ) -> list[Chunk]:
     """Chunk raw text by tokens while preserving original formatting."""
     if not text:
@@ -172,12 +318,51 @@ def _chunk_raw_hybrid(
             )
         ]
 
+    protected_ranges: list[tuple[int, int]] = []
+    if keep_code_blocks:
+        protected_ranges.extend(_find_fenced_code_ranges(text))
+    if keep_tables:
+        protected_ranges.extend(_find_markdown_table_ranges(text))
+    if merge_list_items:
+        protected_ranges.extend(_find_list_block_ranges(text))
+    protected_ranges = _merge_ranges(protected_ranges)
+
+    blank_line_boundaries = (
+        _find_blank_line_boundaries(text) if paragraph_aligned else []
+    )
+
     chunks: list[Chunk] = []
     start_token = 0
     while start_token < len(tokens):
-        end_token = min(start_token + safe_max_tokens, len(tokens))
+        base_end_token = min(start_token + safe_max_tokens, len(tokens))
         start_char = offsets[start_token]
-        end_char = len(text) if end_token >= len(tokens) else offsets[end_token]
+        base_end_char = (
+            len(text) if base_end_token >= len(tokens) else offsets[base_end_token]
+        )
+        end_char = base_end_char
+
+        if paragraph_aligned:
+            boundary = _find_last_boundary(blank_line_boundaries, start_char, end_char)
+            if boundary:
+                end_char = boundary
+
+        start_char, end_char = _adjust_for_protected_ranges(
+            start_char, end_char, protected_ranges
+        )
+
+        if end_char <= start_char:
+            end_char = base_end_char
+            start_char, end_char = _adjust_for_protected_ranges(
+                start_char, end_char, protected_ranges
+            )
+
+        if end_char <= start_char:
+            end_char = min(len(text), start_char + 1)
+
+        end_token = bisect_right(offsets, max(0, end_char - 1))
+        if end_token <= start_token:
+            end_token = min(start_token + 1, len(tokens))
+
         chunk_text = text[start_char:end_char]
 
         chunk = _build_raw_chunk(
@@ -190,10 +375,10 @@ def _chunk_raw_hybrid(
             heading_index=heading_index,
         )
         if "token_count" in include_metadata:
-            chunk.metadata["token_count"] = end_token - start_token
+            chunk.metadata["token_count"] = _count_tokens(chunk_text, tokenizer_name)
         chunks.append(chunk)
 
-        if end_token >= len(tokens):
+        if end_token >= len(tokens) or end_char >= len(text):
             break
         start_token = end_token - safe_overlap if safe_overlap else end_token
 
@@ -443,6 +628,30 @@ class DoclingProvider(ChunkingProvider):
                         options=["cl100k_base", "p50k_base", "o200k_base"],
                     ),
                     ParameterInfo(
+                        "paragraph_aligned",
+                        "bool",
+                        False,
+                        "Prefer chunk boundaries at blank lines when possible",
+                    ),
+                    ParameterInfo(
+                        "merge_list_items",
+                        "bool",
+                        False,
+                        "Keep contiguous list items together",
+                    ),
+                    ParameterInfo(
+                        "keep_code_blocks",
+                        "bool",
+                        False,
+                        "Avoid splitting fenced code blocks",
+                    ),
+                    ParameterInfo(
+                        "keep_tables",
+                        "bool",
+                        False,
+                        "Avoid splitting markdown tables",
+                    ),
+                    ParameterInfo(
                         "include_metadata",
                         "multiselect",
                         DEFAULT_METADATA,
@@ -485,6 +694,10 @@ class DoclingProvider(ChunkingProvider):
                 tokenizer_name = params.get("tokenizer", "cl100k_base")
                 max_tokens = params.get("max_tokens", 512)
                 chunk_overlap = params.get("chunk_overlap", 50)
+                paragraph_aligned = params.get("paragraph_aligned", False)
+                merge_list_items = params.get("merge_list_items", False)
+                keep_code_blocks = params.get("keep_code_blocks", False)
+                keep_tables = params.get("keep_tables", False)
                 return _chunk_raw_hybrid(
                     text=text,
                     tokenizer_name=tokenizer_name,
@@ -492,6 +705,10 @@ class DoclingProvider(ChunkingProvider):
                     chunk_overlap=chunk_overlap,
                     include_metadata=include_metadata,
                     heading_index=heading_index,
+                    paragraph_aligned=paragraph_aligned,
+                    merge_list_items=merge_list_items,
+                    keep_code_blocks=keep_code_blocks,
+                    keep_tables=keep_tables,
                 )
 
         # Convert text to DoclingDocument

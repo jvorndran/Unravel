@@ -61,15 +61,15 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
     st.write("")
     st.markdown("**Parsing Options**")
 
-    # Global character cap
-    max_characters = st.number_input(
-        "Max characters to parse",
-        min_value=1_000,
-        max_value=1_000_000,
-        step=1_000,
-        value=int(current_parsing_params.get("max_characters", 40_000) or 40_000),
-        key="chunking_config_max_characters",
-        help="Only the first N characters will be parsed. Set to a higher value to process more content.",
+    # Global page cap (Docling formats)
+    max_pages = st.number_input(
+        "Max pages to parse",
+        min_value=1,
+        max_value=1_000,
+        step=1,
+        value=int(current_parsing_params.get("max_pages", 50) or 50),
+        key="chunking_config_max_pages",
+        help="Limits Docling parsing to the first N pages. Set higher to process more content.",
     )
 
     max_threads = max(1, min((os.cpu_count() or 4), 16))
@@ -242,7 +242,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
         "docling_extract_images": docling_extract_images,
         "docling_enable_captioning": docling_enable_captioning,
         "docling_use_native_description": docling_use_native_description,
-        "max_characters": max_characters,
+        "max_pages": max_pages,
     }
 
     st.divider()
@@ -409,7 +409,6 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
 
     # Show status badge at the end, after all widgets are rendered
     st.write("")
-    st.divider()
     status_badge_html = (
         '<span style="background-color: #f59e0b; color: white; padding: 2px 8px; '
         'border-radius: 4px; font-size: 12px; font-weight: 500;">Changes pending</span>'

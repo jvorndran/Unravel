@@ -295,7 +295,6 @@ class TestSaveApplyMultipleChanges:
             at.selectbox(key="sidebar_output_format").set_value("Original Format")
             at.checkbox(key="sidebar_normalize_whitespace").set_value(False)
             at.checkbox(key="sidebar_remove_special_chars").set_value(True)
-            at.number_input(key="sidebar_max_characters").set_value(60000)
 
             submit_btn = get_form_submit_button(at)
             submit_btn.click().run()
@@ -304,7 +303,6 @@ class TestSaveApplyMultipleChanges:
             assert at.session_state["parsing_params"]["output_format"] == "original"
             assert at.session_state["parsing_params"]["normalize_whitespace"] is False
             assert at.session_state["parsing_params"]["remove_special_chars"] is True
-            assert at.session_state["parsing_params"]["max_characters"] == 60000
 
     def test_mixed_parsing_and_chunking_changes(
         self, mock_storage_dir, sidebar_app_script

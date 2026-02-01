@@ -67,7 +67,6 @@ def render_rag_config_sidebar() -> None:
             "docling_device": "auto",
             # Output options
             "output_format": "markdown",
-            "max_characters": 40_000,
         }
 
     # Track applied parameters (what was actually used for processing)

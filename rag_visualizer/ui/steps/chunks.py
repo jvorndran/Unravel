@@ -209,36 +209,6 @@ def render_chunks_step() -> None:
         else 0
     )
 
-    # Stats bar using metric cards
-    cols = st.columns(4)
-    with cols[0]:
-        ui.metric_card(
-            title="Chunks", content=num_chunks, description="total", key="stat_chunks"
-        )
-    with cols[1]:
-        ui.metric_card(
-            title="Avg. Size",
-            content=f"{avg_size}",
-            description="chars",
-            key="stat_size",
-        )
-    with cols[2]:
-        ui.metric_card(
-            title="With Overlap",
-            content=chunks_with_overlap,
-            description="chunks",
-            key="stat_overlap_cnt",
-        )
-    with cols[3]:
-        ui.metric_card(
-            title="Avg. Overlap",
-            content=f"{avg_overlap_size}",
-            description="chars",
-            key="stat_overlap_sz",
-        )
-
-    # View mode selector
-    st.write("")
     view_mode = ui.tabs(
         options=["Visual View", "Raw JSON"],
         default_value="Visual View",

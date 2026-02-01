@@ -24,7 +24,7 @@ from rag_visualizer.utils.ui import apply_custom_styles, render_step_nav
 
 # Page configuration
 st.set_page_config(
-    page_title="RAG Play",
+    page_title="RAG Lens",
     page_icon="R",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -126,7 +126,7 @@ st.query_params["step"] = st.session_state.current_step
 # Render Main Title Section
 st.markdown(
     """<div class="title-container">
-<div class="main-title">RAG Playground</div>
+<div class="main-title">RAG Lens</div>
 <div class="main-subtitle">Explore each step of the RAG pipeline through interactive visualizations</div>
 </div>""",
     unsafe_allow_html=True,
@@ -157,7 +157,7 @@ def render_main_content() -> None:
     else:
         # Home card if no valid step
         with ui.card(key="home_card"):
-            st.markdown("### Welcome to RAG Playground")
+            st.markdown("### Welcome to RAG Lens")
             st.markdown("This interactive tool allows you to visualize and experiment with different stages of a Retrieval-Augmented Generation pipeline.")
             st.markdown("Choose a step above to get started or navigate to the **Upload** section to add your own documents.")
 

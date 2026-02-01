@@ -4,6 +4,7 @@ Supports parsing PDF, TXT, MD, and DOCX files into plain text.
 """
 
 import os
+import inspect
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -30,6 +31,10 @@ from docling.datamodel.accelerator_options import AcceleratorDevice, Accelerator
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import TableStructureOptions
 from docling.document_converter import DocumentConverter, FormatOption
+try:
+    from docling.document_converter import PageRange
+except Exception:
+    PageRange = None
 from docling.pipeline.standard_pdf_pipeline import (  # type: ignore[attr-defined]
     StandardPdfPipeline,
     ThreadedPdfPipelineOptions,
@@ -71,6 +76,44 @@ def _resolve_accelerator_device(device: str) -> AcceleratorDevice:
     return device_map.get(normalized, AcceleratorDevice.AUTO)
 
 
+def _build_table_structure_options(
+    *,
+    enable_table_merging: bool,
+    enable_table_reconstruction: bool,
+) -> TableStructureOptions:
+    """Build table structure options, including optional flags when supported."""
+    kwargs: dict[str, Any] = {"do_cell_matching": True}
+    try:
+        signature = inspect.signature(TableStructureOptions)
+    except (TypeError, ValueError):
+        return TableStructureOptions(**kwargs)
+
+    if "do_table_merging" in signature.parameters:
+        kwargs["do_table_merging"] = enable_table_merging
+    if "do_table_reconstruction" in signature.parameters:
+        kwargs["do_table_reconstruction"] = enable_table_reconstruction
+
+    return TableStructureOptions(**kwargs)
+
+
+def _build_page_range(max_pages_value: int | None) -> Any | None:
+    """Build a Docling PageRange for limiting pages, when supported."""
+    if not max_pages_value:
+        return None
+    if PageRange is None:
+        return (1, max_pages_value)
+    try:
+        signature = inspect.signature(PageRange)
+        if "start" in signature.parameters or "end" in signature.parameters:
+            return PageRange(start=1, end=max_pages_value)
+        return PageRange(1, max_pages_value)
+    except Exception:
+        try:
+            return PageRange(1, max_pages_value)
+        except Exception:
+            return (1, max_pages_value)
+
+
 @dataclass
 class ExtractedImage:
     """An image extracted from a document."""
@@ -100,8 +143,9 @@ def _get_docling_converter(
         ),
         do_ocr=enable_ocr,
         do_table_structure=enable_table_structure,
-        table_structure_options=TableStructureOptions(
-            do_cell_matching=True,
+        table_structure_options=_build_table_structure_options(
+            enable_table_merging=enable_table_merging,
+            enable_table_reconstruction=enable_table_reconstruction,
         ),
         # Disable non-essential outputs for speed
         generate_page_images=False,
@@ -157,8 +201,9 @@ def _get_docling_converter_with_images(
         ),
         do_ocr=enable_ocr,
         do_table_structure=enable_table_structure,
-        table_structure_options=TableStructureOptions(
-            do_cell_matching=True,
+        table_structure_options=_build_table_structure_options(
+            enable_table_merging=enable_table_merging,
+            enable_table_reconstruction=enable_table_reconstruction,
         ),
         # Enable image extraction
         generate_page_images=True,
@@ -293,6 +338,7 @@ def parse_pdf_docling(
             - docling_device: Compute device (auto, cpu, cuda, mps)
             - docling_filter_labels: Labels to filter out (markdown only)
             - docling_extract_images: Extract images from PDF
+            - max_pages: Maximum number of pages to parse
 
     Returns:
         Tuple of (exported_text, extracted_images)
@@ -326,6 +372,15 @@ def parse_pdf_docling(
         except ValueError:
             # Skip invalid label names
             pass
+
+    max_pages = params.get("max_pages")
+    max_pages_value = (
+        int(max_pages)
+        if isinstance(max_pages, int) and max_pages > 0
+        else None
+    )
+    page_range = _build_page_range(max_pages_value)
+    page_range = _build_page_range(max_pages_value)
 
     try:
         import tempfile
@@ -366,7 +421,10 @@ def parse_pdf_docling(
                         enable_table_reconstruction=enable_table_reconstruction_value,
                         use_native_description=use_native_description_value,
                     )
-                result = converter.convert(tmp_path)
+                if page_range:
+                    result = converter.convert(tmp_path, page_range=page_range)
+                else:
+                    result = converter.convert(tmp_path)
                 return result.document
 
             try:
@@ -452,6 +510,7 @@ def parse_with_docling(
             - output_format: Export format (markdown, html, doctags, json)
             - docling_filter_labels: Labels to filter out (markdown only)
             - docling_extract_images: Extract images from document
+            - max_pages: Maximum number of pages to parse
 
     Returns:
         Tuple of (exported_text, extracted_images)
@@ -479,6 +538,13 @@ def parse_with_docling(
         except ValueError:
             pass
 
+    max_pages = params.get("max_pages")
+    max_pages_value = (
+        int(max_pages)
+        if isinstance(max_pages, int) and max_pages > 0
+        else None
+    )
+
     try:
         import tempfile
 
@@ -489,7 +555,10 @@ def parse_with_docling(
 
         try:
             converter = _get_generic_docling_converter(input_format)
-            result = converter.convert(tmp_path)
+            if page_range:
+                result = converter.convert(tmp_path, page_range=page_range)
+            else:
+                result = converter.convert(tmp_path)
             doc = result.document
 
             # Export document in the specified format
@@ -755,11 +824,6 @@ def parse_document(
     # Apply output format conversion (for non-Docling parsers)
     output_format = params.get("output_format", "markdown")
     parsed_text = _convert_to_format(parsed_text, file_format, output_format)
-
-    # Apply global character cap if provided
-    max_chars = params.get("max_characters")
-    if isinstance(max_chars, int) and max_chars > 0 and len(parsed_text) > max_chars:
-        parsed_text = parsed_text[:max_chars]
 
     return parsed_text, file_format, images
 
