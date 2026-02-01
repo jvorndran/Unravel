@@ -1,1 +1,1 @@
-"""Test suite for RAG Visualizer."""
+"""Test suite for RAG Lens."""

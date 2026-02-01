@@ -35,7 +35,7 @@ class TestTextSplittingLibraryDisplay:
     ):
         """Verify chunking provider dropdown is rendered."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -47,7 +47,7 @@ class TestTextSplittingLibraryDisplay:
     ):
         """Verify chunking provider has Docling option."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -59,7 +59,7 @@ class TestTextSplittingLibraryDisplay:
     ):
         """Verify chunking provider defaults to Docling."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -75,7 +75,7 @@ class TestTextSplittingLibrarySessionState:
     ):
         """Verify chunking_params contains provider key."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -88,7 +88,7 @@ class TestTextSplittingLibrarySessionState:
     ):
         """Verify sidebar_chunking_provider session state is initialized."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -104,7 +104,7 @@ class TestTextSplittingStrategyDisplay:
     ):
         """Verify splitter strategy dropdown is rendered."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -116,7 +116,7 @@ class TestTextSplittingStrategyDisplay:
     ):
         """Verify splitter has Hybrid option."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -129,7 +129,7 @@ class TestTextSplittingStrategyDisplay:
     ):
         """Verify splitter dropdown has multiple strategy options."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -145,7 +145,7 @@ class TestTextSplittingStrategySessionState:
     ):
         """Verify chunking_params contains splitter key."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -157,7 +157,7 @@ class TestTextSplittingStrategySessionState:
     ):
         """Verify sidebar_splitter session state is initialized."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -172,7 +172,7 @@ class TestSplitterStrategyUserAction:
     ):
         """Verify user can change splitter strategy."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -197,7 +197,7 @@ class TestSplitterParametersDisplay:
     ):
         """Verify max_tokens number input is rendered for HybridChunker."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -209,7 +209,7 @@ class TestSplitterParametersDisplay:
     ):
         """Verify chunk_overlap number input is rendered for HybridChunker."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -221,7 +221,7 @@ class TestSplitterParametersDisplay:
     ):
         """Verify max_tokens defaults to 512."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -233,7 +233,7 @@ class TestSplitterParametersDisplay:
     ):
         """Verify chunk_overlap defaults to 50."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -249,7 +249,7 @@ class TestSplitterParametersSessionState:
     ):
         """Verify chunking_params contains max_tokens key."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -261,7 +261,7 @@ class TestSplitterParametersSessionState:
     ):
         """Verify chunking_params contains chunk_overlap key."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -277,7 +277,7 @@ class TestSplitterParametersUserAction:
     ):
         """Verify user can change max_tokens value."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -292,7 +292,7 @@ class TestSplitterParametersUserAction:
     ):
         """Verify user can change chunk_overlap value."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -311,7 +311,7 @@ class TestTextSplittingFormSubmission:
     ):
         """Verify form submission updates chunking_params.max_tokens."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -333,7 +333,7 @@ class TestTextSplittingFormSubmission:
     ):
         """Verify form submission updates chunking_params.chunk_overlap."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -352,7 +352,7 @@ class TestTextSplittingFormSubmission:
     ):
         """Verify form submission also updates applied_chunking_params."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -371,7 +371,7 @@ class TestTextSplittingFormSubmission:
     ):
         """Verify form submission updates chunking_params.splitter."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -401,7 +401,7 @@ class TestTextSplittingCombined:
     ):
         """Verify multiple chunking params can be changed in one form submission."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -422,7 +422,7 @@ class TestTextSplittingCombined:
     ):
         """Verify changing chunking params preserves parsing params."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 

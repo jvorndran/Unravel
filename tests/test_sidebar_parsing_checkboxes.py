@@ -30,7 +30,7 @@ class TestNormalizeWhitespaceDisplay:
     ):
         """Verify normalize whitespace checkbox is rendered."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -42,7 +42,7 @@ class TestNormalizeWhitespaceDisplay:
     ):
         """Verify normalize whitespace defaults to True."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -58,7 +58,7 @@ class TestNormalizeWhitespaceSessionState:
     ):
         """Verify parsing_params contains normalize_whitespace key."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -71,7 +71,7 @@ class TestNormalizeWhitespaceSessionState:
     ):
         """Verify pre-set normalize_whitespace value is reflected in checkbox."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script)
             parsing_params = {
@@ -104,7 +104,7 @@ class TestNormalizeWhitespaceUserAction:
     ):
         """Verify checkbox accepts False value (unchecking)."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -119,7 +119,7 @@ class TestNormalizeWhitespaceUserAction:
     ):
         """Verify checkbox can be toggled back to True."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -140,7 +140,7 @@ class TestNormalizeWhitespaceFormSubmission:
     ):
         """Verify form submission updates parsing_params.normalize_whitespace."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -162,7 +162,7 @@ class TestNormalizeWhitespaceFormSubmission:
     ):
         """Verify form submission also updates applied_parsing_params."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -182,7 +182,7 @@ class TestRemoveSpecialCharsDisplay:
     ):
         """Verify remove special characters checkbox is rendered."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -194,7 +194,7 @@ class TestRemoveSpecialCharsDisplay:
     ):
         """Verify remove special characters defaults to False."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -210,7 +210,7 @@ class TestRemoveSpecialCharsSessionState:
     ):
         """Verify parsing_params contains remove_special_chars key."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -223,7 +223,7 @@ class TestRemoveSpecialCharsSessionState:
     ):
         """Verify pre-set remove_special_chars value is reflected in checkbox."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script)
             parsing_params = {
@@ -256,7 +256,7 @@ class TestRemoveSpecialCharsUserAction:
     ):
         """Verify checkbox accepts True value (checking)."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -271,7 +271,7 @@ class TestRemoveSpecialCharsUserAction:
     ):
         """Verify checkbox can be toggled back to False."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -292,7 +292,7 @@ class TestRemoveSpecialCharsFormSubmission:
     ):
         """Verify form submission updates parsing_params.remove_special_chars."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -314,7 +314,7 @@ class TestRemoveSpecialCharsFormSubmission:
     ):
         """Verify form submission also updates applied_parsing_params."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -334,7 +334,7 @@ class TestParsingCheckboxesCombined:
     ):
         """Verify both checkboxes can be changed in the same form submission."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -355,7 +355,7 @@ class TestParsingCheckboxesCombined:
     ):
         """Verify changing checkboxes preserves other parsing params."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 

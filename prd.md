@@ -1,10 +1,10 @@
-# RAG Visualizer - Product Requirements Document
+# RAG Lens - Product Requirements Document
 
 ## 1. Executive Summary
 
-RAG Visualizer is an interactive visual sandbox for experimenting with Retrieval-Augmented Generation (RAG) configurations. The application provides developers and AI practitioners with a local tool to understand how documents are processed, chunked, embedded, and retrieved in RAG pipelines.
+RAG Lens is an interactive visual sandbox for experimenting with Retrieval-Augmented Generation (RAG) configurations. The application provides developers and AI practitioners with a local tool to understand how documents are processed, chunked, embedded, and retrieved in RAG pipelines.
 
-When building RAG systems, developers struggle to understand how their documents are being chunked, how embeddings cluster in vector space, and which chunks get retrieved for different queries. RAG Visualizer addresses these pain points by providing interactive visualizations and configuration options that make the RAG pipeline transparent and experimentable.
+When building RAG systems, developers struggle to understand how their documents are being chunked, how embeddings cluster in vector space, and which chunks get retrieved for different queries. RAG Lens addresses these pain points by providing interactive visualizations and configuration options that make the RAG pipeline transparent and experimentable.
 
 **MVP Goal:** Deliver a fully functional local application that allows users to upload documents, visualize chunking strategies, explore embedding spaces, test retrieval queries, and export production-ready code.
 
@@ -192,7 +192,7 @@ Empower developers to build better RAG systems by making every step of the pipel
 │  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘│
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐│
 │  │ Retrieval│ │   LLM    │ │  Export  │ │     Storage      ││
-│  │ (Dense/  │ │ Service  │ │Generator │ │(~/.rag-visualizer││
+│  │ (Dense/  │ │ Service  │ │Generator │ │(~/.rag-lens││
 │  │  Sparse/ │ │          │ │          │ │                  ││
 │  │  Hybrid) │ │          │ │          │ │                  ││
 │  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘│
@@ -202,7 +202,7 @@ Empower developers to build better RAG systems by making every step of the pipel
 ### Directory Structure
 
 ```
-rag_visualizer/
+rag_lens/
 ├── __init__.py
 ├── __main__.py           # Module entry point
 ├── app.py                # Main Streamlit application
@@ -524,7 +524,7 @@ dev = [
 
 **Local Storage:**
 ```
-~/.rag-visualizer/
+~/.rag-lens/
 ├── documents/     # Uploaded raw documents
 ├── chunks/        # Processed chunk data
 ├── embeddings/    # Cached embeddings
@@ -556,14 +556,14 @@ dev = [
 
 **Local Installation:**
 ```bash
-pip install rag-visualizer
-rag-visualizer --port 8501
+pip install rag-lens
+rag-lens --port 8501
 ```
 
 **Development:**
 ```bash
-git clone https://github.com/rag-visualizer/rag-visualizer.git
-cd rag-visualizer
+git clone https://github.com/rag-lens/rag-lens.git
+cd rag-lens
 pip install -e ".[dev]"
 ```
 
@@ -767,7 +767,7 @@ The MVP is successful when a developer can:
 
 ```
 RAG-Visualizer/
-├── rag_visualizer/       # Main package
+├── rag_lens/       # Main package
 ├── tests/                # Test suite
 ├── docs/                 # Documentation
 ├── .streamlit/           # Streamlit configuration

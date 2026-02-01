@@ -23,7 +23,7 @@ class TestDocumentDropdownDisplay:
     ):
         """Verify dropdown shows all available documents."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -40,7 +40,7 @@ class TestDocumentDropdownDisplay:
     ):
         """Verify dropdown has exactly the number of available documents."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -52,7 +52,7 @@ class TestDocumentDropdownDisplay:
     ):
         """Verify 'Sample Text' is not shown when real documents exist."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -66,7 +66,7 @@ class TestDocumentDropdownDisplay:
         (empty_storage / "config").mkdir(parents=True)
 
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", empty_storage
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", empty_storage
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -84,7 +84,7 @@ class TestDocumentSelectionInitialization:
     ):
         """Verify doc_name defaults to first available document."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -97,7 +97,7 @@ class TestDocumentSelectionInitialization:
     ):
         """Verify doc_name and sidebar_doc_selector are both initialized."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -110,7 +110,7 @@ class TestDocumentSelectionInitialization:
     ):
         """Verify sidebar_doc_selector syncs with pre-set doc_name on load."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script)
             at.session_state["doc_name"] = "document_c.txt"
@@ -124,7 +124,7 @@ class TestDocumentSelectionInitialization:
     ):
         """Verify doc_name and sidebar_doc_selector are synchronized on init."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -146,7 +146,7 @@ class TestDocumentSelectionUserAction:
     ):
         """Verify selectbox widget accepts new value selection."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -168,7 +168,7 @@ class TestDocumentSelectionUserAction:
     ):
         """Verify the Save & Apply form submit button is rendered."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -187,7 +187,7 @@ class TestDocumentSelectionUserAction:
         both doc_name and sidebar_doc_selector should match.
         """
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script)
             at.session_state["doc_name"] = "document_b.pdf"
@@ -206,7 +206,7 @@ class TestDocumentSelectionUserAction:
     ):
         """Verify changing doc_name updates sidebar_doc_selector on next run."""
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             # First run with document_a
             at = AppTest.from_string(sidebar_app_script)
@@ -236,7 +236,7 @@ class TestDocumentSelectionEdgeCases:
         should auto-switch to the first available file (lines 42-51 in sidebar.py).
         """
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script)
             at.session_state["doc_name"] = "Sample Text"
@@ -256,7 +256,7 @@ class TestDocumentSelectionEdgeCases:
         to the first available document (lines 93-97 in sidebar.py).
         """
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script)
             at.session_state["doc_name"] = "nonexistent_file.pdf"
@@ -275,7 +275,7 @@ class TestDocumentSelectionEdgeCases:
         should be cleared (lines 46-51 in sidebar.py).
         """
         with patch(
-            "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script)
             at.session_state["doc_name"] = "Sample Text"

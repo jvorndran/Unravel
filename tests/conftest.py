@@ -85,7 +85,7 @@ def sidebar_app_script() -> str:
     """
     return '''
 import streamlit as st
-from rag_visualizer.ui.sidebar import render_rag_config_sidebar
+from rag_lens.ui.sidebar import render_rag_config_sidebar
 
 # Initialize required session state (mirrors production initialization)
 if "chunking_params" not in st.session_state:
@@ -128,7 +128,7 @@ def chunking_config_app_script() -> str:
     """Return the app script string for testing the chunking config UI."""
     return '''
 import streamlit as st
-from rag_visualizer.ui.components.chunking_config import render_chunking_configuration
+from rag_lens.ui.components.chunking_config import render_chunking_configuration
 
 # Initialize required session state (mirrors production initialization)
 if "chunking_params" not in st.session_state:
@@ -172,5 +172,5 @@ def patched_storage(mock_storage_dir: Path) -> Any:
             at = AppTest.from_string(sidebar_app_script).run()
     """
     return patch(
-        "rag_visualizer.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+        "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
     )

@@ -1,10 +1,10 @@
-# RAG Visualizer
+# RAG Lens
 
 A visual sandbox for experimenting with RAG (Retrieval-Augmented Generation) configurations.
 
 ## Overview
 
-RAG Visualizer helps developers understand and optimize their RAG pipelines through interactive visualizations. Experiment with document parsing, chunking strategies, embedding models, and retrieval configurations—all running locally on your machine.
+RAG Lens helps developers understand and optimize their RAG pipelines through interactive visualizations. Experiment with document parsing, chunking strategies, embedding models, and retrieval configurations—all running locally on your machine.
 
 ## Requirements
 
@@ -17,14 +17,14 @@ RAG Visualizer helps developers understand and optimize their RAG pipelines thro
 ### From PyPI
 
 ```bash
-pip install rag-visualizer
+pip install rag-lens
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/rag-visualizer/rag-visualizer.git
-cd rag-visualizer
+git clone https://github.com/rag-lens/rag-lens.git
+cd rag-lens
 pip install -e .
 ```
 
@@ -33,7 +33,7 @@ pip install -e .
 For contributing to the project, install development tools:
 
 ```bash
-pip install rag-visualizer[dev]
+pip install rag-lens[dev]
 ```
 
 ### GPU Acceleration
@@ -45,7 +45,7 @@ For faster document parsing and embedding generation with CUDA-enabled GPUs, ins
 Simply run the CLI command to launch the Streamlit app:
 
 ```bash
-rag-visualizer
+rag-lens
 ```
 
 This opens the app in your browser at `http://localhost:8501`.
@@ -54,8 +54,8 @@ This opens the app in your browser at `http://localhost:8501`.
 
 To use LLM features (query generation with OpenAI, Anthropic, etc.), configure your API keys:
 
-1. Run `rag-visualizer` once to create the configuration directory
-2. Navigate to `~/.rag-visualizer/` (or `%USERPROFILE%\.rag-visualizer\` on Windows)
+1. Run `rag-lens` once to create the configuration directory
+2. Navigate to `~/.rag-lens/` (or `%USERPROFILE%\.rag-lens\` on Windows)
 3. Edit the `.env` file and add your API key:
    ```bash
    # For OpenAI
@@ -71,7 +71,7 @@ To use LLM features (query generation with OpenAI, Anthropic, etc.), configure y
 ### CLI Options
 
 ```bash
-rag-visualizer --help
+rag-lens --help
 
 Options:
   -p, --port INTEGER  Port to run the Streamlit app on (default: 8501)
@@ -83,7 +83,7 @@ Options:
 ### Running as a Python Module
 
 ```bash
-python -m rag_visualizer
+python -m rag_lens
 ```
 
 ## Features
@@ -137,10 +137,10 @@ python -m rag_visualizer
 
 ## Storage
 
-All data is stored locally in `~/.rag-visualizer/`:
+All data is stored locally in `~/.rag-lens/`:
 
 ```
-~/.rag-visualizer/
+~/.rag-lens/
 ├── documents/          # Uploaded raw documents
 ├── chunks/             # Processed chunk data
 ├── embeddings/         # Cached embeddings
@@ -158,8 +158,8 @@ No data is transmitted to external servers except when using LLM APIs for query 
 
 ```bash
 # Clone the repository
-git clone https://github.com/rag-visualizer/rag-visualizer.git
-cd rag-visualizer
+git clone https://github.com/rag-lens/rag-lens.git
+cd rag-lens
 
 # Install in development mode
 pip install -e ".[dev]"
@@ -174,8 +174,8 @@ pytest
 ### Code Formatting
 
 ```bash
-black rag_visualizer
-ruff check rag_visualizer
+black rag_lens
+ruff check rag_lens
 ```
 
 ## Contributing
