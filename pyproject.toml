@@ -44,6 +44,7 @@ dependencies = [
     "nltk>=3.8",
     "spacy>=3.7",
     "flashrank>=0.2.0",
+    "FlagEmbedding>=1.0",
 ]
 
 [project.optional-dependencies]

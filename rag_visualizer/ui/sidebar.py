@@ -202,19 +202,57 @@ def render_rag_config_sidebar() -> None:
 
     if enable_reranking:
         with st.expander("Reranking Settings", expanded=False):
-            st.markdown("_Using FlashRank library_")
+            from rag_visualizer.services.retrieval.reranking import list_available_rerankers
 
-            rerank_models = [
-                "ms-marco-MiniLM-L-12-v2",
-                "ms-marco-TinyBERT-L-2-v2",
-            ]
+            # Get all available models
+            all_models = list_available_rerankers()
+
+            # Group models by library for better UX
+            libraries = {}
+            for model in all_models:
+                lib = model.get("library", "Other")
+                if lib not in libraries:
+                    libraries[lib] = []
+                libraries[lib].append(model)
+
+            # Show library selector
+            st.markdown("**Model Library**")
+            library_names = list(libraries.keys())
+
+            # Find current library
+            current_model = current_reranking_config.get("model", "ms-marco-MiniLM-L-12-v2")
+            current_library = next(
+                (lib for lib, models in libraries.items()
+                 if any(m["name"] == current_model for m in models)),
+                library_names[0]
+            )
+
+            selected_library = st.radio(
+                "Library",
+                options=library_names,
+                index=library_names.index(current_library),
+                horizontal=True,
+                label_visibility="collapsed",
+                key="sidebar_rerank_library"
+            )
+
+            # Show models from selected library
+            available_models = [m["name"] for m in libraries[selected_library]]
+            current_model_in_lib = current_model if current_model in available_models else available_models[0]
 
             st.selectbox(
                 "Model",
-                options=rerank_models,
-                index=rerank_models.index(current_reranking_config.get("model", rerank_models[0])) if current_reranking_config.get("model") in rerank_models else 0,
-                key="sidebar_rerank_model"
+                options=available_models,
+                index=available_models.index(current_model_in_lib),
+                key="sidebar_rerank_model",
+                help="Select reranking model"
             )
+
+            # Show model description
+            selected_model_name = st.session_state.get("sidebar_rerank_model")
+            model_info = next((m for m in all_models if m["name"] == selected_model_name), None)
+            if model_info:
+                st.caption(f"_{model_info.get('description', '')}_")
 
             st.slider(
                 "Keep top N after reranking",

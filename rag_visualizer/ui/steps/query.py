@@ -518,15 +518,34 @@ def render_query_step() -> None:
             # Add BM25 data to params if needed
             params = retrieval_config.get("params", {}).copy()
             if retrieval_config.get("strategy") in ["SparseRetriever", "HybridRetriever"]:
-                params["bm25_index_data"] = st.session_state.get("bm25_index_data")
+                bm25_data = st.session_state.get("bm25_index_data")
 
-                if not params["bm25_index_data"]:
-                    st.warning("BM25 index not found. Falling back to dense retrieval.")
-                    retrieval_config = {
-                        "strategy": "DenseRetriever",
-                        "params": {}
-                    }
-                    params = {}
+                # Try to build BM25 index if missing
+                if not bm25_data:
+                    with st.spinner("Building BM25 index for sparse/hybrid retrieval..."):
+                        try:
+                            from rag_visualizer.services.retrieval import preprocess_retriever
+
+                            bm25_data = preprocess_retriever(
+                                "SparseRetriever",
+                                vector_store,
+                                **params,
+                            )
+                            st.session_state["bm25_index_data"] = bm25_data
+                        except Exception as e:
+                            st.warning(
+                                f"Failed to build BM25 index: {str(e)}. Falling back to dense retrieval."
+                            )
+                            retrieval_config = {
+                                "strategy": "DenseRetriever",
+                                "params": {}
+                            }
+                            params = {}
+                            bm25_data = None
+
+                # Add to params if we have it
+                if bm25_data:
+                    params["bm25_index_data"] = bm25_data
 
             queries_to_search = [query_text.strip()]
             if query_variations:

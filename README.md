@@ -178,21 +178,6 @@ black rag_visualizer
 ruff check rag_visualizer
 ```
 
-## Tech Stack
-
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| UI Framework | Streamlit | Web application interface |
-| UI Components | streamlit-shadcn-ui | Modern UI components |
-| Visualization | Plotly | Interactive charts |
-| Document Parsing | Docling | Universal document conversion |
-| Embeddings | sentence-transformers | Text embeddings |
-| Vector Search | FAISS | Similarity search and indexing |
-| Dimensionality Reduction | UMAP | 2D embedding visualization |
-| Tokenization | tiktoken | Token counting |
-| CLI | Click | Command-line interface |
-| LLM Integration | OpenAI, Anthropic SDKs | RAG query generation (optional) |
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
