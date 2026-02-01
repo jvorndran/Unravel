@@ -150,7 +150,10 @@ def render_embeddings_step() -> None:
         return
 
     # 2. Embedding Generation (if needed)
-    current_state_key = f"embeddings_{len(chunks)}_{selected_model}_{doc_name}"
+    # Include content hash to detect chunking parameter changes
+    import hashlib
+    content_hash = hashlib.md5(''.join([c.text for c in chunks]).encode()).hexdigest()[:8]
+    current_state_key = f"embeddings_{content_hash}_{selected_model}_{doc_name}"
     
     # Initialize or recover state structure if it's old version
     if "last_embeddings_result" in st.session_state:
@@ -267,9 +270,13 @@ def render_embeddings_step() -> None:
         # Calculate Clusters
         if "cluster_labels" not in state_data:
             with st.spinner("Analyzing semantic clusters..."):
-                # Determine optimal clusters - simple heuristic: sqrt(N/2) capped at 10
-                n_clusters = min(10, max(2, int(np.sqrt(len(chunks) / 2))))
-                labels = cluster_embeddings(state_data["embeddings"], n_clusters=n_clusters)
+                # Don't cluster very small datasets - clustering is meaningless with < 10 chunks
+                if len(chunks) < 10:
+                    labels = np.zeros(len(chunks), dtype=int)
+                else:
+                    # Determine optimal clusters - simple heuristic: sqrt(N/2) capped at 10
+                    n_clusters = min(10, max(2, int(np.sqrt(len(chunks) / 2))))
+                    labels = cluster_embeddings(state_data["embeddings"], n_clusters=n_clusters)
                 state_data["cluster_labels"] = labels
                 st.session_state["last_embeddings_result"] = state_data
         

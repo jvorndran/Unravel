@@ -36,11 +36,17 @@ def reduce_dimensions(
         return np.zeros((0, n_components)), None
 
     if embeddings.shape[0] < 5:
-        # Fallback for very few points where UMAP might fail or be unstable
-        # Just return the first n_components columns (PCA-like) or pad with zeros
-        result = np.zeros((embeddings.shape[0], n_components))
-        cols = min(embeddings.shape[1], n_components)
-        result[:, :cols] = embeddings[:, :cols]
+        # Use PCA for small datasets instead of raw embedding dimensions
+        # Raw dimensions are essentially random and don't represent semantic relationships
+        from sklearn.decomposition import PCA
+        n_comp = min(n_components, embeddings.shape[0], embeddings.shape[1])
+        pca = PCA(n_components=n_comp, random_state=random_state)
+        result = pca.fit_transform(embeddings)
+        # Pad with zeros if needed
+        if result.shape[1] < n_components:
+            padded = np.zeros((result.shape[0], n_components))
+            padded[:, :result.shape[1]] = result
+            result = padded
         return cast(NDArray[Any], result), None
 
     reducer = _get_umap_reducer(n_components, random_state)
@@ -264,21 +270,22 @@ def create_embedding_plot(
 
 def calculate_similarity_matrix(embeddings: NDArray[Any]) -> NDArray[Any]:
     """Calculate pairwise cosine similarities between embeddings.
-    
-    Assumes embeddings are already L2-normalized (which they are from our embedders).
-    For normalized vectors, cosine similarity = dot product.
-    
+
     Args:
-        embeddings: numpy array of shape (n_samples, n_features), L2-normalized
-        
+        embeddings: numpy array of shape (n_samples, n_features)
+
     Returns:
         numpy array of shape (n_samples, n_samples) with similarity scores
     """
     if embeddings.shape[0] == 0:
         return cast(NDArray[Any], np.array([]))
-    
+
+    # Ensure embeddings are L2-normalized for cosine similarity
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    normalized_embeddings = embeddings / (norms + 1e-10)
+
     # For normalized vectors, cosine similarity = dot product
-    similarity_matrix = np.dot(embeddings, embeddings.T)
+    similarity_matrix = np.dot(normalized_embeddings, normalized_embeddings.T)
     return cast(NDArray[Any], similarity_matrix)
 
 

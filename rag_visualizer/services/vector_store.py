@@ -113,6 +113,13 @@ class VectorStore:
         # Ensure embeddings are float32 (required by FAISS)
         embeddings = embeddings.astype(np.float32)
 
+        # For cosine similarity, ensure embeddings are L2-normalized
+        # This is defensive - embedders should already normalize, but we enforce it here
+        if self.metric == "cosine":
+            norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+            # Avoid division by zero for zero vectors
+            embeddings = embeddings / (norms + 1e-10)
+
         # Add to FAISS index
         self.index.add(embeddings)
 
@@ -145,6 +152,12 @@ class VectorStore:
 
         # Ensure float32
         query_embedding = query_embedding.astype(np.float32)
+
+        # For cosine similarity, ensure query embedding is L2-normalized
+        if self.metric == "cosine":
+            norm = np.linalg.norm(query_embedding)
+            if norm > 1e-10:  # Avoid division by zero
+                query_embedding = query_embedding / norm
 
         # Limit k to actual size
         k = min(k, self.size)

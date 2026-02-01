@@ -309,7 +309,11 @@ def render_rag_config_sidebar() -> None:
         # Detect specific changes for targeted cache invalidation
         doc_changed = pending_doc_name != st.session_state.doc_name
         model_changed = pending_embedding_model != st.session_state.embedding_model_name
-        retrieval_changed = pending_retrieval_config != st.session_state.get("retrieval_config", {})
+
+        old_retrieval_config = st.session_state.get("retrieval_config", {})
+        retrieval_strategy_changed = (
+            pending_retrieval_config.get("strategy") != old_retrieval_config.get("strategy")
+        )
 
         # Update session state with pending configuration
         st.session_state.doc_name = pending_doc_name
@@ -324,11 +328,31 @@ def render_rag_config_sidebar() -> None:
                 if key in st.session_state:
                     del st.session_state[key]
 
-        if model_changed or retrieval_changed:
-            # Model or retrieval changed - invalidate embeddings and search results
+        if model_changed:
+            # Embedding model changed - invalidate embeddings and downstream
             for key in ["last_embeddings_result", "bm25_index_data", "search_results"]:
                 if key in st.session_state:
                     del st.session_state[key]
+
+        if retrieval_strategy_changed:
+            # Retrieval strategy changed (e.g., Dense -> Sparse -> Hybrid)
+            # Only need to invalidate BM25 index if switching to/from strategies that use it
+            old_strategy = old_retrieval_config.get("strategy", "DenseRetriever")
+            new_strategy = pending_retrieval_config.get("strategy", "DenseRetriever")
+
+            old_uses_bm25 = old_strategy in ["SparseRetriever", "HybridRetriever"]
+            new_uses_bm25 = new_strategy in ["SparseRetriever", "HybridRetriever"]
+
+            # Only invalidate BM25 index if BM25 usage changed
+            if old_uses_bm25 != new_uses_bm25 and "bm25_index_data" in st.session_state:
+                del st.session_state["bm25_index_data"]
+
+            # Always invalidate search results when strategy changes
+            if "search_results" in st.session_state:
+                del st.session_state["search_results"]
+
+        # Note: Changing fusion method or weights doesn't require cache invalidation
+        # The query step will use new settings on next search
 
         # Save configuration to disk
         current_rag_config = {

@@ -254,15 +254,47 @@ def _get_llm_config_from_sidebar() -> tuple[LLMConfig, str]:
 
 
 def _merge_search_results(results_by_query: list[list[Any]]) -> list[Any]:
-    """Merge results from multiple queries by best score per chunk."""
-    merged: dict[int, Any] = {}
-    for results in results_by_query:
-        for result in results:
-            existing = merged.get(result.index)
-            if existing is None or result.score > existing.score:
-                merged[result.index] = result
+    """Merge results from multiple queries using Reciprocal Rank Fusion.
 
-    return sorted(merged.values(), key=lambda res: res.score, reverse=True)
+    RRF is used instead of max score because similarity scores from different
+    query embeddings are not comparable - they exist in different vector spaces.
+    Rank-based fusion provides more reliable multi-query merging.
+    """
+    if not results_by_query:
+        return []
+
+    if len(results_by_query) == 1:
+        return results_by_query[0]
+
+    rrf_k = 60  # Standard RRF constant
+    rrf_scores: dict[int, float] = {}
+
+    # Calculate RRF scores by summing 1/(k + rank) for each query
+    for results in results_by_query:
+        for rank, result in enumerate(results, 1):
+            current_score = rrf_scores.get(result.index, 0.0)
+            rrf_scores[result.index] = current_score + (1.0 / (rrf_k + rank))
+
+    # Build merged results with RRF scores
+    result_map = {r.index: r for results in results_by_query for r in results}
+    merged = []
+
+    for idx, score in rrf_scores.items():
+        original = result_map[idx]
+        merged.append(
+            type(original)(
+                index=idx,
+                score=score,
+                text=original.text,
+                metadata={
+                    **original.metadata,
+                    "multi_query_rrf_score": score,
+                    "original_score": original.score,
+                },
+            )
+        )
+
+    return sorted(merged, key=lambda r: r.score, reverse=True)
 
 
 def render_query_step() -> None:
@@ -350,15 +382,45 @@ def render_query_step() -> None:
                     value=min(5, vector_store.size),
                     key="top_k_slider"
                 )
-            
+
             with col_threshold:
+                # Get retrieval strategy for threshold configuration
+                retrieval_config_raw = st.session_state.get("retrieval_config")
+                if retrieval_config_raw is None or not isinstance(retrieval_config_raw, dict):
+                    retrieval_strategy = "DenseRetriever"
+                    fusion_method = None
+                else:
+                    retrieval_strategy = retrieval_config_raw.get("strategy", "DenseRetriever")
+                    fusion_method = retrieval_config_raw.get("params", {}).get("fusion_method", "weighted_sum") if retrieval_strategy == "HybridRetriever" else None
+
+                # Strategy-specific threshold defaults and ranges
+                THRESHOLD_CONFIG = {
+                    "DenseRetriever": {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.05},
+                    "SparseRetriever": {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.5},
+                    "HybridRetriever": {
+                        "weighted_sum": {"default": 0.2, "min": 0.0, "max": 1.0, "step": 0.05},
+                        "rrf": {"default": 0.0, "min": 0.0, "max": 0.1, "step": 0.005},
+                    }
+                }
+
+                # Get appropriate threshold config
+                if retrieval_strategy == "HybridRetriever":
+                    threshold_cfg = THRESHOLD_CONFIG[retrieval_strategy][fusion_method]
+                else:
+                    threshold_cfg = THRESHOLD_CONFIG.get(retrieval_strategy, THRESHOLD_CONFIG["DenseRetriever"])
+
+                # Use strategy and fusion method in key to make slider reactive to changes
+                # This ensures the slider regenerates with new config when strategy changes
+                strategy_key = f"{retrieval_strategy}_{fusion_method}" if fusion_method else retrieval_strategy
+
                 threshold = st.slider(
                     "Minimum Similarity Score",
-                    min_value=0.0,
-                    max_value=1.0,
-                    value=0.3,
-                    step=0.05,
-                    key="threshold_slider"
+                    min_value=threshold_cfg["min"],
+                    max_value=threshold_cfg["max"],
+                    value=threshold_cfg["default"],
+                    step=threshold_cfg["step"],
+                    key=f"threshold_slider_{strategy_key}",
+                    help=f"Filter results below this threshold ({retrieval_strategy}{', ' + fusion_method if fusion_method else ''})"
                 )
 
         with st.expander("Query Expansion", expanded=False):

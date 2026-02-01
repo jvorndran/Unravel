@@ -64,7 +64,13 @@ class HybridRetriever(RetrieverProvider):
             return self._rrf_fusion(dense_results, sparse_results, k)
 
     def _normalize_scores(self, scores: list[float]) -> list[float]:
-        """MinMax normalize scores to 0-1 range."""
+        """MinMax normalize scores to 0-1 range.
+
+        When all scores are equal (no variation), returns neutral 0.5 instead
+        of misleading 1.0. This prevents giving maximum weight to retrieval
+        methods that found no variation (e.g., all-zero BM25 scores when no
+        keywords match).
+        """
         if not scores:
             return []
 
@@ -73,7 +79,9 @@ class HybridRetriever(RetrieverProvider):
         score_range = max_score - min_score
 
         if score_range < 1e-10:
-            return [1.0] * len(scores)
+            # All scores equal - return neutral 0.5 instead of misleading 1.0
+            # This prevents giving maximum weight to methods that found no variation
+            return [0.5] * len(scores)
 
         return [(s - min_score) / score_range for s in scores]
 
