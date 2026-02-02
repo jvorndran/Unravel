@@ -269,24 +269,80 @@ def render_rag_config_sidebar() -> None:
     models = list_available_models()
     model_names = [m["name"] for m in models]
 
+    # Create simple display options
+    display_options = []
+    option_to_model = {}
+
+    for model in models:
+        # Strip any prefix from model name for display
+        display_name = model["name"]
+        if "/" in display_name:
+            display_name = display_name.split("/")[-1]
+
+        display_option = f"{display_name}"
+        display_options.append(display_option)
+        option_to_model[display_option] = model["name"]
+
+    # Get current model name
     current_model_name = st.session_state.embedding_model_name
     if current_model_name not in model_names:
         current_model_name = model_names[0]
 
-    if "sidebar_embedding_model" not in st.session_state:
-        st.session_state["sidebar_embedding_model"] = current_model_name
-    elif st.session_state.get("sidebar_embedding_model") not in model_names:
-        st.session_state["sidebar_embedding_model"] = current_model_name
+    # Find current selection in display format
+    current_display_name = current_model_name
+    if "/" in current_display_name:
+        current_display_name = current_display_name.split("/")[-1]
+    current_selection = f"{current_display_name}"
 
-    st.selectbox(
+    # Initialize widget state if not present
+    if "sidebar_embedding_model" not in st.session_state:
+        st.session_state["sidebar_embedding_model"] = current_selection
+    elif st.session_state.get("sidebar_embedding_model") not in display_options:
+        st.session_state["sidebar_embedding_model"] = current_selection
+
+    # Simple selectbox
+    selected_option = st.selectbox(
         "Embedding Model",
-        options=model_names,
-        key="sidebar_embedding_model"
+        options=display_options,
+        key="sidebar_embedding_model",
+        label_visibility="collapsed",
     )
+
+    # Extract model name from selection
+    if selected_option in option_to_model:
+        selected_model_name = option_to_model[selected_option]
+    else:
+        selected_model_name = current_model_name
+
+    # Display model details as caption
+    selected_model_info = next(
+        (m for m in models if m["name"] == selected_model_name), None
+    )
+    if selected_model_info:
+        provider = selected_model_info.get('library', 'N/A')
+        dimension = selected_model_info.get('dimension', 'N/A')
+        size = selected_model_info.get('size', 'N/A').title()
+        use_case = selected_model_info.get('use_case', 'general').replace('-', ' ').title()
+        max_tokens = selected_model_info.get('max_seq_length', 512)
+        params = selected_model_info.get("params_millions", 0)
+        if params >= 1000:
+            params_str = f"{params / 1000:.1f}B"
+        else:
+            params_str = f"{params}M"
+
+        details = (
+            f"**Provider:** {provider}  \n"
+            f"**Dimension:** {dimension}d  \n"
+            f"**Size:** {size}  \n"
+            f"**Use Case:** {use_case}  \n"
+            f"**Max Tokens:** {max_tokens}  \n"
+            f"**Parameters:** {params_str}"
+        )
+        st.caption(details)
 
     # Build pending configuration from widget values
     pending_doc_name = st.session_state.get("sidebar_doc_selector")
-    pending_embedding_model = st.session_state.get("sidebar_embedding_model")
+    pending_embedding_model = selected_model_name
 
     # Build retrieval config from widgets
     retrieval_strategy = st.session_state.get("sidebar_retrieval_strategy", "Dense (FAISS)")

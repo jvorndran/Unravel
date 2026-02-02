@@ -701,21 +701,22 @@ def chunk_text(text: str) -> list[str]:
 '''
 
 # =============================================================================
-# EMBEDDING TEMPLATE
+# EMBEDDING TEMPLATES
 # =============================================================================
 
-EMBEDDING_TEMPLATE = '''"""Embedding Generation with SentenceTransformers
+EMBEDDING_TEMPLATE = '''"""Embedding Generation with {backend_display}
 
+Backend: {backend}
 Model: {model_name}
 Dimension: {dimension}
 Description: {description}
 """
 
-from sentence_transformers import SentenceTransformer
+{import_statement}
 import numpy as np
 
 # Initialize the embedding model
-model = SentenceTransformer("{model_name}")
+{model_init}
 
 
 def generate_embeddings(texts: list[str], batch_size: int = 32) -> np.ndarray:
@@ -728,13 +729,7 @@ def generate_embeddings(texts: list[str], batch_size: int = 32) -> np.ndarray:
     Returns:
         numpy array of shape (len(texts), {dimension})
     """
-    embeddings = model.encode(
-        texts,
-        batch_size=batch_size,
-        show_progress_bar=True,
-        normalize_embeddings=True,  # Recommended for cosine similarity
-        convert_to_numpy=True,
-    )
+{encode_texts_code}
 
     return embeddings
 
@@ -748,7 +743,7 @@ def embed_query(query: str) -> np.ndarray:
     Returns:
         numpy array of shape ({dimension},)
     """
-    return model.encode(query, normalize_embeddings=True, convert_to_numpy=True)
+{encode_query_code}
 
 
 # Example usage:
@@ -761,6 +756,44 @@ def embed_query(query: str) -> np.ndarray:
 # similarities = np.dot(embeddings, query_embedding)  # Cosine similarity (normalized)
 # print(f"Similarities: {{similarities}}")
 '''
+
+# Backend-specific snippets
+EMBEDDING_IMPORTS = {
+    "sentence-transformers": "from sentence_transformers import SentenceTransformer",
+    "flagembedding": "from FlagEmbedding import FlagModel",
+}
+
+EMBEDDING_MODEL_INIT = {
+    "sentence-transformers": 'model = SentenceTransformer("{model_name}")',
+    "flagembedding": 'model = FlagModel("{model_name}", use_fp16=True)',
+}
+
+EMBEDDING_ENCODE_TEXTS = {
+    "sentence-transformers": """    embeddings = model.encode(
+        texts,
+        batch_size=batch_size,
+        show_progress_bar=True,
+        normalize_embeddings=True,  # Recommended for cosine similarity
+        convert_to_numpy=True,
+    )""",
+    "flagembedding": """    embeddings = model.encode(texts, batch_size=batch_size)
+
+    # Normalize embeddings for cosine similarity
+    embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+    embeddings = embeddings.astype(np.float32)""",
+}
+
+EMBEDDING_ENCODE_QUERY = {
+    "sentence-transformers": """    return model.encode(query, normalize_embeddings=True, convert_to_numpy=True)""",
+    "flagembedding": """    embedding = model.encode_queries([query])
+    embedding = embedding / np.linalg.norm(embedding, axis=1, keepdims=True)
+    return embedding[0].astype(np.float32)""",
+}
+
+BACKEND_DISPLAY_NAMES = {
+    "sentence-transformers": "SentenceTransformers",
+    "flagembedding": "FlagEmbedding (BGE)",
+}
 
 # =============================================================================
 # TEMPLATE REGISTRIES

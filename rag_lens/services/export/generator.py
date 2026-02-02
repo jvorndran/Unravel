@@ -5,8 +5,13 @@ from typing import Any
 
 from rag_lens.services.embedders import EMBEDDING_MODELS
 from .templates import (
+    BACKEND_DISPLAY_NAMES,
     CHUNKING_GENERIC,
     CHUNKING_TEMPLATES,
+    EMBEDDING_ENCODE_QUERY,
+    EMBEDDING_ENCODE_TEXTS,
+    EMBEDDING_IMPORTS,
+    EMBEDDING_MODEL_INIT,
     EMBEDDING_TEMPLATE,
     LLM_TEMPLATE,
     PARSING_DOCX,
@@ -34,12 +39,18 @@ SPLITTER_DEPENDENCIES = {
     "PythonCodeTextSplitter": ["langchain-text-splitters"],
     "HTMLHeaderTextSplitter": ["langchain-text-splitters"],
     "RecursiveJsonSplitter": ["langchain-text-splitters"],
-    "SentenceTransformersTokenTextSplitter": ["langchain-text-splitters", "sentence-transformers"],
+    "SentenceTransformersTokenTextSplitter": [
+        "langchain-text-splitters",
+        "sentence-transformers",
+    ],
     "NLTKTextSplitter": ["langchain-text-splitters", "nltk"],
     "SpacyTextSplitter": ["langchain-text-splitters", "spacy"],
 }
 
-EMBEDDING_DEPENDENCIES = ["sentence-transformers", "numpy"]
+EMBEDDING_DEPENDENCIES = {
+    "sentence-transformers": ["sentence-transformers", "numpy"],
+    "flagembedding": ["FlagEmbedding", "numpy"],
+}
 
 
 @dataclass
@@ -190,18 +201,49 @@ def _generate_generic_chunking(splitter_name: str, params: dict[str, Any]) -> st
 
 
 def generate_embedding_code(config: ExportConfig) -> str:
-    """Generate embedding generation code."""
-    model_name = config.embedding_model
-    model_info = EMBEDDING_MODELS.get(model_name, {
-        "dimension": 384,
-        "description": "Custom embedding model",
-    })
+    """Generate embedding code based on model backend.
 
-    return EMBEDDING_TEMPLATE.format(
+    Args:
+        config: Export configuration with embedding_model
+
+    Returns:
+        Python code string for embedding generation
+    """
+    model_name = config.embedding_model
+
+    # Get model info from registry
+    if model_name in EMBEDDING_MODELS:
+        model_info = EMBEDDING_MODELS[model_name]
+        backend = model_info["backend"]
+        dimension = model_info["dimension"]
+        description = model_info["description"]
+    else:
+        # Fallback for unknown models
+        backend = "sentence-transformers"
+        dimension = 768
+        description = "Custom embedding model"
+
+    # Get backend-specific code snippets
+    import_statement = EMBEDDING_IMPORTS[backend]
+    model_init = EMBEDDING_MODEL_INIT[backend].format(model_name=model_name)
+    encode_texts_code = EMBEDDING_ENCODE_TEXTS[backend]
+    encode_query_code = EMBEDDING_ENCODE_QUERY[backend]
+    backend_display = BACKEND_DISPLAY_NAMES[backend]
+
+    # Format template
+    code = EMBEDDING_TEMPLATE.format(
+        backend=backend,
+        backend_display=backend_display,
         model_name=model_name,
-        dimension=model_info["dimension"],
-        description=model_info["description"],
+        dimension=dimension,
+        description=description,
+        import_statement=import_statement,
+        model_init=model_init,
+        encode_texts_code=encode_texts_code,
+        encode_query_code=encode_query_code,
     )
+
+    return code
 
 
 def generate_retrieval_code(config: ExportConfig) -> str | None:
@@ -423,8 +465,15 @@ def generate_installation_command(config: ExportConfig) -> str:
     splitter_deps = SPLITTER_DEPENDENCIES.get(splitter, [])
     deps.update(splitter_deps)
 
-    # Embedding dependencies
-    deps.update(EMBEDDING_DEPENDENCIES)
+    # Embedding dependencies (backend-specific)
+    if config.embedding_model in EMBEDDING_MODELS:
+        backend = EMBEDDING_MODELS[config.embedding_model]["backend"]
+        embedding_deps = EMBEDDING_DEPENDENCIES.get(
+            backend, ["sentence-transformers", "numpy"]
+        )
+        deps.update(embedding_deps)
+    else:
+        deps.update(["sentence-transformers", "numpy"])
 
     # Retrieval dependencies
     if config.retrieval_strategy in ["SparseRetriever", "HybridRetriever"]:

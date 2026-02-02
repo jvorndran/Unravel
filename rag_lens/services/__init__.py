@@ -6,6 +6,10 @@ from rag_lens.services.chunking import (
     get_chunks,
     get_provider_splitters,
 )
+from rag_lens.services.embedding_backends import (
+    EmbedderBackend,
+    get_backend,
+)
 from rag_lens.services.embedders import (
     DEFAULT_MODEL,
     EMBEDDING_MODELS,
@@ -39,6 +43,9 @@ __all__ = [
     "get_chunks",
     "get_available_providers",
     "get_provider_splitters",
+    # Embedding Backends
+    "EmbedderBackend",
+    "get_backend",
     # Embeddings
     "Embedder",
     "get_embedder",

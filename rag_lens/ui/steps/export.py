@@ -85,31 +85,6 @@ def render_export_step() -> None:
         llm_config=llm_config,
     )
 
-    # Configuration summary
-    summary = get_config_summary(config)
-    st.write("")
-
-    with st.container(border=True):
-        cols = st.columns([2, 1, 1, 1])
-
-        with cols[0]:
-            st.markdown(f"**Parser:** {summary['parser']}")
-            st.markdown(f"**Splitter:** {summary['splitter']}")
-
-        with cols[1]:
-            chunk_size_label = summary.get('chunk_size_key', 'chunk_size')
-            display_label = "Max Tokens" if chunk_size_label == "max_tokens" else "Chunk Size"
-            st.markdown(f"**{display_label}:** {summary['chunk_size']}")
-
-        with cols[2]:
-            st.markdown(f"**Overlap:** {summary['chunk_overlap']}")
-
-        with cols[3]:
-            st.markdown(f"**Model:** {summary['embedding_model']}")
-
-        st.caption(f"File format: {summary['file_format']} | Copy each snippet to use in your application")
-
-    st.write("")
 
     # Installation section
     st.markdown("### Installation")
