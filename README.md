@@ -93,7 +93,6 @@ Advanced multi-format document ingestion powered by Docling:
 - **Output Formats**: Generate parsed content as Markdown, HTML, DocTags, or JSON
 - **Configurable Processing**: Thread settings and OCR options for optimal performance
 
-![Document Upload](docs/images/upload.png)
 
 ### Step 2: Chunk Visualization
 Flexible text splitting with transparent, visual chunk inspection:
@@ -105,8 +104,6 @@ Flexible text splitting with transparent, visual chunk inspection:
 - **Visual Chunk Cards**: Display full text with section breadcrumbs, metadata badges, and overlap highlighting
 - **Context Preview**: Expandable previews showing how chunks overlap with neighbors for seamless retrieval
 
-![Chunk Visualization](docs/images/chunks.png)
-
 ### Step 3: Embedding Explorer
 Visualize and analyze your document embeddings:
 - **10+ Embedding Models**: Choose from sentence-transformers models (all-MiniLM, all-mpnet, paraphrase variants), multilingual, QA-optimized, and BGE embeddings
@@ -116,8 +113,6 @@ Visualize and analyze your document embeddings:
 - **Color Coding Options**: Visualize by document or KMeans clustering to identify semantic groupings
 - **Outlier Detection**: Identify and analyze outlier chunks that may have unusual embeddings
 - **Detailed Inspection**: Hover over points to preview chunks, click to view full details
-
-![Embedding Explorer](docs/images/embeddings.png)
 
 ### Step 4: Query Testing
 End-to-end RAG testing with multiple retrieval strategies:
@@ -129,8 +124,6 @@ End-to-end RAG testing with multiple retrieval strategies:
 - **LLM Answer Generation**: Integrate OpenAI, Anthropic, or local models (Ollama, LM Studio) to generate answers from retrieved chunks
 - **Flexible Configuration**: Customize temperature, max tokens, system prompts, and API keys
 - **Detailed Results**: View ranked chunks with similarity scores, source locations, and generated answers with full transparency
-
-![Query Testing](docs/images/query.png)
 
 ### Step 5: Code Export
 Generate production-ready Python code capturing your exact configuration:
