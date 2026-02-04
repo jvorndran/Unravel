@@ -308,6 +308,15 @@ def render_query_step() -> None:
         return
     
     # Extract data from state
+    vector_store_error = embeddings_data.get("vector_store_error")
+    if vector_store_error:
+        st.warning(
+            "Stored vector data could not be loaded. "
+            "Please regenerate embeddings."
+        )
+        _render_empty_state()
+        return
+
     vector_store = embeddings_data.get("vector_store")
     model_name = embeddings_data.get("model", DEFAULT_MODEL)
 

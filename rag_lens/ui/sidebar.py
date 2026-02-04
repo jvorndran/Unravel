@@ -128,9 +128,9 @@ def render_rag_config_sidebar() -> None:
             "params": {}
         }
 
-    retrieval_strategies = ["Dense (FAISS)", "Sparse (BM25)", "Hybrid"]
+    retrieval_strategies = ["Dense (Qdrant)", "Sparse (BM25)", "Hybrid"]
     strategy_map = {
-        "Dense (FAISS)": "DenseRetriever",
+        "Dense (Qdrant)": "DenseRetriever",
         "Sparse (BM25)": "SparseRetriever",
         "Hybrid": "HybridRetriever"
     }
@@ -142,7 +142,7 @@ def render_rag_config_sidebar() -> None:
 
     current_strategy_display = reverse_strategy_map.get(
         current_retrieval_config.get("strategy", "DenseRetriever"),
-        "Dense (FAISS)"
+        "Dense (Qdrant)"
     )
 
     if "sidebar_retrieval_strategy" not in st.session_state:
@@ -345,7 +345,10 @@ def render_rag_config_sidebar() -> None:
     pending_embedding_model = selected_model_name
 
     # Build retrieval config from widgets
-    retrieval_strategy = st.session_state.get("sidebar_retrieval_strategy", "Dense (FAISS)")
+    retrieval_strategy = st.session_state.get(
+        "sidebar_retrieval_strategy",
+        "Dense (Qdrant)",
+    )
     pending_retrieval_params = {}
 
     if retrieval_strategy == "Hybrid":

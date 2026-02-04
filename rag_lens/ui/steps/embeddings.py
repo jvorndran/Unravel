@@ -17,6 +17,7 @@ from rag_lens.services.retrieval import (
     retrieve,
 )
 from rag_lens.services.storage import (
+    get_storage_dir,
     load_document,
     save_session_state,
 )
@@ -160,14 +161,22 @@ def render_embeddings_step() -> None:
         state_data = st.session_state["last_embeddings_result"]
         # Migration: Add projections dict if missing
         if "projections" not in state_data:
-            # If we have legacy reduced_embeddings, move it to projections[2]
+            # If we have legacy reduced_embeddings, move it to projections by dimension
             if "reduced_embeddings" in state_data:
+                components = state_data.get("reduced_embeddings_components")
+                if not isinstance(components, int):
+                    components = int(state_data["reduced_embeddings"].shape[1])
                 state_data["projections"] = {
-                    2: (state_data["reduced_embeddings"], state_data["reducer"])
+                    components: (
+                        state_data["reduced_embeddings"],
+                        state_data["reducer"],
+                    )
                 }
                 # Clean up legacy keys
                 del state_data["reduced_embeddings"]
                 del state_data["reducer"]
+                if "reduced_embeddings_components" in state_data:
+                    del state_data["reduced_embeddings_components"]
             else:
                  state_data["projections"] = {}
         
@@ -177,16 +186,75 @@ def render_embeddings_step() -> None:
             
         st.session_state["last_embeddings_result"] = state_data
 
-    # Generate if key changed or not present
-    if "last_embeddings_result" not in st.session_state or \
-       st.session_state["last_embeddings_result"].get("key") != current_state_key:
+    # Generate if key changed, data missing, or store invalid
+    needs_regeneration = False
+    vector_store_locked = False
+    if "last_embeddings_result" not in st.session_state:
+        needs_regeneration = True
+    else:
+        state_data = st.session_state["last_embeddings_result"]
+        if state_data.get("key") != current_state_key:
+            needs_regeneration = True
+        elif state_data.get("vector_store_error"):
+            error_message = str(state_data.get("vector_store_error"))
+            if "already accessed by another instance" in error_message:
+                embeddings = state_data.get("embeddings")
+                if embeddings is None or embeddings.shape[0] == 0:
+                    st.error(
+                        "Stored vector data is locked by another process. "
+                        "Stop the other instance or run a Qdrant server for "
+                        "concurrent access, then refresh."
+                    )
+                    return
+                st.warning(
+                    "Stored vector data is locked by another process. "
+                    "Semantic search is disabled until the lock is released."
+                )
+                vector_store_locked = True
+            if not vector_store_locked:
+                st.warning(
+                    "Stored vector data could not be loaded. Regenerating embeddings."
+                )
+                needs_regeneration = True
+        else:
+            vector_store = state_data.get("vector_store")
+            if not vector_store or vector_store.size == 0:
+                needs_regeneration = True
+            else:
+                embeddings = state_data.get("embeddings")
+                if embeddings is None or embeddings.shape[0] == 0:
+                    embeddings = vector_store.get_all_embeddings()
+                    if embeddings.shape[0] == 0:
+                        needs_regeneration = True
+                    else:
+                        state_data["embeddings"] = embeddings
+                        st.session_state["last_embeddings_result"] = state_data
+                if not needs_regeneration and embeddings.shape[0] != len(chunks):
+                    needs_regeneration = True
+
+    if needs_regeneration:
         
         with st.spinner(f"Generating embeddings for {len(chunks)} chunks..."):
             try:
                 texts = [c.text for c in chunks]
                 embeddings, dimension = generate_embeddings(texts, selected_model)
 
-                vector_store = create_vector_store(dimension=dimension)
+                vector_store_path = get_storage_dir() / "session" / "current_vector_store"
+                try:
+                    vector_store = create_vector_store(
+                        dimension=dimension,
+                        storage_path=vector_store_path,
+                    )
+                    vector_store.clear()
+                except Exception as exc:
+                    if "already accessed by another instance" in str(exc):
+                        st.error(
+                            "The local Qdrant storage is already in use by another "
+                            "process. Stop the other instance or run a Qdrant server "
+                            "for concurrent access."
+                        )
+                        return
+                    raise
                 vector_store.add(embeddings, texts, metadata=[c.metadata for c in chunks])
 
                 # Initial 2D projection - just to have it, though we will default to 3D now
@@ -199,6 +267,8 @@ def render_embeddings_step() -> None:
                     "projections": {
                         3: (reduced_embeddings, reducer)
                     },
+                    "reduced_embeddings": reduced_embeddings,
+                    "reduced_embeddings_components": 3,
                     "chunks": chunks,
                     "model": selected_model,
                 }
@@ -237,13 +307,17 @@ def render_embeddings_step() -> None:
 
     # Load data from state
     state_data = st.session_state["last_embeddings_result"]
-    vector_store = state_data["vector_store"]
+    vector_store = state_data.get("vector_store")
     model_name = state_data.get("model", selected_model)
     
     # Ensure raw embeddings are available (might be missing if loaded from disk/legacy)
     if "embeddings" not in state_data:
+        if vector_store is None:
+            st.error("Embeddings are missing. Please regenerate embeddings.")
+            return
         state_data["embeddings"] = vector_store.get_all_embeddings()
         st.session_state["last_embeddings_result"] = state_data
+    embeddings = state_data["embeddings"]
 
     # Recreate embedder on-demand (lightweight - model loads lazily)
     embedder = get_embedder(model_name)
@@ -261,7 +335,7 @@ def render_embeddings_step() -> None:
         # Ensure projection exists for selected mode
         if n_components not in state_data["projections"]:
             with st.spinner(f"Calculating 3D projection..."):
-                reduced, reducer = reduce_dimensions(state_data["embeddings"], n_components=n_components)
+                reduced, reducer = reduce_dimensions(embeddings, n_components=n_components)
                 state_data["projections"][n_components] = (reduced, reducer)
                 st.session_state["last_embeddings_result"] = state_data # Update session state
         
@@ -270,13 +344,13 @@ def render_embeddings_step() -> None:
         # Calculate Clusters
         if "cluster_labels" not in state_data:
             with st.spinner("Analyzing semantic clusters..."):
-                # Don't cluster very small datasets - clustering is meaningless with < 10 chunks
-                if len(chunks) < 10:
+                # Don't cluster very small or empty datasets
+                if len(chunks) < 10 or embeddings.shape[0] == 0:
                     labels = np.zeros(len(chunks), dtype=int)
                 else:
                     # Determine optimal clusters - simple heuristic: sqrt(N/2) capped at 10
                     n_clusters = min(10, max(2, int(np.sqrt(len(chunks) / 2))))
-                    labels = cluster_embeddings(state_data["embeddings"], n_clusters=n_clusters)
+                    labels = cluster_embeddings(embeddings, n_clusters=n_clusters)
                 state_data["cluster_labels"] = labels
                 st.session_state["last_embeddings_result"] = state_data
         
@@ -308,6 +382,12 @@ def render_embeddings_step() -> None:
             st.session_state.search_results = None
 
         if submit_button and query_text and query_text.strip():
+            if vector_store is None or vector_store_locked:
+                st.warning(
+                    "Semantic search is unavailable while the vector store is locked."
+                )
+                st.session_state.search_results = None
+                return
             with st.spinner("Calculating similarity..."):
                 # Embedder is already created above - no fallback needed
                 query_embedding = embedder.embed_query(query_text)
@@ -476,7 +556,7 @@ def render_embeddings_step() -> None:
         st.caption("Analyze how similar your chunks are to each other and identify outliers")
         
         # Get embeddings from vector store
-        vectors = vector_store.get_all_embeddings()
+        vectors = embeddings
         
         if len(vectors) < 2:
             st.info("Need at least 2 chunks for similarity analysis.")

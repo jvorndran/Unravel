@@ -117,7 +117,7 @@ Visualize and analyze your document embeddings:
 ### Step 4: Query Testing
 End-to-end RAG testing with multiple retrieval strategies:
 - **Three Retrieval Methods**:
-  - **Dense (FAISS)**: Vector similarity search using embeddings for semantic matching
+  - **Dense (Qdrant)**: Vector similarity search using embeddings for semantic matching
   - **Sparse (BM25)**: Keyword-based search for exact term matching
   - **Hybrid**: Combines dense and sparse with configurable fusion methods (weighted sum or reciprocal rank fusion)
 - **Reranking (Optional)**: Cross-encoder reranking to re-score and improve retrieval relevance
@@ -142,7 +142,7 @@ All data is stored locally in `~/.rag-lens/`:
 ├── documents/          # Uploaded raw documents
 ├── chunks/             # Processed chunk data
 ├── embeddings/         # Cached embeddings
-├── indices/            # FAISS vector indices
+├── indices/            # Vector indices (Qdrant storage)
 ├── session_state.json  # UI state persistence
 ├── llm_config.json     # LLM configuration
 └── rag_config.json     # RAG pipeline settings

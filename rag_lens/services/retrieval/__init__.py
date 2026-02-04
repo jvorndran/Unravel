@@ -1,7 +1,7 @@
 """Retrieval service for RAG-Visualizer.
 
 Provides multiple retrieval strategies:
-- Dense: Vector similarity using FAISS
+- Dense: Vector similarity using Qdrant
 - Sparse: Keyword search using BM25
 - Hybrid: Combined dense + sparse with score fusion
 """

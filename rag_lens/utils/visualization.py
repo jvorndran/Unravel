@@ -10,21 +10,26 @@ from sklearn.cluster import KMeans
 
 
 @st.cache_resource
-def _get_umap_reducer(n_components: int = 2, random_state: int = 42) -> umap.UMAP:
+def _get_umap_reducer(
+    n_components: int = 2, random_state: int | None = None
+) -> umap.UMAP:
     """Get or create a cached UMAP reducer."""
-    return umap.UMAP(n_components=n_components, random_state=random_state)
+    kwargs: dict[str, Any] = {"n_components": n_components}
+    if random_state is not None:
+        kwargs["random_state"] = random_state
+    return umap.UMAP(**kwargs)
 
 
 @st.cache_data
 def reduce_dimensions(
-    embeddings: NDArray[Any], n_components: int = 2, random_state: int = 42
+    embeddings: NDArray[Any], n_components: int = 2, random_state: int | None = None
 ) -> tuple[NDArray[Any], umap.UMAP | None]:
     """Reduce dimensionality of embeddings using UMAP.
 
     Args:
         embeddings: numpy array of shape (n_samples, n_features)
         n_components: The dimension of the space to embed into
-        random_state: Random state for reproducibility
+        random_state: Optional random state for reproducibility
 
     Returns:
         Tuple containing:
@@ -40,7 +45,10 @@ def reduce_dimensions(
         # Raw dimensions are essentially random and don't represent semantic relationships
         from sklearn.decomposition import PCA
         n_comp = min(n_components, embeddings.shape[0], embeddings.shape[1])
-        pca = PCA(n_components=n_comp, random_state=random_state)
+        pca_kwargs: dict[str, Any] = {"n_components": n_comp}
+        if random_state is not None:
+            pca_kwargs["random_state"] = random_state
+        pca = PCA(**pca_kwargs)
         result = pca.fit_transform(embeddings)
         # Pad with zeros if needed
         if result.shape[1] < n_components:

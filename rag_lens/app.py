@@ -1,5 +1,7 @@
 """Main Streamlit application for RAG Lens."""
 
+import os
+
 import streamlit as st
 import streamlit_shadcn_ui as ui
 
@@ -21,6 +23,8 @@ from rag_lens.ui.steps import (
     render_upload_step,
 )
 from rag_lens.utils.ui import apply_custom_styles, render_step_nav
+
+os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(os.cpu_count() or 1))
 
 # Page configuration
 st.set_page_config(

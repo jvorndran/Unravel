@@ -57,7 +57,7 @@ def ensure_storage_dir() -> Path:
         ├── documents/     # Uploaded raw documents
         ├── chunks/        # Processed chunk data
         ├── embeddings/    # Cached embeddings
-        └── indices/       # FAISS vector indices
+        └── indices/       # Vector indices (Qdrant storage)
 
     Returns:
         Path to the storage directory
@@ -381,6 +381,11 @@ def save_session_state(state_data: dict[str, Any]) -> None:
         # The embedder will be recreated from the model name on-demand
         serializable["embeddings_key"] = emb_result.get("key", "")
         serializable["embeddings_model"] = emb_result.get("model", "")
+
+        embeddings = emb_result.get("embeddings")
+        if embeddings is not None:
+            np.save(state_dir / "embeddings.npy", embeddings)
+            serializable["has_embeddings"] = True
         
         # Save reduced embeddings as numpy file
         reduced_emb = emb_result.get("reduced_embeddings")
@@ -390,11 +395,17 @@ def save_session_state(state_data: dict[str, Any]) -> None:
                 reduced_emb,
             )
             serializable["has_reduced_embeddings"] = True
+            serializable["reduced_embeddings_components"] = emb_result.get(
+                "reduced_embeddings_components"
+            )
         
         # Save vector store
         if "vector_store" in emb_result and emb_result["vector_store"] is not None:
             vs_path = state_dir / VECTOR_STORE_DIR
-            emb_result["vector_store"].save(vs_path)
+            vector_store = emb_result["vector_store"]
+            if vs_path.exists() and vector_store.storage_path.resolve() != vs_path.resolve():
+                shutil.rmtree(vs_path)
+            vector_store.save(vs_path)
             serializable["has_vector_store"] = True
 
     # Save retrieval config
@@ -469,15 +480,30 @@ def load_session_state() -> dict[str, Any] | None:
         }
         
         # Load reduced embeddings
+        embeddings_path = state_dir / "embeddings.npy"
+        if serializable.get("has_embeddings") and embeddings_path.exists():
+            emb_result["embeddings"] = np.load(embeddings_path)
+
         reduced_path = state_dir / "reduced_embeddings.npy"
         if serializable.get("has_reduced_embeddings") and reduced_path.exists():
             emb_result["reduced_embeddings"] = np.load(reduced_path)
             emb_result["reducer"] = None  # UMAP reducer can't be easily serialized
+            emb_result["reduced_embeddings_components"] = serializable.get(
+                "reduced_embeddings_components"
+            )
         
         # Load vector store
         vs_path = state_dir / VECTOR_STORE_DIR
         if serializable.get("has_vector_store") and vs_path.exists():
-            emb_result["vector_store"] = VectorStore.load(vs_path)
+            try:
+                emb_result["vector_store"] = VectorStore.load(vs_path)
+            except Exception as exc:
+                emb_result["vector_store_error"] = str(exc)
+                if "already accessed by another instance" not in str(exc):
+                    try:
+                        shutil.rmtree(vs_path)
+                    except OSError:
+                        pass
         
         # Include chunks reference
         if "chunks" in state_data:

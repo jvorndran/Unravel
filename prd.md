@@ -158,7 +158,7 @@ Empower developers to build better RAG systems by making every step of the pipel
 
 **US-8.1:** As a developer, I want to experiment with different retrieval strategies (dense, sparse, hybrid), so that I can optimize retrieval quality for my use case.
 
-*Example:* User switches between Dense (FAISS), Sparse (BM25), and Hybrid retrieval, comparing which strategy returns the most relevant chunks for technical documentation vs. general narrative text.
+*Example:* User switches between Dense (Qdrant), Sparse (BM25), and Hybrid retrieval, comparing which strategy returns the most relevant chunks for technical documentation vs. general narrative text.
 
 **US-8.2:** As a developer, I want to enable reranking to improve my retrieval results, so that I can maximize answer quality.
 
@@ -188,7 +188,7 @@ Empower developers to build better RAG systems by making every step of the pipel
 │                      Services Layer                          │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐│
 │  │ Parsers  │ │ Chunking │ │Embedders │ │ Vector Store     ││
-│  │ (Docling)│ │(Docling) │ │(ST)      │ │ (FAISS)          ││
+│  │ (Docling)│ │(Docling) │ │(ST)      │ │ (Qdrant)         ││
 │  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘│
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐│
 │  │ Retrieval│ │   LLM    │ │  Export  │ │     Storage      ││
@@ -223,7 +223,7 @@ rag_lens/
 │   │   └── providers/
 │   │       ├── __init__.py
 │   │       ├── base.py   # Provider interface
-│   │       ├── dense.py  # FAISS retriever
+│   │       ├── dense.py  # Qdrant retriever
 │   │       ├── sparse.py # BM25 retriever
 │   │       └── hybrid.py # Combined retriever
 │   ├── embedders.py      # Embedding generation
@@ -233,7 +233,7 @@ rag_lens/
 │   │   └── templates.py  # Code templates
 │   ├── llm.py            # LLM integration
 │   ├── storage.py        # Local persistence
-│   └── vector_store.py   # FAISS operations
+│   └── vector_store.py   # Qdrant operations
 ├── ui/
 │   ├── sidebar.py        # Configuration sidebar
 │   └── steps/
@@ -403,7 +403,7 @@ Default metadata: Section Hierarchy, Element Type
 
 | Strategy | Description | Best For |
 |----------|-------------|----------|
-| Dense (FAISS) | Vector similarity search using embeddings | Semantic search, finding conceptually similar content |
+| Dense (Qdrant) | Vector similarity search using embeddings | Semantic search, finding conceptually similar content |
 | Sparse (BM25) | Keyword-based search using BM25 algorithm | Exact keyword matches, technical terms |
 | Hybrid | Combines dense + sparse with score fusion | Best of both worlds, robust retrieval |
 
@@ -443,7 +443,7 @@ Default metadata: Section Hierarchy, Element Type
 - Document parsing code with exact configuration
 - Chunking setup with selected strategy
 - Embedding generation with chosen model
-- FAISS index creation and querying
+- Qdrant index creation and querying
 - Complete requirements.txt
 
 ---
@@ -528,7 +528,7 @@ dev = [
 ├── documents/     # Uploaded raw documents
 ├── chunks/        # Processed chunk data
 ├── embeddings/    # Cached embeddings
-├── indices/       # FAISS vector indices
+├── indices/       # Vector indices (Qdrant storage)
 ├── session/
 │   ├── session_state.json
 │   ├── bm25_index.pkl        # BM25 sparse index
@@ -628,7 +628,7 @@ The MVP is successful when a developer can:
 - ✅ Document upload and PDF parsing
 - ✅ Basic text chunking
 - ✅ Embedding generation with sentence-transformers
-- ✅ FAISS vector indexing
+- ✅ Qdrant vector indexing
 - ✅ Simple query interface
 
 **Validation:** User can upload PDF, chunk it, embed it, and query it.
@@ -676,7 +676,7 @@ The MVP is successful when a developer can:
 **Goal:** Enhance retrieval quality with multiple strategies
 
 **Deliverables:**
-- ✅ Dense retrieval (FAISS vector similarity)
+- ✅ Dense retrieval (Qdrant vector similarity)
 - ✅ Sparse retrieval (BM25 keyword search)
 - ✅ Hybrid retrieval (combined dense + sparse with score fusion)
 - ✅ Weighted sum and Reciprocal Rank Fusion (RRF) methods
@@ -760,7 +760,7 @@ The MVP is successful when a developer can:
 | Docling | https://docling-project.github.io/docling/ |
 | Streamlit | https://docs.streamlit.io/ |
 | sentence-transformers | https://www.sbert.net/ |
-| FAISS | https://faiss.ai/ |
+| Qdrant | https://qdrant.tech/ |
 | UMAP | https://umap-learn.readthedocs.io/ |
 
 ### Repository Structure

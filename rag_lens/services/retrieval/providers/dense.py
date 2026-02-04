@@ -1,4 +1,4 @@
-"""Dense retriever using FAISS vector search."""
+"""Dense retriever using Qdrant vector search."""
 
 from typing import TYPE_CHECKING, Any
 
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 class DenseRetriever(RetrieverProvider):
-    """Dense retrieval using FAISS vector similarity search."""
+    """Dense retrieval using Qdrant vector similarity search."""
 
     @property
     def name(self) -> str:
@@ -20,8 +20,8 @@ class DenseRetriever(RetrieverProvider):
         return [
             RetrieverInfo(
                 name="DenseRetriever",
-                display_name="Dense (FAISS)",
-                description="Vector similarity search using FAISS",
+                display_name="Dense (Qdrant)",
+                description="Vector similarity search using Qdrant",
                 category="Retrieval",
             )
         ]
