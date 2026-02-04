@@ -6,12 +6,6 @@ A visual sandbox for experimenting with RAG (Retrieval-Augmented Generation) con
 
 RAG Lens helps developers understand and optimize their RAG pipelines through interactive visualizations. Experiment with document parsing, chunking strategies, embedding models, and retrieval configurations—all running locally on your machine.
 
-## Requirements
-
-- Python 3.9, 3.10, 3.11, or 3.12
-- 4GB+ RAM recommended (for embedding models)
-- Optional: CUDA-compatible GPU for acceleration
-
 ## Installation
 
 ### From PyPI
@@ -88,52 +82,63 @@ python -m rag_lens
 
 ## Features
 
-### Document Upload
-- Multi-format support: PDF, DOCX, PPTX, XLSX, HTML, Markdown, TXT, Images
-- Powered by Docling for advanced document parsing
-- OCR support for scanned documents and images
-- Table structure extraction and preservation
-- Content filtering by document element type
-- Configurable output formats (Markdown, HTML, DocTags, JSON)
+RAG Lens guides you through a structured 5-step pipeline for building and testing RAG systems:
+
+### Step 1: Document Upload
+Advanced multi-format document ingestion powered by Docling:
+- **Supported Formats**: PDF, DOCX, PPTX, XLSX, HTML, Markdown, TXT, and Images (PNG, JPG, BMP, TIFF)
+- **Advanced Parsing**: OCR support for scanned documents and images
+- **Structure Preservation**: Intelligent table structure extraction and hierarchical layout understanding
+- **Content Filtering**: Selective extraction by element type (headers, footers, code blocks, etc.)
+- **Output Formats**: Generate parsed content as Markdown, HTML, DocTags, or JSON
+- **Configurable Processing**: Thread settings and OCR options for optimal performance
 
 ![Document Upload](docs/images/upload.png)
 
-### Chunk Visualization
-- Multiple chunking strategies (Hierarchical, Hybrid)
-- Token-aware chunking with configurable limits and overlap
-- Visual chunk cards with metadata badges
-- Section hierarchy breadcrumbs for context
-- Overlap highlighting
-- Expandable context previews
-- Configurable metadata fields
+### Step 2: Chunk Visualization
+Flexible text splitting with transparent, visual chunk inspection:
+- **Two Chunking Strategies**:
+  - **Hierarchical Chunker**: One chunk per document element, preserving semantic structure
+  - **Hybrid Chunker**: Token-aware splitting with configurable limits and overlap for consistency
+- **Token-Aware Configuration**: Set maximum chunk size (default: 512 tokens) and overlap percentage
+- **Rich Metadata**: Attach configurable metadata to each chunk (section hierarchy, element type, token count, heading text, page numbers)
+- **Visual Chunk Cards**: Display full text with section breadcrumbs, metadata badges, and overlap highlighting
+- **Context Preview**: Expandable previews showing how chunks overlap with neighbors for seamless retrieval
 
 ![Chunk Visualization](docs/images/chunks.png)
 
-### Embedding Explorer
-- Multiple embedding models via sentence-transformers
-- 2D UMAP visualization of embedding space
-- Interactive Plotly scatter plots
-- Outlier detection and analysis
-- Color coding by document or cluster
-- Click-to-inspect chunk details
+### Step 3: Embedding Explorer
+Visualize and analyze your document embeddings:
+- **10+ Embedding Models**: Choose from sentence-transformers models (all-MiniLM, all-mpnet, paraphrase variants), multilingual, QA-optimized, and BGE embeddings
+- **Fast Startup**: Lazy model loading ensures snappy UI responsiveness
+- **GPU Acceleration**: Automatic CUDA detection and acceleration when available
+- **2D UMAP Visualization**: Interactive scatter plot showing embedding space with cluster analysis
+- **Color Coding Options**: Visualize by document or KMeans clustering to identify semantic groupings
+- **Outlier Detection**: Identify and analyze outlier chunks that may have unusual embeddings
+- **Detailed Inspection**: Hover over points to preview chunks, click to view full details
 
 ![Embedding Explorer](docs/images/embeddings.png)
 
-### Query Testing
-- Semantic search with adjustable top-K results
-- Cosine similarity scoring
-- Retrieved chunk highlighting
-- Query visualization on embedding plot
-- LLM integration for RAG answer generation
-- Support for OpenAI, Anthropic, and OpenAI-compatible local models
+### Step 4: Query Testing
+End-to-end RAG testing with multiple retrieval strategies:
+- **Three Retrieval Methods**:
+  - **Dense (FAISS)**: Vector similarity search using embeddings for semantic matching
+  - **Sparse (BM25)**: Keyword-based search for exact term matching
+  - **Hybrid**: Combines dense and sparse with configurable fusion methods (weighted sum or reciprocal rank fusion)
+- **Reranking (Optional)**: Cross-encoder reranking to re-score and improve retrieval relevance
+- **LLM Answer Generation**: Integrate OpenAI, Anthropic, or local models (Ollama, LM Studio) to generate answers from retrieved chunks
+- **Flexible Configuration**: Customize temperature, max tokens, system prompts, and API keys
+- **Detailed Results**: View ranked chunks with similarity scores, source locations, and generated answers with full transparency
 
 ![Query Testing](docs/images/query.png)
 
-### Code Export
-- Production-ready Python code generation
-- Exact configuration preservation
-- Complete requirements.txt with dependencies
-- Ready-to-run scripts for deployment
+### Step 5: Code Export
+Generate production-ready Python code capturing your exact configuration:
+- **Complete Implementation Code**: Exports working Python snippets for parsing, chunking, embedding, retrieval, and reranking
+- **Exact Configuration Preservation**: Every parameter and choice is captured in the generated code
+- **Dependencies Management**: Complete requirements.txt with all necessary libraries and pinned versions
+- **Copy-Paste Ready**: Integration-ready code for immediate deployment to your application
+- **Supports All Features**: Includes code for parsing options, chunking strategies, embedding models, retrieval methods, and LLM configuration
 
 ## Storage
 
