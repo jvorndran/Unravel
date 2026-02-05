@@ -22,6 +22,7 @@ from rag_lens.ui.steps import (
     render_query_step,
     render_upload_step,
 )
+from rag_lens.utils.qdrant_manager import ensure_qdrant_server
 from rag_lens.utils.ui import apply_custom_styles, render_step_nav
 
 os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(os.cpu_count() or 1))
@@ -36,6 +37,10 @@ st.set_page_config(
 
 # Ensure storage directory exists
 ensure_storage_dir()
+
+# Ensure local Qdrant server is available (Docker)
+if "qdrant_url" not in st.session_state:
+    st.session_state.qdrant_url = ensure_qdrant_server()
 
 # --- Restore persisted session state on refresh ---
 if "session_restored" not in st.session_state:

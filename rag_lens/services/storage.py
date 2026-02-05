@@ -496,7 +496,8 @@ def load_session_state() -> dict[str, Any] | None:
         vs_path = state_dir / VECTOR_STORE_DIR
         if serializable.get("has_vector_store") and vs_path.exists():
             try:
-                emb_result["vector_store"] = VectorStore.load(vs_path)
+                qdrant_url = st.session_state.get("qdrant_url")
+                emb_result["vector_store"] = VectorStore.load(vs_path, url=qdrant_url)
             except Exception as exc:
                 emb_result["vector_store_error"] = str(exc)
                 if "already accessed by another instance" not in str(exc):

@@ -17,15 +17,26 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
 
-_CLIENTS: dict[Path, QdrantClient] = {}
+_PATH_CLIENTS: dict[Path, QdrantClient] = {}
+_URL_CLIENTS: dict[str, QdrantClient] = {}
 
 
-def _get_client(storage_path: Path) -> QdrantClient:
+def _get_client(storage_path: Path | None = None, url: str | None = None) -> QdrantClient:
+    if url:
+        client = _URL_CLIENTS.get(url)
+        if client is None:
+            client = QdrantClient(url=url)
+            _URL_CLIENTS[url] = client
+        return client
+
+    if storage_path is None:
+        raise ValueError("storage_path is required when url is not provided.")
+
     storage_path = storage_path.resolve()
-    client = _CLIENTS.get(storage_path)
+    client = _PATH_CLIENTS.get(storage_path)
     if client is None:
         client = QdrantClient(path=str(storage_path))
-        _CLIENTS[storage_path] = client
+        _PATH_CLIENTS[storage_path] = client
     return client
 
 
@@ -49,6 +60,7 @@ class VectorStore:
         metric: str = "cosine",
         storage_path: Path | None = None,
         collection_name: str = "rag_lens_chunks",
+        url: str | None = None,
     ) -> None:
         """Initialize the vector store.
 
@@ -61,12 +73,13 @@ class VectorStore:
         self.dimension = dimension
         self.metric = metric
         self.collection_name = collection_name
+        self._url = url
         self._storage_path = (
             Path(storage_path)
             if storage_path is not None
             else Path(tempfile.mkdtemp(prefix="rag_lens_qdrant_"))
         )
-        self._client = _get_client(self._storage_path)
+        self._client = _get_client(storage_path=self._storage_path, url=url)
         self._ensure_collection()
 
         self._texts: list[str] = []
@@ -143,6 +156,10 @@ class VectorStore:
     @property
     def storage_path(self) -> Path:
         return self._storage_path
+
+    @property
+    def url(self) -> str | None:
+        return self._url
 
     def add(
         self,
@@ -335,7 +352,7 @@ class VectorStore:
             json.dump(metadata, f, indent=2, default=str)
 
     @classmethod
-    def load(cls, path: Path) -> "VectorStore":
+    def load(cls, path: Path, url: str | None = None) -> "VectorStore":
         """Load a vector store from disk.
 
         Args:
@@ -356,13 +373,27 @@ class VectorStore:
             metric=metadata["metric"],
             storage_path=path,
             collection_name=metadata.get("collection_name", "rag_lens_chunks"),
+            url=url,
         )
         store._load_payload_cache()
         return store
 
 
+def _resolve_qdrant_url(url: str | None) -> str | None:
+    if url:
+        return url
+    try:
+        import streamlit as st
+    except ModuleNotFoundError:
+        return None
+    return st.session_state.get("qdrant_url")
+
+
 def create_vector_store(
-    dimension: int, metric: str = "cosine", storage_path: Path | None = None
+    dimension: int,
+    metric: str = "cosine",
+    storage_path: Path | None = None,
+    url: str | None = None,
 ) -> VectorStore:
     """Factory function to create a vector store.
 
@@ -374,5 +405,17 @@ def create_vector_store(
     Returns:
         New VectorStore instance
     """
-    return VectorStore(dimension=dimension, metric=metric, storage_path=storage_path)
+    resolved_url = _resolve_qdrant_url(url)
+    if resolved_url:
+        from rag_lens.services.storage import ensure_storage_dir, get_indices_dir
+
+        ensure_storage_dir()
+        storage_path = get_indices_dir()
+
+    return VectorStore(
+        dimension=dimension,
+        metric=metric,
+        storage_path=storage_path,
+        url=resolved_url,
+    )
 

@@ -413,7 +413,7 @@ Default metadata: Section Hierarchy, Element Type
   - **Weighted Sum:** Combines normalized scores with configurable weights
   - **Reciprocal Rank Fusion (RRF):** Rank-based fusion for combining result lists
 
-**Reranking (Optional):**
+**Reranking:**
 - Cross-encoder reranking using FlashRank
 - Improves result quality by reordering with more accurate models
 - Configurable models:

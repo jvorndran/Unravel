@@ -26,14 +26,16 @@ from rag_lens.ui.components.chunk_viewer import (
     prepare_chunk_display_data,
     render_chunk_cards,
 )
+from rag_lens.ui.components.qdrant_dashboard import render_qdrant_dashboard
 from rag_lens.utils.parsers import parse_document
+from rag_lens.utils.qdrant_manager import (
+    get_qdrant_status,
+    restart_qdrant_server,
+)
 from rag_lens.utils.visualization import (
-    calculate_similarity_matrix,
-    create_embedding_plot,
-    create_similarity_histogram,
-    find_outliers,
-    reduce_dimensions,
     cluster_embeddings,
+    create_embedding_plot,
+    reduce_dimensions,
 )
 
 
@@ -319,8 +321,69 @@ def render_embeddings_step() -> None:
         st.session_state["last_embeddings_result"] = state_data
     embeddings = state_data["embeddings"]
 
+    qdrant_url = st.session_state.get("qdrant_url")
+    if qdrant_url and vector_store is not None:
+        if getattr(vector_store, "url", None) != qdrant_url:
+            with st.spinner("Syncing embeddings to Qdrant server..."):
+                try:
+                    vector_store_path = get_storage_dir() / "session" / "current_vector_store"
+                    server_store = create_vector_store(
+                        dimension=embeddings.shape[1],
+                        storage_path=vector_store_path,
+                    )
+                    server_store.clear()
+                    texts = [c.text for c in chunks]
+                    server_store.add(
+                        embeddings,
+                        texts,
+                        metadata=[c.metadata for c in chunks],
+                    )
+                    state_data["vector_store"] = server_store
+                    st.session_state["last_embeddings_result"] = state_data
+                    vector_store = server_store
+                except Exception as err:
+                    st.warning(f"Failed to sync embeddings to Qdrant server: {err}")
+
     # Recreate embedder on-demand (lightweight - model loads lazily)
     embedder = get_embedder(model_name)
+
+    # --- Qdrant Status Header ---
+    qdrant_status = get_qdrant_status()
+    is_running = qdrant_status.get("running", False)
+    
+    # Modern, minimal status card
+    with st.container(border=True):
+        # Layout: Status & URL (80%) | Action (20%)
+        # vertical_alignment="center" requires Streamlit >= 1.31
+        col_status, col_action = st.columns([4, 1], vertical_alignment="center")
+
+        with col_status:
+            if is_running:
+                url = qdrant_status.get('url', '')
+                if url:
+                    st.markdown(
+                        f"**Qdrant Status** &nbsp; <span style='color: #16a34a; background-color: #dcfce7; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Running</span> &nbsp; <a href='{url + "/dashboard#/collections"}' target='_blank' style='color: #4b5563; text-decoration: none; border-bottom: 1px dotted #9ca3af;'>{url + "/dashboard#/collections"} ↗</a>",
+                        unsafe_allow_html=True
+                    )
+            else:
+                error_msg = "Docker not found" if not qdrant_status.get("docker_available") else "Connection lost"
+                st.markdown(
+                    f"**Qdrant Status** &nbsp; <span style='color: #dc2626; background-color: #fee2e2; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Stopped</span> &nbsp; <span style='color: #ef4444; font-size: 0.9em;'>{error_msg}</span>",
+                    unsafe_allow_html=True
+                )
+
+        with col_action:
+            if st.button("Restart", key="restart_qdrant_header_btn", use_container_width=True):
+                with st.spinner("..."):
+                    restart_qdrant_server()
+                st.rerun()
+
+        # Contextual Warnings/Errors
+        if not is_running and qdrant_status.get("error"):
+             st.markdown(f"<div style='margin-top: 8px; font-size: 0.85em; color: #dc2626; background: #fef2f2; padding: 8px; border-radius: 4px;'>{qdrant_status['error']}</div>", unsafe_allow_html=True)
+        
+        if is_running and qdrant_status.get("mount_type") == "bind":
+             st.markdown(f"<div style='margin-top: 8px; font-size: 0.85em; color: #854d0e; background: #fef9c3; padding: 8px; border-radius: 4px;'>⚠️ <b>Performance Note:</b> Using bind mount on Windows (slower I/O).</div>", unsafe_allow_html=True)
 
     # 4. Tabs for Content Organization
     active_tab = ui.tabs(options=["Visual Explorer", "Vector Analysis"], default_value="Visual Explorer", key="embed_main_tabs")
@@ -551,96 +614,4 @@ def render_embeddings_step() -> None:
 
     # --- TAB 2: Vector Analysis ---
     elif active_tab == "Vector Analysis":
-        st.write("")
-        st.markdown("#### Semantic Cohesion & Outliers")
-        st.caption("Analyze how similar your chunks are to each other and identify outliers")
-        
-        # Get embeddings from vector store
-        vectors = embeddings
-        
-        if len(vectors) < 2:
-            st.info("Need at least 2 chunks for similarity analysis.")
-        else:
-            # Calculate similarity matrix
-            with st.spinner("Analyzing vector space..."):
-                similarity_matrix = calculate_similarity_matrix(vectors)
-                
-                # Calculate global metrics
-                # Get upper triangle (excluding diagonal) for pairwise similarities
-                n = similarity_matrix.shape[0]
-                upper_triangle_indices = np.triu_indices(n, k=1)
-                pairwise_similarities = similarity_matrix[upper_triangle_indices]
-                
-                avg_similarity = float(pairwise_similarities.mean())
-                embedding_variance = float(vectors.var())
-                
-                # Find outliers
-                outliers = find_outliers(vectors, chunks, n_outliers=5)
-            
-            # Display global metrics
-            st.write("")
-            col_m1, col_m2, col_m3 = st.columns(3)
-            with col_m1:
-                ui.metric_card(
-                    title="Avg. Similarity",
-                    content=f"{avg_similarity:.3f}",
-                    description="Higher = more cohesive",
-                    key="metric_avg_sim"
-                )
-            with col_m2:
-                ui.metric_card(
-                    title="Embedding Variance",
-                    content=f"{embedding_variance:.4f}",
-                    description="Spread in vector space",
-                    key="metric_variance"
-                )
-            with col_m3:
-                ui.metric_card(
-                    title="Total Chunks",
-                    content=len(chunks),
-                    description="analyzed",
-                    key="metric_chunks_analyzed"
-                )
-            
-            # Similarity Distribution
-            st.write("")
-            with st.container(border=True):
-                st.markdown("##### Similarity Distribution")
-                st.caption("How similar are chunks to each other? Peaks near 1.0 indicate high cohesion.")
-                
-                fig_hist = create_similarity_histogram(similarity_matrix)
-                st.plotly_chart(fig_hist, width='stretch')
-            
-            # Outlier Analysis
-            st.write("")
-            st.markdown("##### Least Similar Chunks (Potential Outliers)")
-            st.caption("These chunks are semantically distant from the rest. They may represent unique concepts, noise, or structural elements like headers.")
-            
-            if outliers:
-                # Prepare data for chunk viewer component
-                outlier_chunks = [o['chunk'] for o in outliers]
-                outlier_display_data = prepare_chunk_display_data(
-                    chunks=outlier_chunks,
-                    source_text=None,
-                    calculate_overlap=False,
-                )
-                
-                # Add similarity score as custom badge
-                custom_badges = [
-                    {
-                        "label": "Sim",
-                        "value": f"{o['avg_similarity']:.3f}",
-                        "color": "#fef3c7"
-                    }
-                    for o in outliers
-                ]
-                
-                # Render using the reusable component in card mode
-                render_chunk_cards(
-                    chunk_display_data=outlier_display_data,
-                    custom_badges=custom_badges,
-                    show_overlap=False,
-                    display_mode="card",
-                )
-            else:
-                st.info("No outliers detected.")
+        render_qdrant_dashboard()
