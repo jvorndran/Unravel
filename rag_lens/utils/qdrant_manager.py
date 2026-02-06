@@ -133,13 +133,22 @@ def get_qdrant_status() -> dict[str, str | bool | None]:
     }
 
 
-def restart_qdrant_server() -> str | None:
+def restart_qdrant_server() -> str:
+    """Restart the Qdrant server container.
+
+    Returns:
+        Qdrant URL after restart
+
+    Raises:
+        RuntimeError: If Docker is unavailable or restart fails
+    """
     if not _docker_available():
-        st.session_state["qdrant_start_error"] = (
+        error_msg = (
             "Docker is not available. Install Docker Desktop and make sure "
             "it is running to start the local Qdrant server."
         )
-        return None
+        st.session_state["qdrant_start_error"] = error_msg
+        raise RuntimeError(error_msg)
 
     subprocess.run(
         ["docker", "restart", QDRANT_CONTAINER_NAME],
@@ -152,30 +161,60 @@ def restart_qdrant_server() -> str | None:
 
 
 @st.cache_resource(show_spinner=False)
-def ensure_qdrant_server() -> str | None:
-    """Ensure Qdrant server is running and return its URL."""
+def ensure_qdrant_server() -> str:
+    """Ensure Qdrant server is running and return its URL.
+
+    Returns:
+        Qdrant URL if server is running or was started successfully
+
+    Raises:
+        RuntimeError: If Docker is unavailable or server fails to start
+    """
+    # Check if already running
     if _is_port_open(QDRANT_HOST, QDRANT_PORT):
         st.session_state.pop("qdrant_start_error", None)
+        st.session_state["qdrant_startup_status"] = "running"
         return QDRANT_URL
 
+    # Check Docker availability
     if not _docker_available():
-        st.session_state["qdrant_start_error"] = (
+        error_msg = (
             "Docker is not available. Install Docker Desktop and make sure "
-            "it is running to start the local Qdrant server."
+            "the Docker daemon is running to use the Qdrant server."
         )
-        return None
+        st.session_state["qdrant_start_error"] = error_msg
+        st.session_state["qdrant_startup_status"] = "docker_unavailable"
+        raise RuntimeError(error_msg)
 
+    # Try to start/create container
     ensure_storage_dir()
-    _start_or_create_container()
+    st.session_state["qdrant_startup_status"] = "starting"
 
-    for _ in range(20):
+    try:
+        _start_or_create_container()
+    except Exception as e:
+        error_msg = f"Failed to start Qdrant container: {e}"
+        st.session_state["qdrant_start_error"] = error_msg
+        st.session_state["qdrant_startup_status"] = "start_failed"
+        raise RuntimeError(error_msg) from e
+
+    # Wait for server to become healthy
+    for i in range(20):
         if _is_port_open(QDRANT_HOST, QDRANT_PORT) and _is_healthy(QDRANT_URL):
             st.session_state.pop("qdrant_start_error", None)
+            st.session_state["qdrant_startup_status"] = "running"
             return QDRANT_URL
         time.sleep(0.5)
 
-    st.session_state["qdrant_start_error"] = (
-        "Qdrant did not become healthy. Ensure Docker is installed, running, "
-        "and that port 6333 is free, then reload."
+    # Timeout - server didn't become healthy
+    error_msg = (
+        "Qdrant container started but did not become healthy within 10 seconds. "
+        "Ensure Docker is running properly and port 6333 is free, then reload."
     )
-    return QDRANT_URL if _is_port_open(QDRANT_HOST, QDRANT_PORT) else None
+    st.session_state["qdrant_start_error"] = error_msg
+    st.session_state["qdrant_startup_status"] = "unhealthy"
+
+    # If port is at least open, return URL as it may still be usable
+    if _is_port_open(QDRANT_HOST, QDRANT_PORT):
+        return QDRANT_URL
+    raise RuntimeError(error_msg)

@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 import numpy as np
@@ -70,6 +71,76 @@ def render_embeddings_step() -> None:
     # --- Main Header ---
     st.markdown("## Embeddings & Similarity")
     st.caption("Visualize how your document chunks are represented in vector space and test semantic search.")
+
+    # --- Docker/Qdrant Requirement Check ---
+    qdrant_url = st.session_state.get("qdrant_url")
+    if not qdrant_url:
+        # Docker not available - block embeddings functionality
+        with st.container(border=True):
+            st.error("**Docker Required for Embeddings**")
+            st.markdown(
+                """
+                This feature requires Qdrant vector database, which runs via Docker.
+
+                **To enable embeddings:**
+                1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+                2. Start Docker Desktop
+                3. Refresh this page
+
+                The Chunks step still works without Docker.
+                """
+            )
+        return
+
+    # --- Qdrant Status Header ---
+    qdrant_status = get_qdrant_status()
+    is_running = qdrant_status.get("running", False)
+
+    # Modern, minimal status card
+    with st.container(border=True):
+        # Layout: Status & URL (80%) | Action (20%)
+        col_status, col_action = st.columns([4, 1], vertical_alignment="center")
+
+        with col_status:
+            if is_running:
+                url = qdrant_status.get('url', '')
+                if url:
+                    dashboard_url = url + "/dashboard"
+                    st.markdown(
+                        f"**Qdrant Status** &nbsp; <span style='color: #16a34a; background-color: #dcfce7; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Running</span> &nbsp; <a href='{dashboard_url}' target='_blank' style='color: #4b5563; text-decoration: none; border-bottom: 1px dotted #9ca3af;'>{dashboard_url} ↗</a>",
+                        unsafe_allow_html=True
+                    )
+            else:
+                error_msg = "Docker not found" if not qdrant_status.get("docker_available") else "Connection lost"
+                st.markdown(
+                    f"**Qdrant Status** &nbsp; <span style='color: #dc2626; background-color: #fee2e2; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Stopped</span> &nbsp; <span style='color: #ef4444; font-size: 0.9em;'>{error_msg}</span>",
+                    unsafe_allow_html=True
+                )
+
+        with col_action:
+            if st.button("Restart", key="restart_qdrant_header_btn", use_container_width=True):
+                with st.spinner("..."):
+                    try:
+                        restart_qdrant_server()
+                        st.rerun()
+                    except RuntimeError as e:
+                        st.error(str(e))
+
+        # Contextual Warnings/Errors
+        if not is_running and qdrant_status.get("error"):
+            error_text = str(qdrant_status['error'])
+            st.markdown(
+                f"<div style='margin-top: 8px; font-size: 0.85em; color: #dc2626; background: #fef2f2; padding: 8px; border-radius: 4px; word-wrap: break-word; overflow-wrap: break-word;'>{error_text}</div>",
+                unsafe_allow_html=True
+            )
+
+        if is_running and qdrant_status.get("mount_type") == "bind":
+            st.markdown(
+                "<div style='margin-top: 8px; font-size: 0.85em; color: #854d0e; background: #fef9c3; padding: 8px; border-radius: 4px;'>Performance Note: Using bind mount on Windows (slower I/O).</div>",
+                unsafe_allow_html=True
+            )
+
+    st.write("")
 
     # Check if document is selected
     if not selected_doc:
@@ -190,7 +261,6 @@ def render_embeddings_step() -> None:
 
     # Generate if key changed, data missing, or store invalid
     needs_regeneration = False
-    vector_store_locked = False
     if "last_embeddings_result" not in st.session_state:
         needs_regeneration = True
     else:
@@ -198,26 +268,11 @@ def render_embeddings_step() -> None:
         if state_data.get("key") != current_state_key:
             needs_regeneration = True
         elif state_data.get("vector_store_error"):
-            error_message = str(state_data.get("vector_store_error"))
-            if "already accessed by another instance" in error_message:
-                embeddings = state_data.get("embeddings")
-                if embeddings is None or embeddings.shape[0] == 0:
-                    st.error(
-                        "Stored vector data is locked by another process. "
-                        "Stop the other instance or run a Qdrant server for "
-                        "concurrent access, then refresh."
-                    )
-                    return
-                st.warning(
-                    "Stored vector data is locked by another process. "
-                    "Semantic search is disabled until the lock is released."
-                )
-                vector_store_locked = True
-            if not vector_store_locked:
-                st.warning(
-                    "Stored vector data could not be loaded. Regenerating embeddings."
-                )
-                needs_regeneration = True
+            # Vector store had an error - regenerate
+            st.warning(
+                "Stored vector data could not be loaded. Regenerating embeddings."
+            )
+            needs_regeneration = True
         else:
             vector_store = state_data.get("vector_store")
             if not vector_store or vector_store.size == 0:
@@ -248,15 +303,20 @@ def render_embeddings_step() -> None:
                         storage_path=vector_store_path,
                     )
                     vector_store.clear()
-                except Exception as exc:
-                    if "already accessed by another instance" in str(exc):
-                        st.error(
-                            "The local Qdrant storage is already in use by another "
-                            "process. Stop the other instance or run a Qdrant server "
-                            "for concurrent access."
+                except RuntimeError as exc:
+                    # Docker/Qdrant not available
+                    st.error(str(exc))
+                    with st.expander("How to fix this"):
+                        st.markdown(
+                            """
+                            1. Install Docker Desktop if not installed
+                            2. Start Docker Desktop application
+                            3. Wait for "Docker is running" status
+                            4. Refresh this page
+                            """
                         )
-                        return
-                    raise
+                    return
+
                 vector_store.add(embeddings, texts, metadata=[c.metadata for c in chunks])
 
                 # Initial 2D projection - just to have it, though we will default to 3D now
@@ -347,45 +407,7 @@ def render_embeddings_step() -> None:
     # Recreate embedder on-demand (lightweight - model loads lazily)
     embedder = get_embedder(model_name)
 
-    # --- Qdrant Status Header ---
-    qdrant_status = get_qdrant_status()
-    is_running = qdrant_status.get("running", False)
-    
-    # Modern, minimal status card
-    with st.container(border=True):
-        # Layout: Status & URL (80%) | Action (20%)
-        # vertical_alignment="center" requires Streamlit >= 1.31
-        col_status, col_action = st.columns([4, 1], vertical_alignment="center")
-
-        with col_status:
-            if is_running:
-                url = qdrant_status.get('url', '')
-                if url:
-                    st.markdown(
-                        f"**Qdrant Status** &nbsp; <span style='color: #16a34a; background-color: #dcfce7; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Running</span> &nbsp; <a href='{url + "/dashboard#/collections"}' target='_blank' style='color: #4b5563; text-decoration: none; border-bottom: 1px dotted #9ca3af;'>{url + "/dashboard#/collections"} ↗</a>",
-                        unsafe_allow_html=True
-                    )
-            else:
-                error_msg = "Docker not found" if not qdrant_status.get("docker_available") else "Connection lost"
-                st.markdown(
-                    f"**Qdrant Status** &nbsp; <span style='color: #dc2626; background-color: #fee2e2; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Stopped</span> &nbsp; <span style='color: #ef4444; font-size: 0.9em;'>{error_msg}</span>",
-                    unsafe_allow_html=True
-                )
-
-        with col_action:
-            if st.button("Restart", key="restart_qdrant_header_btn", use_container_width=True):
-                with st.spinner("..."):
-                    restart_qdrant_server()
-                st.rerun()
-
-        # Contextual Warnings/Errors
-        if not is_running and qdrant_status.get("error"):
-             st.markdown(f"<div style='margin-top: 8px; font-size: 0.85em; color: #dc2626; background: #fef2f2; padding: 8px; border-radius: 4px;'>{qdrant_status['error']}</div>", unsafe_allow_html=True)
-        
-        if is_running and qdrant_status.get("mount_type") == "bind":
-             st.markdown(f"<div style='margin-top: 8px; font-size: 0.85em; color: #854d0e; background: #fef9c3; padding: 8px; border-radius: 4px;'>⚠️ <b>Performance Note:</b> Using bind mount on Windows (slower I/O).</div>", unsafe_allow_html=True)
-
-    # 4. Tabs for Content Organization
+    # Tabs for Content Organization
     active_tab = ui.tabs(options=["Visual Explorer", "Vector Analysis"], default_value="Visual Explorer", key="embed_main_tabs")
 
     # --- TAB 1: Visual Explorer ---
@@ -401,8 +423,22 @@ def render_embeddings_step() -> None:
                 reduced, reducer = reduce_dimensions(embeddings, n_components=n_components)
                 state_data["projections"][n_components] = (reduced, reducer)
                 st.session_state["last_embeddings_result"] = state_data # Update session state
-        
+
         reduced_embeddings, reducer = state_data["projections"][n_components]
+
+        # If reducer is None (happens after loading from disk), refit it
+        # IMPORTANT: We must also use the newly reduced embeddings to keep chunks and query in the same space
+        if reducer is None and embeddings.shape[0] >= 5:
+            with st.spinner("Refitting UMAP projection..."):
+                from rag_lens.utils.visualization import reduce_dimensions
+                new_reduced, new_reducer = reduce_dimensions(embeddings, n_components=n_components)
+                state_data["projections"][n_components] = (new_reduced, new_reducer)
+                reduced_embeddings = new_reduced
+                reducer = new_reducer
+                # Clear cluster labels since we have new reduced embeddings
+                if "cluster_labels" in state_data:
+                    del state_data["cluster_labels"]
+                st.session_state["last_embeddings_result"] = state_data
 
         # Calculate Clusters
         if "cluster_labels" not in state_data:
@@ -445,59 +481,59 @@ def render_embeddings_step() -> None:
             st.session_state.search_results = None
 
         if submit_button and query_text and query_text.strip():
-            if vector_store is None or vector_store_locked:
+            if vector_store is None:
                 st.warning(
-                    "Semantic search is unavailable while the vector store is locked."
+                    "Semantic search is unavailable. Please regenerate embeddings."
                 )
                 st.session_state.search_results = None
-                return
-            with st.spinner("Calculating similarity..."):
-                # Embedder is already created above - no fallback needed
-                query_embedding = embedder.embed_query(query_text)
+            else:
+                with st.spinner("Calculating similarity..."):
+                    # Embedder is already created above - no fallback needed
+                    query_embedding = embedder.embed_query(query_text)
 
-                retrieval_config = st.session_state.get("retrieval_config")
-                if not retrieval_config or not isinstance(retrieval_config, dict):
-                    retrieval_config = {"strategy": "DenseRetriever", "params": {}}
+                    retrieval_config = st.session_state.get("retrieval_config")
+                    if not retrieval_config or not isinstance(retrieval_config, dict):
+                        retrieval_config = {"strategy": "DenseRetriever", "params": {}}
 
-                strategy = retrieval_config.get("strategy", "DenseRetriever")
-                params = retrieval_config.get("params", {})
+                    strategy = retrieval_config.get("strategy", "DenseRetriever")
+                    params = retrieval_config.get("params", {})
 
-                # Ensure BM25 data exists if needed
-                if strategy in ("SparseRetriever", "HybridRetriever"):
-                    bm25_data = st.session_state.get("bm25_index_data")
-                    if not bm25_data:
-                        try:
-                            bm25_data = preprocess_retriever(
-                                "SparseRetriever",
-                                vector_store,
-                                **params,
-                            )
-                            st.session_state["bm25_index_data"] = bm25_data
-                        except Exception as preprocess_err:
-                            st.warning(
-                                f"Failed to build BM25 index for retrieval: {preprocess_err}"
-                            )
-                    if bm25_data:
-                        params = {**params, "bm25_index_data": bm25_data}
+                    # Ensure BM25 data exists if needed
+                    if strategy in ("SparseRetriever", "HybridRetriever"):
+                        bm25_data = st.session_state.get("bm25_index_data")
+                        if not bm25_data:
+                            try:
+                                bm25_data = preprocess_retriever(
+                                    "SparseRetriever",
+                                    vector_store,
+                                    **params,
+                                )
+                                st.session_state["bm25_index_data"] = bm25_data
+                            except Exception as preprocess_err:
+                                st.warning(
+                                    f"Failed to build BM25 index for retrieval: {preprocess_err}"
+                                )
+                        if bm25_data:
+                            params = {**params, "bm25_index_data": bm25_data}
 
-                try:
-                    search_results = retrieve(
-                        query=query_text,
-                        vector_store=vector_store,
-                        embedder=embedder,
-                        retriever_name=strategy,
-                        k=5,
-                        **params,
-                    )
-                except Exception as err:
-                    st.error(f"Retrieval failed: {err}")
-                    search_results = []
+                    try:
+                        search_results = retrieve(
+                            query=query_text,
+                            vector_store=vector_store,
+                            embedder=embedder,
+                            retriever_name=strategy,
+                            k=5,
+                            **params,
+                        )
+                    except Exception as err:
+                        st.error(f"Retrieval failed: {err}")
+                        search_results = []
 
-                st.session_state.search_results = {
-                    "query": query_text,
-                    "embedding": query_embedding,
-                    "neighbors": search_results,
-                }
+                    st.session_state.search_results = {
+                        "query": query_text,
+                        "embedding": query_embedding,
+                        "neighbors": search_results,
+                    }
 
         # Retrieve results
         results = st.session_state.search_results
@@ -513,8 +549,8 @@ def render_embeddings_step() -> None:
                  query_proj = reducer.transform(query_reshaped)
                  # Enforce 3D logic
                  query_point_viz = {"x": query_proj[0][0], "y": query_proj[0][1], "z": query_proj[0][2]}
-             except Exception:
-                 st.warning("Could not project query point.")
+             except Exception as e:
+                 st.warning(f"Could not project query point: {e}")
 
         # 4. Render Chart (Visual Location: Below Search)
         with st.container(border=True):

@@ -59,3 +59,8 @@ Core workflow:
 2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
 3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
 4. Re-snapshot after page changes
+
+# Ask Clarifying Questions When Needed
+
+- When in plan mode ALWAYS ask clarifying questions
+- When in agent mode, ask clarifiying questions when requirements are not clear.

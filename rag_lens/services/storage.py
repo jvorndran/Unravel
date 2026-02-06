@@ -387,17 +387,32 @@ def save_session_state(state_data: dict[str, Any]) -> None:
             np.save(state_dir / "embeddings.npy", embeddings)
             serializable["has_embeddings"] = True
         
-        # Save reduced embeddings as numpy file
-        reduced_emb = emb_result.get("reduced_embeddings")
-        if reduced_emb is not None:
-            np.save(
-                state_dir / "reduced_embeddings.npy",
-                reduced_emb,
-            )
-            serializable["has_reduced_embeddings"] = True
-            serializable["reduced_embeddings_components"] = emb_result.get(
-                "reduced_embeddings_components"
-            )
+        # Save reduced embeddings from projections dict (new format) or legacy key (old format)
+        # Try new projections format first
+        projections = emb_result.get("projections", {})
+        if projections:
+            # Save the first available projection (typically 3D)
+            for n_components, (reduced_emb, _) in projections.items():
+                if reduced_emb is not None:
+                    np.save(
+                        state_dir / "reduced_embeddings.npy",
+                        reduced_emb,
+                    )
+                    serializable["has_reduced_embeddings"] = True
+                    serializable["reduced_embeddings_components"] = n_components
+                    break
+        else:
+            # Fallback to legacy format for backwards compatibility
+            reduced_emb = emb_result.get("reduced_embeddings")
+            if reduced_emb is not None:
+                np.save(
+                    state_dir / "reduced_embeddings.npy",
+                    reduced_emb,
+                )
+                serializable["has_reduced_embeddings"] = True
+                serializable["reduced_embeddings_components"] = emb_result.get(
+                    "reduced_embeddings_components"
+                )
         
         # Save vector store
         if "vector_store" in emb_result and emb_result["vector_store"] is not None:
@@ -495,16 +510,17 @@ def load_session_state() -> dict[str, Any] | None:
         # Load vector store
         vs_path = state_dir / VECTOR_STORE_DIR
         if serializable.get("has_vector_store") and vs_path.exists():
-            try:
-                qdrant_url = st.session_state.get("qdrant_url")
-                emb_result["vector_store"] = VectorStore.load(vs_path, url=qdrant_url)
-            except Exception as exc:
-                emb_result["vector_store_error"] = str(exc)
-                if "already accessed by another instance" not in str(exc):
-                    try:
-                        shutil.rmtree(vs_path)
-                    except OSError:
-                        pass
+            qdrant_url = st.session_state.get("qdrant_url")
+            if not qdrant_url:
+                # Docker not available, skip loading vector store
+                # Embeddings will need regeneration when Docker becomes available
+                pass
+            else:
+                try:
+                    emb_result["vector_store"] = VectorStore.load(vs_path, url=qdrant_url)
+                except Exception as exc:
+                    # Log but don't crash - vector store can be regenerated
+                    emb_result["vector_store_error"] = str(exc)
         
         # Include chunks reference
         if "chunks" in state_data:

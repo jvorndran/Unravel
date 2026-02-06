@@ -401,16 +401,25 @@ def create_vector_store(
         dimension: Embedding dimension
         metric: Distance metric ('cosine', 'l2', or 'ip')
         storage_path: Optional path for Qdrant local storage
+        url: Optional Qdrant server URL
 
     Returns:
         New VectorStore instance
+
+    Raises:
+        RuntimeError: If Qdrant server is not available
     """
     resolved_url = _resolve_qdrant_url(url)
-    if resolved_url:
-        from rag_lens.services.storage import ensure_storage_dir, get_indices_dir
+    if not resolved_url:
+        raise RuntimeError(
+            "Qdrant server is not available. Docker must be running to use "
+            "embeddings functionality. Please start Docker Desktop and restart the app."
+        )
 
-        ensure_storage_dir()
-        storage_path = get_indices_dir()
+    from rag_lens.services.storage import ensure_storage_dir, get_indices_dir
+
+    ensure_storage_dir()
+    storage_path = get_indices_dir()
 
     return VectorStore(
         dimension=dimension,

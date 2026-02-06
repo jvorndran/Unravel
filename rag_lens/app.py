@@ -40,7 +40,18 @@ ensure_storage_dir()
 
 # Ensure local Qdrant server is available (Docker)
 if "qdrant_url" not in st.session_state:
-    st.session_state.qdrant_url = ensure_qdrant_server()
+    try:
+        with st.spinner("Starting Qdrant vector database..."):
+            st.session_state.qdrant_url = ensure_qdrant_server()
+        st.toast("Qdrant server is ready", icon="✅")
+    except RuntimeError as e:
+        st.session_state.qdrant_url = None
+        st.session_state.qdrant_startup_status = "unavailable"
+        st.error(f"**Docker Required:** {e}")
+        st.info(
+            "The **Embeddings** and **Query** features require Docker to be running. "
+            "Other features (Upload, Chunks, Export) still work."
+        )
 
 # --- Restore persisted session state on refresh ---
 if "session_restored" not in st.session_state:

@@ -180,7 +180,7 @@ def render_rag_config_sidebar() -> None:
             st.markdown("_Using rank-bm25 library with Okapi BM25_")
 
     st.write("")
-    st.markdown("**Reranking (Optional)**")
+    st.markdown("**Reranking**")
 
     # Get current reranking config or set defaults
     reranking_config_raw = st.session_state.get("reranking_config")
@@ -465,8 +465,6 @@ def render_rag_config_sidebar() -> None:
 
     # Clear session state button
     st.write("")
-    st.write("")
-    st.divider()
     st.markdown("**Troubleshooting**")
     st.caption("Clear cached embeddings and session data if you encounter errors.")
 
