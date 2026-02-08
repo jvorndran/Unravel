@@ -377,11 +377,13 @@ def render_rag_config_sidebar() -> None:
         }
 
     # Check for changes between pending and applied configuration
+    default_retrieval = {"strategy": "DenseRetriever", "params": {}}
+    default_reranking = {"enabled": False}
     has_changes = (
         pending_doc_name != st.session_state.doc_name or
         pending_embedding_model != st.session_state.embedding_model_name or
-        pending_retrieval_config != st.session_state.get("retrieval_config", {}) or
-        pending_reranking_config != st.session_state.get("reranking_config", {})
+        pending_retrieval_config != st.session_state.get("retrieval_config", default_retrieval) or
+        pending_reranking_config != st.session_state.get("reranking_config", default_reranking)
     )
 
     # Show status badge

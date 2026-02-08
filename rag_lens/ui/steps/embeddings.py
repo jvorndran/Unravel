@@ -430,7 +430,6 @@ def render_embeddings_step() -> None:
         # IMPORTANT: We must also use the newly reduced embeddings to keep chunks and query in the same space
         if reducer is None and embeddings.shape[0] >= 5:
             with st.spinner("Refitting UMAP projection..."):
-                from rag_lens.utils.visualization import reduce_dimensions
                 new_reduced, new_reducer = reduce_dimensions(embeddings, n_components=n_components)
                 state_data["projections"][n_components] = (new_reduced, new_reducer)
                 reduced_embeddings = new_reduced

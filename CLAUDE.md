@@ -52,13 +52,9 @@ NO EMOJIS!!
 
 ## Browser Automation
 
-Use `agent-browser` for web automation. Run `agent-browser --help` for all commands.
+Use Playwright for all browser automation tasks. After implementing any feature or change, fully test it using Playwright to verify the functionality works as expected in the browser.
 
-Core workflow:
-1. `agent-browser open <url>` - Navigate to page
-2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
-3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
-4. Re-snapshot after page changes
+Assume the local build is always running. Don't try to start a new server instance if you haven't checked if one exsists first  
 
 # Ask Clarifying Questions When Needed
 

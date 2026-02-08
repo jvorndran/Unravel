@@ -45,6 +45,8 @@ dependencies = [
     "spacy>=3.7",
     "flashrank>=0.2.0",
     "FlagEmbedding>=1.0",
+    "trafilatura>=1.6",
+    "selenium>=4.6",
 ]
 
 [project.optional-dependencies]
