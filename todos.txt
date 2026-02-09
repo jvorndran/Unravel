@@ -1,3 +1,0 @@
-- If user enters files in an already parsed format, we should not parse this document
-- Allow the user to select a directory or sharepoint to parse and index
-- While document is being parsed and user refreshes, check if a async parsing in happening already
