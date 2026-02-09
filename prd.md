@@ -1,10 +1,10 @@
-# RAG Lens - Product Requirements Document
+# Unravel - Product Requirements Document
 
 ## 1. Executive Summary
 
-RAG Lens is an interactive visual sandbox for experimenting with Retrieval-Augmented Generation (RAG) configurations. The application provides developers and AI practitioners with a local tool to understand how documents are processed, chunked, embedded, and retrieved in RAG pipelines.
+Unravel is an interactive visual sandbox for experimenting with Retrieval-Augmented Generation (RAG) configurations. The application provides developers and AI practitioners with a local tool to understand how documents are processed, chunked, embedded, and retrieved in RAG pipelines.
 
-When building RAG systems, developers struggle to understand how their documents are being chunked, how embeddings cluster in vector space, and which chunks get retrieved for different queries. RAG Lens addresses these pain points by providing interactive visualizations and configuration options that make the RAG pipeline transparent and experimentable.
+When building RAG systems, developers struggle to understand how their documents are being chunked, how embeddings cluster in vector space, and which chunks get retrieved for different queries. Unravel addresses these pain points by providing interactive visualizations and configuration options that make the RAG pipeline transparent and experimentable.
 
 **MVP Goal:** Deliver a fully functional local application that allows users to upload documents, visualize chunking strategies, explore embedding spaces, test retrieval queries, and export production-ready code.
 
@@ -192,7 +192,7 @@ Empower developers to build better RAG systems by making every step of the pipel
 │  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘│
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐│
 │  │ Retrieval│ │   LLM    │ │  Export  │ │     Storage      ││
-│  │ (Dense/  │ │ Service  │ │Generator │ │(~/.rag-lens││
+│  │ (Dense/  │ │ Service  │ │Generator │ │(~/.unravel││
 │  │  Sparse/ │ │          │ │          │ │                  ││
 │  │  Hybrid) │ │          │ │          │ │                  ││
 │  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘│
@@ -202,7 +202,7 @@ Empower developers to build better RAG systems by making every step of the pipel
 ### Directory Structure
 
 ```
-rag_lens/
+unravel/
 ├── __init__.py
 ├── __main__.py           # Module entry point
 ├── app.py                # Main Streamlit application
@@ -524,7 +524,7 @@ dev = [
 
 **Local Storage:**
 ```
-~/.rag-lens/
+~/.unravel/
 ├── documents/     # Uploaded raw documents
 ├── chunks/        # Processed chunk data
 ├── embeddings/    # Cached embeddings
@@ -556,14 +556,14 @@ dev = [
 
 **Local Installation:**
 ```bash
-pip install rag-lens
-rag-lens --port 8501
+pip install unravel
+unravel --port 8501
 ```
 
 **Development:**
 ```bash
-git clone https://github.com/rag-lens/rag-lens.git
-cd rag-lens
+git clone https://github.com/unravel/unravel.git
+cd unravel
 pip install -e ".[dev]"
 ```
 
@@ -767,7 +767,7 @@ The MVP is successful when a developer can:
 
 ```
 RAG-Visualizer/
-├── rag_lens/       # Main package
+├── unravel/       # Main package
 ├── tests/                # Test suite
 ├── docs/                 # Documentation
 ├── .streamlit/           # Streamlit configuration

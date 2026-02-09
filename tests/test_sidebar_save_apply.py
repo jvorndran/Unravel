@@ -28,7 +28,7 @@ class TestSaveApplyButtonDisplay:
     ):
         """Verify Save & Apply button is rendered."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -40,7 +40,7 @@ class TestSaveApplyButtonDisplay:
     ):
         """Verify Save & Apply button has correct label."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -56,7 +56,7 @@ class TestSaveApplyBasicFunctionality:
     ):
         """Verify Save & Apply updates session state."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -75,7 +75,7 @@ class TestSaveApplyBasicFunctionality:
     ):
         """Verify Save & Apply works even without making changes."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -97,7 +97,7 @@ class TestSaveApplyAppliedParamsSync:
     ):
         """Verify Save & Apply syncs parsing_params to applied_parsing_params."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -116,7 +116,7 @@ class TestSaveApplyAppliedParamsSync:
     ):
         """Verify Save & Apply syncs chunking_params to applied_chunking_params."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -139,7 +139,7 @@ class TestSaveApplyCacheInvalidation:
     ):
         """Verify parsing param change clears chunks cache."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -160,7 +160,7 @@ class TestSaveApplyCacheInvalidation:
     ):
         """Verify chunking param change clears chunks cache."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -181,7 +181,7 @@ class TestSaveApplyCacheInvalidation:
     ):
         """Verify parsing param change clears embeddings result."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -202,7 +202,7 @@ class TestSaveApplyCacheInvalidation:
     ):
         """Verify parsing param change clears search results."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -227,7 +227,7 @@ class TestSaveApplyDocumentChange:
     ):
         """Verify document change clears chunks cache."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -255,7 +255,7 @@ class TestSaveApplyDocumentChange:
     ):
         """Verify document change clears search results."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -287,7 +287,7 @@ class TestSaveApplyMultipleChanges:
     ):
         """Verify multiple parsing param changes are all applied."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -309,7 +309,7 @@ class TestSaveApplyMultipleChanges:
     ):
         """Verify mixed parsing and chunking changes are all applied."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -337,7 +337,7 @@ class TestSaveApplyStateConsistency:
     ):
         """Verify applied params match current params after Save & Apply."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -358,7 +358,7 @@ class TestSaveApplyStateConsistency:
     ):
         """Verify all required session state keys present after Save & Apply."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 

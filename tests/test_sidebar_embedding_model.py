@@ -25,7 +25,7 @@ class TestEmbeddingModelDropdownDisplay:
     ):
         """Verify embedding model dropdown is rendered."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -37,7 +37,7 @@ class TestEmbeddingModelDropdownDisplay:
     ):
         """Verify embedding model dropdown has available options."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -49,7 +49,7 @@ class TestEmbeddingModelDropdownDisplay:
     ):
         """Verify embedding model dropdown includes the default model."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -62,7 +62,7 @@ class TestEmbeddingModelDropdownDisplay:
     ):
         """Verify embedding model defaults to all-MiniLM-L6-v2."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -78,7 +78,7 @@ class TestEmbeddingModelSessionState:
     ):
         """Verify embedding_model_name session state is initialized."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -90,7 +90,7 @@ class TestEmbeddingModelSessionState:
     ):
         """Verify sidebar_embedding_model session state is initialized."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -102,7 +102,7 @@ class TestEmbeddingModelSessionState:
     ):
         """Verify pre-set embedding_model_name value is reflected in dropdown."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script)
             at.session_state["embedding_model_name"] = "all-mpnet-base-v2"
@@ -122,7 +122,7 @@ class TestEmbeddingModelUserAction:
     ):
         """Verify user can change embedding model selection."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -144,7 +144,7 @@ class TestEmbeddingModelUserAction:
     ):
         """Verify model selection persists after app rerun."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -172,7 +172,7 @@ class TestEmbeddingModelFormSubmission:
     ):
         """Verify form submission updates embedding_model_name in session state."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -200,7 +200,7 @@ class TestEmbeddingModelFormSubmission:
     ):
         """Verify changing embedding model preserves parsing params."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -225,7 +225,7 @@ class TestEmbeddingModelFormSubmission:
     ):
         """Verify changing embedding model preserves chunking params."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -254,7 +254,7 @@ class TestEmbeddingModelCacheInvalidation:
     ):
         """Verify changing embedding model clears last_embeddings_result."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -278,7 +278,7 @@ class TestEmbeddingModelCacheInvalidation:
     ):
         """Verify changing embedding model clears search_results."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 

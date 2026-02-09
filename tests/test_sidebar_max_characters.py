@@ -22,7 +22,7 @@ class TestMaxPagesDisplay:
     ):
         """Verify max pages number input is rendered."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(chunking_config_app_script).run()
 
@@ -34,7 +34,7 @@ class TestMaxPagesDisplay:
     ):
         """Verify max pages defaults to 50."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(chunking_config_app_script).run()
 
@@ -50,7 +50,7 @@ class TestMaxPagesSessionState:
     ):
         """Verify pre-set max_pages value is reflected in number input."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(chunking_config_app_script)
             parsing_params = {
@@ -84,7 +84,7 @@ class TestMaxPagesUserAction:
     ):
         """Verify number input accepts higher values."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(chunking_config_app_script).run()
 
@@ -99,7 +99,7 @@ class TestMaxPagesUserAction:
     ):
         """Verify number input accepts lower values."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(chunking_config_app_script).run()
 
@@ -114,7 +114,7 @@ class TestMaxPagesUserAction:
     ):
         """Verify number input accepts minimum value of 1."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(chunking_config_app_script).run()
 
@@ -129,7 +129,7 @@ class TestMaxPagesUserAction:
     ):
         """Verify number input accepts maximum value of 1000."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(chunking_config_app_script).run()
 
@@ -148,7 +148,7 @@ class TestMaxPagesEdgeCases:
     ):
         """Verify max_pages is stored as integer."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(chunking_config_app_script).run()
 

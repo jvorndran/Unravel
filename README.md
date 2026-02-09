@@ -1,24 +1,24 @@
-# RAG Lens
+# Unravel
 
 A visual sandbox for experimenting with RAG (Retrieval-Augmented Generation) configurations.
 
 ## Overview
 
-RAG Lens helps developers understand and optimize their RAG pipelines through interactive visualizations. Experiment with document parsing, chunking strategies, embedding models, and retrieval configurations—all running locally on your machine.
+Unravel helps developers understand and optimize their RAG pipelines through interactive visualizations. Experiment with document parsing, chunking strategies, embedding models, and retrieval configurations—all running locally on your machine.
 
 ## Installation
 
 ### From PyPI
 
 ```bash
-pip install rag-lens
+pip install unravel
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/rag-lens/rag-lens.git
-cd rag-lens
+git clone https://github.com/unravel/unravel.git
+cd unravel
 pip install -e .
 ```
 
@@ -27,7 +27,7 @@ pip install -e .
 For contributing to the project, install development tools:
 
 ```bash
-pip install rag-lens[dev]
+pip install unravel[dev]
 ```
 
 ### GPU Acceleration
@@ -39,7 +39,7 @@ For faster document parsing and embedding generation with CUDA-enabled GPUs, ins
 Simply run the CLI command to launch the Streamlit app:
 
 ```bash
-rag-lens
+unravel
 ```
 
 This opens the app in your browser at `http://localhost:8501`.
@@ -48,8 +48,8 @@ This opens the app in your browser at `http://localhost:8501`.
 
 To use LLM features (query generation with OpenAI, Anthropic, etc.), configure your API keys:
 
-1. Run `rag-lens` once to create the configuration directory
-2. Navigate to `~/.rag-lens/` (or `%USERPROFILE%\.rag-lens\` on Windows)
+1. Run `unravel` once to create the configuration directory
+2. Navigate to `~/.unravel/` (or `%USERPROFILE%\.unravel\` on Windows)
 3. Edit the `.env` file and add your API key:
    ```bash
    # For OpenAI
@@ -65,7 +65,7 @@ To use LLM features (query generation with OpenAI, Anthropic, etc.), configure y
 ### CLI Options
 
 ```bash
-rag-lens --help
+unravel --help
 
 Options:
   -p, --port INTEGER  Port to run the Streamlit app on (default: 8501)
@@ -77,12 +77,12 @@ Options:
 ### Running as a Python Module
 
 ```bash
-python -m rag_lens
+python -m unravel
 ```
 
 ## Features
 
-RAG Lens guides you through a structured 5-step pipeline for building and testing RAG systems:
+Unravel guides you through a structured 5-step pipeline for building and testing RAG systems:
 
 ### Step 1: Document Upload
 Advanced multi-format document ingestion powered by Docling:
@@ -135,10 +135,10 @@ Generate production-ready Python code capturing your exact configuration:
 
 ## Storage
 
-All data is stored locally in `~/.rag-lens/`:
+All data is stored locally in `~/.unravel/`:
 
 ```
-~/.rag-lens/
+~/.unravel/
 ├── documents/          # Uploaded raw documents
 ├── chunks/             # Processed chunk data
 ├── embeddings/         # Cached embeddings
@@ -156,8 +156,8 @@ No data is transmitted to external servers except when using LLM APIs for query 
 
 ```bash
 # Clone the repository
-git clone https://github.com/rag-lens/rag-lens.git
-cd rag-lens
+git clone https://github.com/unravel/unravel.git
+cd unravel
 
 # Install in development mode
 pip install -e ".[dev]"
@@ -172,8 +172,8 @@ pytest
 ### Code Formatting
 
 ```bash
-black rag_lens
-ruff check rag_lens
+black unravel
+ruff check unravel
 ```
 
 ## Contributing

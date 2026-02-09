@@ -26,7 +26,7 @@ class TestOutputFormatDropdownDisplay:
     ):
         """Verify output format dropdown is rendered."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -38,7 +38,7 @@ class TestOutputFormatDropdownDisplay:
     ):
         """Verify output format dropdown has all three format options."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -55,7 +55,7 @@ class TestOutputFormatDropdownDisplay:
     ):
         """Verify output format defaults to Markdown."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -70,7 +70,7 @@ class TestOutputFormatSessionState:
     ):
         """Verify sidebar_output_format session state is initialized."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -82,7 +82,7 @@ class TestOutputFormatSessionState:
     ):
         """Verify parsing_params contains output_format key."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -95,7 +95,7 @@ class TestOutputFormatSessionState:
     ):
         """Verify pre-set output_format value is reflected in dropdown."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script)
             parsing_params = {
@@ -128,7 +128,7 @@ class TestOutputFormatUserAction:
     ):
         """Verify selectbox accepts Original Format selection."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -143,7 +143,7 @@ class TestOutputFormatUserAction:
     ):
         """Verify selectbox accepts Plain Text selection."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -162,7 +162,7 @@ class TestOutputFormatFormSubmission:
     ):
         """Verify form submission updates parsing_params.output_format to original."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -185,7 +185,7 @@ class TestOutputFormatFormSubmission:
     ):
         """Verify form submission updates parsing_params.output_format to plain_text."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -204,7 +204,7 @@ class TestOutputFormatFormSubmission:
     ):
         """Verify form submission also updates applied_parsing_params."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -222,7 +222,7 @@ class TestOutputFormatFormSubmission:
     ):
         """Verify form submission preserves other parsing params when changing format."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
@@ -247,7 +247,7 @@ class TestOutputFormatCycling:
     ):
         """Verify cycling through all formats and submitting updates parsing_params correctly."""
         with patch(
-            "rag_lens.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
+            "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
         ):
             at = AppTest.from_string(sidebar_app_script).run()
 
