@@ -35,7 +35,9 @@ def _open_folder_in_explorer(folder_path: Path) -> None:
     try:
         system = platform.system()
         if system == "Windows":
-            subprocess.run(["explorer", str(folder_path)], check=False)
+            # Use os.startfile for more reliable Windows folder opening
+            import os
+            os.startfile(str(folder_path))
         elif system == "Darwin":  # macOS
             subprocess.run(["open", str(folder_path)], check=False)
         else:  # Linux
@@ -99,7 +101,7 @@ def _render_api_key_setup_message(provider: str, env_key_name: str) -> None:
         with col1:
             if ui.button(
                 "Open Config Folder",
-                variant="primary",
+                variant="secondary",
                 key="open_config_folder_btn"
             ):
                 _ensure_env_file_exists()

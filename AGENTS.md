@@ -50,10 +50,6 @@ NOT:
 
 NO EMOJIS!!
 
-## Browser Automation
-
-Use Playwright for all browser automation tasks. After implementing any feature or change, fully test it using Playwright to verify the functionality works as expected in the browser.
-
 # Ask Clarifying Questions When Needed
 
 - When in plan mode ALWAYS ask clarifying questions

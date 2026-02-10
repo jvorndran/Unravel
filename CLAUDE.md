@@ -50,11 +50,6 @@ NOT:
 
 NO EMOJIS!!
 
-## Browser Automation
-
-Use Playwright for all browser automation tasks. After implementing any feature or change, fully test it using Playwright to verify the functionality works as expected in the browser.
-
-Assume the local build is always running. Don't try to start a new server instance if you haven't checked if one exsists first  
 
 # Ask Clarifying Questions When Needed
 

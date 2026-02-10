@@ -14,6 +14,8 @@ from unravel.services.llm import (
 from unravel.services.storage import (
     clear_session_state,
     list_documents,
+    load_llm_config,
+    load_rag_config,
     save_llm_config,
     save_rag_config,
 )
@@ -22,9 +24,21 @@ from unravel.services.storage import (
 def render_rag_config_sidebar() -> None:
     """Render RAG configuration in the sidebar."""
 
+    # Load saved RAG config on first run
+    if "rag_config_loaded" not in st.session_state:
+        saved_config = load_rag_config()
+        if saved_config:
+            st.session_state.doc_name = saved_config.get("doc_name")
+            st.session_state.embedding_model_name = saved_config.get("embedding_model_name", DEFAULT_MODEL)
+            st.session_state.chunking_params = saved_config.get("chunking_params", {})
+            st.session_state.parsing_params = saved_config.get("parsing_params", {})
+            st.session_state.retrieval_config = saved_config.get("retrieval_config", {"strategy": "DenseRetriever", "params": {}})
+            st.session_state.reranking_config = saved_config.get("reranking_config", {"enabled": False})
+        st.session_state.rag_config_loaded = True
+
     # Initialize session state if not present
     docs = list_documents()
-    
+
     if "doc_name" not in st.session_state:
         # If files exist, use first file; otherwise use None (will show empty state)
         if docs:
@@ -458,6 +472,8 @@ def render_rag_config_sidebar() -> None:
             "embedding_model_name": st.session_state.embedding_model_name,
             "chunking_params": st.session_state.get("chunking_params", {}),
             "parsing_params": st.session_state.get("parsing_params", {}),
+            "retrieval_config": st.session_state.get("retrieval_config", {}),
+            "reranking_config": st.session_state.get("reranking_config", {}),
         }
         save_rag_config(current_rag_config)
         st.session_state["_last_saved_rag_config"] = current_rag_config.copy()
@@ -491,7 +507,18 @@ def render_rag_config_sidebar() -> None:
 def render_llm_sidebar() -> None:
     """Render LLM configuration in the sidebar."""
     st.markdown("### LLM Configuration")
-    
+
+    # Load saved LLM config on first run
+    if "llm_config_loaded" not in st.session_state:
+        saved_config = load_llm_config()
+        if saved_config:
+            st.session_state.llm_provider = saved_config.get("provider", "OpenAI")
+            st.session_state.llm_model = saved_config.get("model", "")
+            st.session_state.llm_base_url = saved_config.get("base_url", "")
+            st.session_state.llm_temperature = saved_config.get("temperature", 0.7)
+            st.session_state.llm_max_tokens = saved_config.get("max_tokens", 1024)
+        st.session_state.llm_config_loaded = True
+
     # Initialize session state if not present
     if "llm_provider" not in st.session_state:
         st.session_state.llm_provider = "OpenAI"
@@ -573,7 +600,6 @@ def render_llm_sidebar() -> None:
     st.write("")
 
     # API Key status
-    st.markdown("**API Key**")
     env_key = get_api_key_from_env(provider)
     if env_key:
         st.success("✓ API key loaded")
@@ -632,7 +658,7 @@ def render_llm_sidebar() -> None:
     st.write("")
 
     # Save button
-    if ui.button("Save Configuration", variant="primary", key="save_config_btn"):
+    if ui.button("Save Configuration", variant="outline", key="save_config_btn"):
         config_data = {
             "provider": provider,
             "model": model,
