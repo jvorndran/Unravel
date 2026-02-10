@@ -1,4 +1,3 @@
-import time
 from typing import Any
 
 import numpy as np
@@ -12,7 +11,6 @@ from unravel.services.embedders import (
     DEFAULT_MODEL,
     get_embedder,
 )
-from unravel.services.retrieval import retrieve
 from unravel.services.retrieval import (
     preprocess_retriever,
     retrieve,
@@ -27,7 +25,6 @@ from unravel.ui.components.chunk_viewer import (
     prepare_chunk_display_data,
     render_chunk_cards,
 )
-from unravel.ui.components.qdrant_dashboard import render_qdrant_dashboard
 from unravel.utils.parsers import parse_document
 from unravel.utils.qdrant_manager import (
     get_qdrant_status,
@@ -319,7 +316,7 @@ def render_embeddings_step() -> None:
 
                 vector_store.add(embeddings, texts, metadata=[c.metadata for c in chunks])
 
-                # Initial 2D projection - just to have it, though we will default to 3D now
+                # Initial 3D projection
                 reduced_embeddings, reducer = reduce_dimensions(embeddings, n_components=3)
 
                 st.session_state["last_embeddings_result"] = {
@@ -329,8 +326,6 @@ def render_embeddings_step() -> None:
                     "projections": {
                         3: (reduced_embeddings, reducer)
                     },
-                    "reduced_embeddings": reduced_embeddings,
-                    "reduced_embeddings_components": 3,
                     "chunks": chunks,
                     "model": selected_model,
                 }
@@ -407,246 +402,238 @@ def render_embeddings_step() -> None:
     # Recreate embedder on-demand (lightweight - model loads lazily)
     embedder = get_embedder(model_name)
 
-    # Tabs for Content Organization
-    active_tab = ui.tabs(options=["Visual Explorer", "Vector Analysis"], default_value="Visual Explorer", key="embed_main_tabs")
+    # --- Visual Explorer ---
 
-    # --- TAB 1: Visual Explorer ---
-    if active_tab == "Visual Explorer":
-        
-        # 3. Logic & Calculation
-        # Enforce 3D mode
-        n_components = 3
-        
-        # Ensure projection exists for selected mode
-        if n_components not in state_data["projections"]:
-            with st.spinner(f"Calculating 3D projection..."):
-                reduced, reducer = reduce_dimensions(embeddings, n_components=n_components)
-                state_data["projections"][n_components] = (reduced, reducer)
-                st.session_state["last_embeddings_result"] = state_data # Update session state
+    # 3. Logic & Calculation
+    # Enforce 3D mode
+    n_components = 3
 
-        reduced_embeddings, reducer = state_data["projections"][n_components]
+    # Ensure projection exists for selected mode
+    if n_components not in state_data["projections"]:
+        with st.spinner(f"Calculating 3D projection..."):
+            reduced, reducer = reduce_dimensions(embeddings, n_components=n_components)
+            state_data["projections"][n_components] = (reduced, reducer)
+            st.session_state["last_embeddings_result"] = state_data # Update session state
 
-        # If reducer is None (happens after loading from disk), refit it
-        # IMPORTANT: We must also use the newly reduced embeddings to keep chunks and query in the same space
-        if reducer is None and embeddings.shape[0] >= 5:
-            with st.spinner("Refitting UMAP projection..."):
-                new_reduced, new_reducer = reduce_dimensions(embeddings, n_components=n_components)
-                state_data["projections"][n_components] = (new_reduced, new_reducer)
-                reduced_embeddings = new_reduced
-                reducer = new_reducer
-                # Clear cluster labels since we have new reduced embeddings
-                if "cluster_labels" in state_data:
-                    del state_data["cluster_labels"]
-                st.session_state["last_embeddings_result"] = state_data
+    reduced_embeddings, reducer = state_data["projections"][n_components]
 
-        # Calculate Clusters
-        if "cluster_labels" not in state_data:
-            with st.spinner("Analyzing semantic clusters..."):
-                # Don't cluster very small or empty datasets
-                if len(chunks) < 10 or embeddings.shape[0] == 0:
-                    labels = np.zeros(len(chunks), dtype=int)
-                else:
-                    # Determine optimal clusters - simple heuristic: sqrt(N/2) capped at 10
-                    n_clusters = min(10, max(2, int(np.sqrt(len(chunks) / 2))))
-                    labels = cluster_embeddings(embeddings, n_clusters=n_clusters)
-                state_data["cluster_labels"] = labels
-                st.session_state["last_embeddings_result"] = state_data
-        
-        cluster_labels = state_data["cluster_labels"]
+    # If reducer is None (happens after loading from disk), refit it
+    # IMPORTANT: We must also use the newly reduced embeddings to keep chunks and query in the same space
+    if reducer is None and embeddings.shape[0] >= 5:
+        with st.spinner("Refitting UMAP projection..."):
+            new_reduced, new_reducer = reduce_dimensions(embeddings, n_components=n_components)
+            state_data["projections"][n_components] = (new_reduced, new_reducer)
+            reduced_embeddings = new_reduced
+            reducer = new_reducer
+            # Clear cluster labels since we have new reduced embeddings
+            if "cluster_labels" in state_data:
+                del state_data["cluster_labels"]
+            st.session_state["last_embeddings_result"] = state_data
 
-        # Query Interface
-        st.write("")
-        st.markdown("#### Semantic Search")
-        
-        # Streamlit reruns the script on every keystroke for text inputs.
-        # Wrapping the input in a form prevents the expensive rerun until the user clicks Search.
-        if "query_input" not in st.session_state:
-            st.session_state["query_input"] = ""
-
-        with st.form("semantic_search_form", clear_on_submit=False):
-            c1, c2 = st.columns([4, 1])
-            with c1:
-                query_text = st.text_input(
-                    label="Query",
-                    placeholder="e.g., What is the main challenge of RAG?",
-                    key="query_input",
-                    label_visibility="collapsed",
-                )
-            with c2:
-                submit_button = st.form_submit_button("Search", type="primary", width='stretch')
-
-        # Process Query
-        if "search_results" not in st.session_state:
-            st.session_state.search_results = None
-
-        if submit_button and query_text and query_text.strip():
-            if vector_store is None:
-                st.warning(
-                    "Semantic search is unavailable. Please regenerate embeddings."
-                )
-                st.session_state.search_results = None
+    # Calculate Clusters
+    if "cluster_labels" not in state_data:
+        with st.spinner("Analyzing semantic clusters..."):
+            # Don't cluster very small or empty datasets
+            if len(chunks) < 10 or embeddings.shape[0] == 0:
+                labels = np.zeros(len(chunks), dtype=int)
             else:
-                with st.spinner("Calculating similarity..."):
-                    # Embedder is already created above - no fallback needed
-                    query_embedding = embedder.embed_query(query_text)
+                # Determine optimal clusters - simple heuristic: sqrt(N/2) capped at 10
+                n_clusters = min(10, max(2, int(np.sqrt(len(chunks) / 2))))
+                labels = cluster_embeddings(embeddings, n_clusters=n_clusters)
+            state_data["cluster_labels"] = labels
+            st.session_state["last_embeddings_result"] = state_data
 
-                    retrieval_config = st.session_state.get("retrieval_config")
-                    if not retrieval_config or not isinstance(retrieval_config, dict):
-                        retrieval_config = {"strategy": "DenseRetriever", "params": {}}
+    cluster_labels = state_data["cluster_labels"]
 
-                    strategy = retrieval_config.get("strategy", "DenseRetriever")
-                    params = retrieval_config.get("params", {})
+    # Query Interface
+    st.write("")
+    st.markdown("#### Semantic Search")
 
-                    # Ensure BM25 data exists if needed
-                    if strategy in ("SparseRetriever", "HybridRetriever"):
-                        bm25_data = st.session_state.get("bm25_index_data")
-                        if not bm25_data:
-                            try:
-                                bm25_data = preprocess_retriever(
-                                    "SparseRetriever",
-                                    vector_store,
-                                    **params,
-                                )
-                                st.session_state["bm25_index_data"] = bm25_data
-                            except Exception as preprocess_err:
-                                st.warning(
-                                    f"Failed to build BM25 index for retrieval: {preprocess_err}"
-                                )
-                        if bm25_data:
-                            params = {**params, "bm25_index_data": bm25_data}
+    # Streamlit reruns the script on every keystroke for text inputs.
+    # Wrapping the input in a form prevents the expensive rerun until the user clicks Search.
+    if "query_input" not in st.session_state:
+        st.session_state["query_input"] = ""
 
-                    try:
-                        search_results = retrieve(
-                            query=query_text,
-                            vector_store=vector_store,
-                            embedder=embedder,
-                            retriever_name=strategy,
-                            k=5,
-                            **params,
-                        )
-                    except Exception as err:
-                        st.error(f"Retrieval failed: {err}")
-                        search_results = []
-
-                    st.session_state.search_results = {
-                        "query": query_text,
-                        "embedding": query_embedding,
-                        "neighbors": search_results,
-                    }
-
-        # Retrieve results
-        results = st.session_state.search_results
-        query_embedding = results.get("embedding") if results else None
-        neighbors = results.get("neighbors", []) if results else []
-        neighbor_indices = [r.index for r in neighbors]
-        
-        # Project Query Point (Dynamic based on current reducer)
-        query_point_viz = None
-        if query_embedding is not None and reducer is not None:
-             query_reshaped = query_embedding.reshape(1, -1)
-             try:
-                 query_proj = reducer.transform(query_reshaped)
-                 # Enforce 3D logic
-                 query_point_viz = {"x": query_proj[0][0], "y": query_proj[0][1], "z": query_proj[0][2]}
-             except Exception as e:
-                 st.warning(f"Could not project query point: {e}")
-
-        # 4. Render Chart (Visual Location: Below Search)
-        with st.container(border=True):
-            help_text = "Points: Each dot is a chunk. Colors represent semantic clusters. Pink Star = Query."
-            st.markdown(f"##### Embedding Space (3D UMAP)", help=help_text)
-            
-            # Prepare Data for Plotly
-            df = pd.DataFrame(reduced_embeddings, columns=["x", "y", "z"])
-            df["text_preview"] = [c.text[:150] + "..." for c in chunks]
-            df["chunk_index"] = range(len(chunks))
-            df["cluster_label"] = cluster_labels  # Numeric for color
-            df["Cluster"] = [f"Cluster {l}" for l in cluster_labels] # String for hover
-            
-            fig = create_embedding_plot(
-                df,
-                x_col="x",
-                y_col="y",
-                z_col="z",
-                color_col="cluster_label",
-                hover_data=["text_preview", "Cluster"],
-                title="",
-                query_point=query_point_viz,
-                neighbors_indices=neighbor_indices
+    with st.form("semantic_search_form", clear_on_submit=False):
+        c1, c2 = st.columns([4, 1])
+        with c1:
+            query_text = st.text_input(
+                label="Query",
+                placeholder="e.g., What is the main challenge of RAG?",
+                key="query_input",
+                label_visibility="collapsed",
             )
-            st.plotly_chart(fig, width='stretch')
-            
-        # Nearest Neighbors Section
-        st.write("")
-        st.markdown("##### Nearest Neighbors")
-        if neighbors:
-            # Convert search results to chunks for the viewer
-            from dataclasses import dataclass
-            
-            @dataclass
-            class ChunkAdapter:
-                """Adapter to make SearchResult compatible with chunk viewer."""
-                text: str
-                metadata: dict[str, Any]
-                start_index: int = 0
-                end_index: int = 0
-            
-            neighbor_chunks = [
-                ChunkAdapter(
-                    text=res.text,
-                    metadata=res.metadata,
-                    start_index=i,
-                    end_index=i,
-                )
-                for i, res in enumerate(neighbors)
-            ]
-            
-            # Prepare display data
-            neighbor_display_data = prepare_chunk_display_data(
-                chunks=neighbor_chunks,
-                source_text=None,
-                calculate_overlap=False,
-            )
-            
-            # Add similarity score and strategy-specific badges
-            custom_badges = []
-            for res in neighbors:
-                badges = []
-                # Main Score
-                badges.append({
-                    "label": "Score",
-                    "value": f"{res.score:.4f}",
-                    "color": "#d1fae5"  # Green tint for similarity
-                })
-                
-                dense_rrf_contribution = res.metadata.get("dense_rrf_contribution")
-                if dense_rrf_contribution is not None:
-                    badges.append({
-                        "label": "Dense Contribution",
-                        "value": f"{dense_rrf_contribution:.4f}",
-                        "color": "#93c5fd"
-                    })
+        with c2:
+            submit_button = st.form_submit_button("Search", type="primary", width='stretch')
 
-                sparse_rrf_contribution = res.metadata.get("sparse_rrf_contribution")
-                if sparse_rrf_contribution is not None:
-                    badges.append({
-                        "label": "Sparse Contribution",
-                        "value": f"{sparse_rrf_contribution:.4f}",
-                        "color": "#fecdd3"
-                    })
+    # Process Query
+    if "search_results" not in st.session_state:
+        st.session_state.search_results = None
 
-                custom_badges.append(badges)
-            
-            # Render using the reusable component in card mode
-            render_chunk_cards(
-                chunk_display_data=neighbor_display_data,
-                custom_badges=custom_badges,
-                show_overlap=False,
-                display_mode="card",
+    if submit_button and query_text and query_text.strip():
+        if vector_store is None:
+            st.warning(
+                "Semantic search is unavailable. Please regenerate embeddings."
             )
+            st.session_state.search_results = None
         else:
-            st.info("Enter a query above to see the most similar chunks here.")
+            with st.spinner("Calculating similarity..."):
+                # Embedder is already created above - no fallback needed
+                query_embedding = embedder.embed_query(query_text)
 
-    # --- TAB 2: Vector Analysis ---
-    elif active_tab == "Vector Analysis":
-        render_qdrant_dashboard()
+                retrieval_config = st.session_state.get("retrieval_config")
+                if not retrieval_config or not isinstance(retrieval_config, dict):
+                    retrieval_config = {"strategy": "DenseRetriever", "params": {}}
+
+                strategy = retrieval_config.get("strategy", "DenseRetriever")
+                params = retrieval_config.get("params", {})
+
+                # Ensure BM25 data exists if needed
+                if strategy in ("SparseRetriever", "HybridRetriever"):
+                    bm25_data = st.session_state.get("bm25_index_data")
+                    if not bm25_data:
+                        try:
+                            bm25_data = preprocess_retriever(
+                                "SparseRetriever",
+                                vector_store,
+                                **params,
+                            )
+                            st.session_state["bm25_index_data"] = bm25_data
+                        except Exception as preprocess_err:
+                            st.warning(
+                                f"Failed to build BM25 index for retrieval: {preprocess_err}"
+                            )
+                    if bm25_data:
+                        params = {**params, "bm25_index_data": bm25_data}
+
+                try:
+                    search_results = retrieve(
+                        query=query_text,
+                        vector_store=vector_store,
+                        embedder=embedder,
+                        retriever_name=strategy,
+                        k=5,
+                        **params,
+                    )
+                except Exception as err:
+                    st.error(f"Retrieval failed: {err}")
+                    search_results = []
+
+                st.session_state.search_results = {
+                    "query": query_text,
+                    "embedding": query_embedding,
+                    "neighbors": search_results,
+                }
+
+    # Retrieve results
+    results = st.session_state.search_results
+    query_embedding = results.get("embedding") if results else None
+    neighbors = results.get("neighbors", []) if results else []
+    neighbor_indices = [r.index for r in neighbors]
+
+    # Project Query Point (Dynamic based on current reducer)
+    query_point_viz = None
+    if query_embedding is not None and reducer is not None:
+         query_reshaped = query_embedding.reshape(1, -1)
+         try:
+             query_proj = reducer.transform(query_reshaped)
+             # Enforce 3D logic
+             query_point_viz = {"x": query_proj[0][0], "y": query_proj[0][1], "z": query_proj[0][2]}
+         except Exception as e:
+             st.warning(f"Could not project query point: {e}")
+
+    # 4. Render Chart (Visual Location: Below Search)
+    with st.container(border=True):
+        help_text = "Points: Each dot is a chunk. Colors represent semantic clusters. Pink Star = Query."
+        st.markdown(f"##### Embedding Space (3D UMAP)", help=help_text)
+
+        # Prepare Data for Plotly
+        df = pd.DataFrame(reduced_embeddings, columns=["x", "y", "z"])
+        df["text_preview"] = [c.text[:150] + "..." for c in chunks]
+        df["chunk_index"] = range(len(chunks))
+        df["cluster_label"] = cluster_labels  # Numeric for color
+        df["Cluster"] = [f"Cluster {l}" for l in cluster_labels] # String for hover
+
+        fig = create_embedding_plot(
+            df,
+            x_col="x",
+            y_col="y",
+            z_col="z",
+            color_col="cluster_label",
+            hover_data=["text_preview", "Cluster"],
+            title="",
+            query_point=query_point_viz,
+            neighbors_indices=neighbor_indices
+        )
+        st.plotly_chart(fig, width='stretch')
+
+    # Nearest Neighbors Section
+    st.write("")
+    st.markdown("##### Nearest Neighbors")
+    if neighbors:
+        # Convert search results to chunks for the viewer
+        from dataclasses import dataclass
+
+        @dataclass
+        class ChunkAdapter:
+            """Adapter to make SearchResult compatible with chunk viewer."""
+            text: str
+            metadata: dict[str, Any]
+            start_index: int = 0
+            end_index: int = 0
+
+        neighbor_chunks = [
+            ChunkAdapter(
+                text=res.text,
+                metadata=res.metadata,
+                start_index=i,
+                end_index=i,
+            )
+            for i, res in enumerate(neighbors)
+        ]
+
+        # Prepare display data
+        neighbor_display_data = prepare_chunk_display_data(
+            chunks=neighbor_chunks,
+            source_text=None,
+            calculate_overlap=False,
+        )
+
+        # Add similarity score and strategy-specific badges
+        custom_badges = []
+        for res in neighbors:
+            badges = []
+            # Main Score
+            badges.append({
+                "label": "Score",
+                "value": f"{res.score:.4f}",
+                "color": "#d1fae5"  # Green tint for similarity
+            })
+
+            dense_rrf_contribution = res.metadata.get("dense_rrf_contribution")
+            if dense_rrf_contribution is not None:
+                badges.append({
+                    "label": "Dense Contribution",
+                    "value": f"{dense_rrf_contribution:.4f}",
+                    "color": "#93c5fd"
+                })
+
+            sparse_rrf_contribution = res.metadata.get("sparse_rrf_contribution")
+            if sparse_rrf_contribution is not None:
+                badges.append({
+                    "label": "Sparse Contribution",
+                    "value": f"{sparse_rrf_contribution:.4f}",
+                    "color": "#fecdd3"
+                })
+
+            custom_badges.append(badges)
+
+        # Render using the reusable component in card mode
+        render_chunk_cards(
+            chunk_display_data=neighbor_display_data,
+            custom_badges=custom_badges,
+            show_overlap=False,
+            display_mode="card",
+        )
+    else:
+        st.info("Enter a query above to see the most similar chunks here.")
