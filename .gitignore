@@ -6,3 +6,5 @@
 .cursor
 .streamlit/secrets.toml
 tmpclaude-*
+.pypirc
+.pytest_cache

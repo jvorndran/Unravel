@@ -12,6 +12,7 @@ import streamlit as st
 import streamlit_shadcn_ui as ui
 
 from unravel.services.embedders import DEFAULT_MODEL, get_embedder
+from unravel.ui.constants import WidgetKeys, get_threshold_slider_key
 from unravel.services.llm import (
     DEFAULT_QUERY_REWRITE_PROMPT,
     DEFAULT_SYSTEM_PROMPT,
@@ -98,7 +99,7 @@ def _render_api_key_setup_message(provider: str, env_key_name: str) -> None:
         st.write("")
         col1, col2 = st.columns([1, 2])
         with col1:
-            if ui.button("Open Config Folder", variant="secondary", key="open_config_folder_btn"):
+            if ui.button("Open Config Folder", variant="secondary", key=WidgetKeys.QUERY_OPEN_CONFIG_FOLDER_BTN):
                 _ensure_env_file_exists()
                 _open_folder_in_explorer(get_storage_dir())
                 st.success("✓ Folder opened! Edit the .env file and refresh.")
@@ -125,7 +126,7 @@ def _render_empty_state() -> None:
         )
 
         st.write("")
-        if ui.button("Go to Embeddings Step", key="goto_embeddings"):
+        if ui.button("Go to Embeddings Step", key=WidgetKeys.QUERY_GOTO_EMBEDDINGS):
             st.session_state.current_step = "embeddings"
             st.rerun()
 
@@ -360,13 +361,13 @@ def render_query_step() -> None:
             query_text = st.text_input(
                 "Enter your query",
                 placeholder="Ask a question about your documents...",
-                key="query_input",
+                key=WidgetKeys.QUERY_INPUT,
             )
 
         with col_btn:
             # Add spacing to align with text input label
             st.markdown('<div style="margin-top: 29px;"></div>', unsafe_allow_html=True)
-            ask_clicked = st.button("Ask", type="primary", key="ask_button", width="stretch")
+            ask_clicked = st.button("Ask", type="primary", key=WidgetKeys.QUERY_ASK_BUTTON, width="stretch")
 
         # Configuration
         with st.expander("Retrieval Settings", expanded=False):
@@ -377,7 +378,7 @@ def render_query_step() -> None:
                     min_value=1,
                     max_value=min(20, vector_store.size),
                     value=min(5, vector_store.size),
-                    key="top_k_slider",
+                    key=WidgetKeys.QUERY_TOP_K_SLIDER,
                 )
 
             with col_threshold:
@@ -439,7 +440,7 @@ def render_query_step() -> None:
                     max_value=threshold_cfg["max"],
                     value=threshold_cfg["default"],
                     step=threshold_cfg["step"],
-                    key=f"threshold_slider_{strategy_key}",
+                    key=get_threshold_slider_key(retrieval_strategy, fusion_method),
                     help=f"Filter results below this threshold ({retrieval_strategy}{', ' + fusion_method if fusion_method else ''})",
                 )
 
@@ -447,7 +448,7 @@ def render_query_step() -> None:
             enable_query_expansion = st.checkbox(
                 "Generate query variations with the LLM",
                 value=False,
-                key="query_expansion_enabled",
+                key=WidgetKeys.QUERY_EXPANSION_ENABLED,
                 help="Creates multiple alternate phrasings and unions their results.",
             )
             variation_count = st.slider(
@@ -455,35 +456,52 @@ def render_query_step() -> None:
                 min_value=3,
                 max_value=5,
                 value=4,
-                key="query_expansion_count",
+                key=WidgetKeys.QUERY_EXPANSION_COUNT,
             )
             rewrite_prompt = st.text_area(
                 "Rewrite Prompt",
                 value=st.session_state.get(
-                    "query_rewrite_prompt",
+                    WidgetKeys.QUERY_REWRITE_PROMPT,
                     DEFAULT_QUERY_REWRITE_PROMPT,
                 ),
                 height=120,
-                key="query_rewrite_prompt",
+                key=WidgetKeys.QUERY_REWRITE_PROMPT,
                 help="Prompt used to generate query variations for retrieval.",
             )
 
         with st.expander("System Prompt", expanded=False):
             query_system_prompt = st.text_area(
                 "System Prompt",
-                value=st.session_state.get("llm_system_prompt", DEFAULT_SYSTEM_PROMPT),
+                value=st.session_state.get(WidgetKeys.QUERY_SYSTEM_PROMPT, DEFAULT_SYSTEM_PROMPT),
                 height=150,
-                key="query_system_prompt",
+                key=WidgetKeys.QUERY_SYSTEM_PROMPT,
                 label_visibility="collapsed",
                 help="Instructions for how the model should behave.",
             )
 
     # === Process Query: Retrieve + Generate ===
-    if ask_clicked and query_text.strip():
+    # Detect if retrieval parameters changed (to re-run query automatically)
+    should_requery = False
+    if st.session_state.current_query:
+        last_top_k = st.session_state.get("last_top_k")
+        last_threshold = st.session_state.get("last_threshold")
+
+        if last_top_k != top_k or last_threshold != threshold:
+            should_requery = True
+
+    if (ask_clicked and query_text.strip()) or should_requery:
         # Clear previous results
-        st.session_state.current_query = query_text.strip()
+        if ask_clicked:
+            st.session_state.current_query = query_text.strip()
         st.session_state.current_response = None
         st.session_state.last_query_variations = []
+
+        # Store current parameters for change detection
+        st.session_state.last_top_k = top_k
+        st.session_state.last_threshold = threshold
+
+        # Use current query if re-querying
+        query_text = st.session_state.current_query if should_requery else query_text
 
         # Get LLM config from sidebar
         llm_config, _ = _get_llm_config_from_sidebar()

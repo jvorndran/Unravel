@@ -4,6 +4,7 @@ import streamlit as st
 import streamlit_shadcn_ui as ui
 
 from unravel.services.embedders import DEFAULT_MODEL
+from unravel.ui.constants import WidgetKeys
 from unravel.services.export import (
     ExportConfig,
     generate_chunking_code,
@@ -35,7 +36,7 @@ def render_export_step() -> None:
         st.info(
             "Configure your pipeline first. Go to the Text Splitting or Vector Embedding steps to set up your configuration."
         )
-        if ui.button("Go to Text Splitting", key="goto_chunks_export"):
+        if ui.button("Go to Text Splitting", key=WidgetKeys.EXPORT_GOTO_CHUNKS):
             st.session_state.current_step = "chunks"
             st.rerun()
         return

@@ -7,6 +7,7 @@ import streamlit_shadcn_ui as ui
 from numpy.typing import NDArray
 
 from unravel.services.chunking import get_chunks
+from unravel.ui.constants import WidgetKeys
 from unravel.services.embedders import (
     DEFAULT_MODEL,
     get_embedder,
@@ -116,7 +117,7 @@ def render_embeddings_step() -> None:
                 )
 
         with col_action:
-            if st.button("Restart", key="restart_qdrant_header_btn", use_container_width=True):
+            if st.button("Restart", key=WidgetKeys.EMBEDDINGS_RESTART_QDRANT_BTN, use_container_width=True):
                 with st.spinner("..."):
                     try:
                         restart_qdrant_server()
@@ -146,7 +147,7 @@ def render_embeddings_step() -> None:
             "No document selected. Upload a file in the **Upload** step or select "
             "a document in the sidebar (RAG Config tab)."
         )
-        if ui.button("Go to Upload Step", key="goto_upload_embeddings"):
+        if ui.button("Go to Upload Step", key=WidgetKeys.EMBEDDINGS_GOTO_UPLOAD):
             st.session_state.current_step = "upload"
             st.rerun()
         return
@@ -228,7 +229,7 @@ def render_embeddings_step() -> None:
         st.info(
             "👋 No chunks available. Configure document and chunking parameters in the sidebar (RAG Config tab), then go to the **Chunks** step to generate chunks."
         )
-        if ui.button("Go to Chunks Step", key="goto_chunks"):
+        if ui.button("Go to Chunks Step", key=WidgetKeys.EMBEDDINGS_GOTO_CHUNKS):
             st.session_state.current_step = "chunks"
             st.rerun()
         return
@@ -466,8 +467,8 @@ def render_embeddings_step() -> None:
 
     # Streamlit reruns the script on every keystroke for text inputs.
     # Wrapping the input in a form prevents the expensive rerun until the user clicks Search.
-    if "query_input" not in st.session_state:
-        st.session_state["query_input"] = ""
+    if WidgetKeys.EMBEDDINGS_QUERY_INPUT not in st.session_state:
+        st.session_state[WidgetKeys.EMBEDDINGS_QUERY_INPUT] = ""
 
     with st.form("semantic_search_form", clear_on_submit=False):
         c1, c2 = st.columns([4, 1])
@@ -475,7 +476,7 @@ def render_embeddings_step() -> None:
             query_text = st.text_input(
                 label="Query",
                 placeholder="e.g., What is the main challenge of RAG?",
-                key="query_input",
+                key=WidgetKeys.EMBEDDINGS_QUERY_INPUT,
                 label_visibility="collapsed",
             )
         with c2:

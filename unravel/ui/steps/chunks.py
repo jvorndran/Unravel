@@ -3,6 +3,7 @@ import streamlit_shadcn_ui as ui
 
 from unravel.services.chunking import get_chunks
 from unravel.services.storage import load_document, save_rag_config
+from unravel.ui.constants import WidgetKeys
 from unravel.ui.components.chunk_viewer import (
     prepare_chunk_display_data,
     render_chunk_cards,
@@ -30,7 +31,7 @@ def render_chunks_step() -> None:
             "Apply Configuration",
             type="primary",
             disabled=not has_changes,
-            key="apply_chunking_config_btn",
+            key=WidgetKeys.CHUNKS_APPLY_BTN,
         ):
             # Update session state
             st.session_state.parsing_params = new_parsing_params
@@ -93,7 +94,7 @@ def render_chunks_step() -> None:
             "No document selected. Upload a file in the Upload step or "
             "select a document in the sidebar (RAG Config tab)."
         )
-        if ui.button("Go to Upload Step", key="goto_upload_chunks"):
+        if ui.button("Go to Upload Step", key=WidgetKeys.CHUNKS_GOTO_UPLOAD):
             st.session_state.current_step = "upload"
             st.rerun()
         return
@@ -127,7 +128,7 @@ def render_chunks_step() -> None:
             button_text = (
                 "Reparse Document" if parsing_settings_changed and source_text else "Parse Document"
             )
-            if st.button(button_text, key="parse_document_btn", type="primary"):
+            if st.button(button_text, key=WidgetKeys.CHUNKS_PARSE_BTN, type="primary"):
                 with st.spinner("Parsing document..."):
                     try:
                         content = load_document(selected_doc)
@@ -214,7 +215,7 @@ def render_chunks_step() -> None:
     view_mode = ui.tabs(
         options=["Visual View", "Raw JSON"],
         default_value="Visual View",
-        key="chunks_view_tab",
+        key=WidgetKeys.CHUNKS_VIEW_TAB,
     )
 
     # Render based on selected view

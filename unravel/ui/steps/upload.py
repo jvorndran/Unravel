@@ -9,6 +9,7 @@ from unravel.services.storage import (
     get_current_document,
     save_document,
 )
+from unravel.ui.constants import WidgetKeys
 from unravel.utils.web_scraper import (
     crawl_url,
     generate_filename_from_url,
@@ -44,7 +45,7 @@ def _render_url_scraping() -> None:
             crawl_method = st.radio(
                 "Discovery Method",
                 options=["Crawler", "Sitemap", "Feeds"],
-                key="crawl_method",
+                key=WidgetKeys.UPLOAD_CRAWL_METHOD,
                 horizontal=True,
                 help="Crawler: follows internal links. Sitemap: uses sitemap.xml. Feeds: discovers articles from RSS/Atom feeds.",
             )
@@ -53,7 +54,7 @@ def _render_url_scraping() -> None:
                 sitemap_url_override = st.text_input(
                     "Sitemap URL (optional)",
                     placeholder="e.g. https://example.com/en-us/sitemap.xml",
-                    key="crawl_sitemap_url",
+                    key=WidgetKeys.UPLOAD_CRAWL_SITEMAP_URL,
                     help="Override the auto-detected sitemap location. Useful when the sitemap is at a non-standard path.",
                 )
             else:
@@ -66,20 +67,20 @@ def _render_url_scraping() -> None:
                     min_value=1,
                     max_value=100,
                     value=10,
-                    key="crawl_max_pages",
+                    key=WidgetKeys.UPLOAD_CRAWL_MAX_PAGES,
                 )
             with col_lang:
                 lang_filter = st.text_input(
                     "Language filter",
                     placeholder="e.g. en, fr",
-                    key="crawl_lang",
+                    key=WidgetKeys.UPLOAD_CRAWL_LANG,
                     help="Optional ISO 639-1 code",
                 )
 
             respect_robots = st.checkbox(
                 "Respect robots.txt",
                 value=True,
-                key="crawl_respect_robots",
+                key=WidgetKeys.UPLOAD_CRAWL_RESPECT_ROBOTS,
                 disabled=(crawl_method != "Crawler"),
                 help="Follow robots.txt crawling rules (Crawler only)",
             )
@@ -87,12 +88,12 @@ def _render_url_scraping() -> None:
             st.caption("Per-page metadata to include:")
             meta_col1, meta_col2 = st.columns(2)
             with meta_col1:
-                meta_author = st.checkbox("Author", value=True, key="meta_author")
-                meta_date = st.checkbox("Publication date", value=True, key="meta_date")
-                meta_description = st.checkbox("Description", value=False, key="meta_desc")
+                meta_author = st.checkbox("Author", value=True, key=WidgetKeys.UPLOAD_META_AUTHOR)
+                meta_date = st.checkbox("Publication date", value=True, key=WidgetKeys.UPLOAD_META_DATE)
+                meta_description = st.checkbox("Description", value=False, key=WidgetKeys.UPLOAD_META_DESC)
             with meta_col2:
-                meta_tags = st.checkbox("Tags / categories", value=False, key="meta_tags")
-                meta_sitename = st.checkbox("Site name", value=False, key="meta_sitename")
+                meta_tags = st.checkbox("Tags / categories", value=False, key=WidgetKeys.UPLOAD_META_TAGS)
+                meta_sitename = st.checkbox("Site name", value=False, key=WidgetKeys.UPLOAD_META_SITENAME)
     else:
         crawl_method = "Crawler"
         max_pages = 10
@@ -441,7 +442,7 @@ def render_upload_step() -> None:
                     st.caption(f"{file_format} | {size_str}")
 
             with col2:
-                if ui.button("Delete", variant="destructive", key="delete_current_doc"):
+                if ui.button("Delete", variant="destructive", key=WidgetKeys.UPLOAD_DELETE_BTN):
                     clear_documents()
                     st.session_state.document_metadata = None
                     st.session_state.doc_name = None

@@ -4,6 +4,7 @@ import streamlit as st
 import streamlit_shadcn_ui as ui
 
 from unravel.services.embedders import DEFAULT_MODEL, list_available_models
+from unravel.ui.constants import WidgetKeys
 from unravel.services.llm import (
     LLM_PROVIDERS,
     LLMConfig,
@@ -109,11 +110,11 @@ def render_rag_config_sidebar() -> None:
             st.session_state.doc_name = None
 
     if all_docs:
-        if "sidebar_doc_selector" not in st.session_state:
-            st.session_state["sidebar_doc_selector"] = st.session_state.doc_name or all_docs[0]
-        elif st.session_state.get("sidebar_doc_selector") != st.session_state.doc_name:
+        if WidgetKeys.SIDEBAR_DOC_SELECTOR not in st.session_state:
+            st.session_state[WidgetKeys.SIDEBAR_DOC_SELECTOR] = st.session_state.doc_name or all_docs[0]
+        elif st.session_state.get(WidgetKeys.SIDEBAR_DOC_SELECTOR) != st.session_state.doc_name:
             if st.session_state.doc_name in all_docs:
-                st.session_state["sidebar_doc_selector"] = st.session_state.doc_name
+                st.session_state[WidgetKeys.SIDEBAR_DOC_SELECTOR] = st.session_state.doc_name
     else:
         st.info("No documents available. Upload a file in the Upload step.")
         st.session_state.doc_name = None
@@ -124,7 +125,7 @@ def render_rag_config_sidebar() -> None:
     st.selectbox(
         "Document",
         options=all_docs,
-        key="sidebar_doc_selector",
+        key=WidgetKeys.SIDEBAR_DOC_SELECTOR,
         label_visibility="collapsed",
     )
 
@@ -161,13 +162,13 @@ def render_rag_config_sidebar() -> None:
         current_retrieval_config.get("strategy", "DenseRetriever"), "Dense (Qdrant)"
     )
 
-    if "sidebar_retrieval_strategy" not in st.session_state:
-        st.session_state["sidebar_retrieval_strategy"] = current_strategy_display
+    if WidgetKeys.SIDEBAR_RETRIEVAL_STRATEGY not in st.session_state:
+        st.session_state[WidgetKeys.SIDEBAR_RETRIEVAL_STRATEGY] = current_strategy_display
 
     retrieval_strategy = st.selectbox(
         "Strategy",
         options=retrieval_strategies,
-        key="sidebar_retrieval_strategy",
+        key=WidgetKeys.SIDEBAR_RETRIEVAL_STRATEGY,
         help="Choose how to retrieve relevant chunks",
     )
 
@@ -180,7 +181,7 @@ def render_rag_config_sidebar() -> None:
                 value=current_retrieval_config.get("params", {}).get("dense_weight", 0.7),
                 step=0.05,
                 help="Weight for vector similarity (1-weight goes to BM25)",
-                key="sidebar_dense_weight",
+                key=WidgetKeys.SIDEBAR_DENSE_WEIGHT,
             )
 
             current_fusion = current_retrieval_config.get("params", {}).get(
@@ -191,7 +192,7 @@ def render_rag_config_sidebar() -> None:
                 "Fusion method",
                 options=["Weighted Sum", "Reciprocal Rank Fusion"],
                 index=0 if current_fusion == "weighted_sum" else 1,
-                key="sidebar_fusion_method",
+                key=WidgetKeys.SIDEBAR_FUSION_METHOD,
             )
     elif retrieval_strategy == "Sparse (BM25)":
         with st.expander("BM25 Settings", expanded=False):
@@ -214,7 +215,7 @@ def render_rag_config_sidebar() -> None:
     enable_reranking = st.checkbox(
         "Enable reranking",
         value=current_reranking_config.get("enabled", False),
-        key="sidebar_enable_reranking",
+        key=WidgetKeys.SIDEBAR_ENABLE_RERANKING,
         help="Use cross-encoder to rerank results",
     )
 
@@ -254,7 +255,7 @@ def render_rag_config_sidebar() -> None:
                 index=library_names.index(current_library),
                 horizontal=True,
                 label_visibility="collapsed",
-                key="sidebar_rerank_library",
+                key=WidgetKeys.SIDEBAR_RERANK_LIBRARY,
             )
 
             # Show models from selected library
@@ -267,12 +268,12 @@ def render_rag_config_sidebar() -> None:
                 "Model",
                 options=available_models,
                 index=available_models.index(current_model_in_lib),
-                key="sidebar_rerank_model",
+                key=WidgetKeys.SIDEBAR_RERANK_MODEL,
                 help="Select reranking model",
             )
 
             # Show model description
-            selected_model_name = st.session_state.get("sidebar_rerank_model")
+            selected_model_name = st.session_state.get(WidgetKeys.SIDEBAR_RERANK_MODEL)
             model_info = next((m for m in all_models if m["name"] == selected_model_name), None)
             if model_info:
                 st.caption(f"_{model_info.get('description', '')}_")
@@ -282,7 +283,7 @@ def render_rag_config_sidebar() -> None:
                 min_value=1,
                 max_value=20,
                 value=current_reranking_config.get("top_n", 5),
-                key="sidebar_rerank_top_n",
+                key=WidgetKeys.SIDEBAR_RERANK_TOP_N,
             )
 
     st.write("")
@@ -318,16 +319,16 @@ def render_rag_config_sidebar() -> None:
     current_selection = f"{current_display_name}"
 
     # Initialize widget state if not present
-    if "sidebar_embedding_model" not in st.session_state:
-        st.session_state["sidebar_embedding_model"] = current_selection
-    elif st.session_state.get("sidebar_embedding_model") not in display_options:
-        st.session_state["sidebar_embedding_model"] = current_selection
+    if WidgetKeys.SIDEBAR_EMBEDDING_MODEL not in st.session_state:
+        st.session_state[WidgetKeys.SIDEBAR_EMBEDDING_MODEL] = current_selection
+    elif st.session_state.get(WidgetKeys.SIDEBAR_EMBEDDING_MODEL) not in display_options:
+        st.session_state[WidgetKeys.SIDEBAR_EMBEDDING_MODEL] = current_selection
 
     # Simple selectbox
     selected_option = st.selectbox(
         "Embedding Model",
         options=display_options,
-        key="sidebar_embedding_model",
+        key=WidgetKeys.SIDEBAR_EMBEDDING_MODEL,
         label_visibility="collapsed",
     )
 
@@ -362,21 +363,21 @@ def render_rag_config_sidebar() -> None:
         st.caption(details)
 
     # Build pending configuration from widget values
-    pending_doc_name = st.session_state.get("sidebar_doc_selector")
+    pending_doc_name = st.session_state.get(WidgetKeys.SIDEBAR_DOC_SELECTOR)
     pending_embedding_model = selected_model_name
 
     # Build retrieval config from widgets
     retrieval_strategy = st.session_state.get(
-        "sidebar_retrieval_strategy",
+        WidgetKeys.SIDEBAR_RETRIEVAL_STRATEGY,
         "Dense (Qdrant)",
     )
     pending_retrieval_params = {}
 
     if retrieval_strategy == "Hybrid":
         pending_retrieval_params = {
-            "dense_weight": st.session_state.get("sidebar_dense_weight", 0.7),
+            "dense_weight": st.session_state.get(WidgetKeys.SIDEBAR_DENSE_WEIGHT, 0.7),
             "fusion_method": reverse_fusion_map.get(
-                st.session_state.get("sidebar_fusion_method", "Weighted Sum"),
+                st.session_state.get(WidgetKeys.SIDEBAR_FUSION_METHOD, "Weighted Sum"),
                 "weighted_sum",
             ),
         }
@@ -387,14 +388,14 @@ def render_rag_config_sidebar() -> None:
     }
 
     # Build reranking config from widgets
-    enable_reranking = st.session_state.get("sidebar_enable_reranking", False)
+    enable_reranking = st.session_state.get(WidgetKeys.SIDEBAR_ENABLE_RERANKING, False)
     pending_reranking_config = {"enabled": False}
 
     if enable_reranking:
         pending_reranking_config = {
             "enabled": True,
-            "model": st.session_state.get("sidebar_rerank_model", "ms-marco-MiniLM-L-12-v2"),
-            "top_n": st.session_state.get("sidebar_rerank_top_n", 5),
+            "model": st.session_state.get(WidgetKeys.SIDEBAR_RERANK_MODEL, "ms-marco-MiniLM-L-12-v2"),
+            "top_n": st.session_state.get(WidgetKeys.SIDEBAR_RERANK_TOP_N, 5),
         }
 
     # Check for changes between pending and applied configuration
@@ -423,7 +424,7 @@ def render_rag_config_sidebar() -> None:
         "Save & Apply",
         type="primary",
         disabled=not has_changes,
-        key="save_rag_config_btn",
+        key=WidgetKeys.SIDEBAR_SAVE_RAG_CONFIG_BTN,
     ):
         # Detect specific changes for targeted cache invalidation
         doc_changed = pending_doc_name != st.session_state.doc_name
@@ -498,7 +499,7 @@ def render_rag_config_sidebar() -> None:
     st.markdown("**Troubleshooting**")
     st.caption("Clear cached embeddings and session data if you encounter errors.")
 
-    if ui.button("Clear Session State", variant="outline", key="clear_session_btn"):
+    if ui.button("Clear Session State", variant="outline", key=WidgetKeys.SIDEBAR_CLEAR_SESSION_BTN):
         # Clear persisted session state files
         clear_session_state()
 
@@ -559,12 +560,12 @@ def render_llm_sidebar() -> None:
         current_provider = providers[0]
 
     # Pre-select based on state
-    if "sidebar_provider" not in st.session_state:
-        st.session_state["sidebar_provider"] = current_provider
+    if WidgetKeys.SIDEBAR_PROVIDER not in st.session_state:
+        st.session_state[WidgetKeys.SIDEBAR_PROVIDER] = current_provider
 
     provider = cast(
         str,
-        ui.select(options=providers, key="sidebar_provider", label="Provider"),
+        ui.select(options=providers, key=WidgetKeys.SIDEBAR_PROVIDER, label="Provider"),
     )
     st.session_state.llm_provider = provider
 
@@ -572,7 +573,7 @@ def render_llm_sidebar() -> None:
 
     # Show explanation for OpenAI-Compatible
     if provider == "OpenAI-Compatible":
-        with ui.card(key="openai_compat_info"):
+        with ui.card(key=WidgetKeys.SIDEBAR_OPENAI_COMPAT_INFO):
             st.markdown("""
                 **OpenAI-Compatible** allows local models (Ollama, LM Studio, etc).
                 
@@ -589,7 +590,7 @@ def render_llm_sidebar() -> None:
         model = ui.input(
             default_value=st.session_state.llm_model or "llama2",
             placeholder="e.g., llama2, mistral",
-            key="sidebar_model_input",
+            key=WidgetKeys.SIDEBAR_MODEL_INPUT,
         )
         st.session_state.llm_model = model
     else:
@@ -600,10 +601,10 @@ def render_llm_sidebar() -> None:
             st.session_state.llm_model = default_model
 
         # Pre-select based on state
-        if "sidebar_model_select" not in st.session_state:
-            st.session_state["sidebar_model_select"] = current_model
+        if WidgetKeys.SIDEBAR_MODEL_SELECT not in st.session_state:
+            st.session_state[WidgetKeys.SIDEBAR_MODEL_SELECT] = current_model
 
-        model = ui.select(options=models, key="sidebar_model_select", label="Model")
+        model = ui.select(options=models, key=WidgetKeys.SIDEBAR_MODEL_SELECT, label="Model")
         st.session_state.llm_model = model
 
     st.write("")
@@ -632,7 +633,7 @@ def render_llm_sidebar() -> None:
         base_url = ui.input(
             default_value=st.session_state.llm_base_url or "http://localhost:11434/v1",
             placeholder="http://localhost:11434/v1",
-            key="sidebar_base_url",
+            key=WidgetKeys.SIDEBAR_BASE_URL,
         )
         st.session_state.llm_base_url = base_url
     else:
@@ -647,7 +648,7 @@ def render_llm_sidebar() -> None:
             max_value=2.0,
             value=st.session_state.llm_temperature,
             step=0.1,
-            key="sidebar_temperature",
+            key=WidgetKeys.SIDEBAR_TEMPERATURE,
             help="Higher values make output more random, lower values more deterministic.",
         )
         st.session_state.llm_temperature = temperature
@@ -658,7 +659,7 @@ def render_llm_sidebar() -> None:
             max_value=4000,
             value=st.session_state.llm_max_tokens,
             step=100,
-            key="sidebar_max_tokens",
+            key=WidgetKeys.SIDEBAR_MAX_TOKENS,
             help="Maximum number of tokens in the response.",
         )
         st.session_state.llm_max_tokens = max_tokens
@@ -666,7 +667,7 @@ def render_llm_sidebar() -> None:
     st.write("")
 
     # Save button
-    if ui.button("Save Configuration", variant="outline", key="save_config_btn"):
+    if ui.button("Save Configuration", variant="outline", key=WidgetKeys.SIDEBAR_SAVE_CONFIG_BTN):
         config_data = {
             "provider": provider,
             "model": model,

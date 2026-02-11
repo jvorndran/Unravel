@@ -1,1 +1,1 @@
-"""Test suite for Unravel."""
+"""Test suite for Unravel RAG Visualizer."""

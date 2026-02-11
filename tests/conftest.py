@@ -1,13 +1,14 @@
-"""Shared fixtures and helpers for sidebar tests.
+"""Shared fixtures and helpers for tests.
 
-These fixtures provide common setup for testing Streamlit sidebar components
-using streamlit.testing.v1.
+These fixtures provide common setup for testing Streamlit UI components
+and service layer functionality using streamlit.testing.v1 and mocks.
 """
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 from streamlit.testing.v1 import AppTest
 
@@ -70,6 +71,9 @@ def mock_storage_dir(tmp_path: Path) -> Path:
 
     # Create config dir (needed for save_rag_config)
     (tmp_path / "config").mkdir(parents=True)
+
+    # Create session dir (for vector stores)
+    (tmp_path / "session").mkdir(parents=True)
 
     return tmp_path
 
@@ -174,3 +178,104 @@ def patched_storage(mock_storage_dir: Path) -> Any:
     return patch(
         "unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir
     )
+
+
+@pytest.fixture
+def mock_qdrant_client():
+    """Mock Qdrant client for vector store tests.
+
+    Returns a MagicMock that simulates basic Qdrant operations.
+    """
+    with patch("qdrant_client.QdrantClient") as mock:
+        # Mock empty collections response
+        mock.return_value.get_collections.return_value.collections = []
+
+        # Mock collection operations
+        mock.return_value.create_collection.return_value = None
+        mock.return_value.delete_collection.return_value = None
+
+        # Mock search operations
+        mock_result = MagicMock()
+        mock_result.id = 0
+        mock_result.score = 0.95
+        mock_result.payload = {"text": "test chunk"}
+        mock.return_value.search.return_value = [mock_result]
+
+        # Mock upsert operations
+        mock.return_value.upsert.return_value = None
+
+        # Mock collection_exists
+        mock.return_value.collection_exists.return_value = False
+
+        yield mock
+
+
+@pytest.fixture
+def mock_openai_api():
+    """Mock OpenAI API for LLM tests.
+
+    Returns a MagicMock that simulates streaming chat completions.
+    """
+    with patch("openai.OpenAI") as mock:
+        # Mock streaming response
+        mock_stream = MagicMock()
+        mock_chunk = MagicMock()
+        mock_chunk.choices = [MagicMock(delta=MagicMock(content="Test response "))]
+        mock_stream.__iter__ = lambda self: iter([mock_chunk])
+
+        mock.return_value.chat.completions.create.return_value = mock_stream
+
+        yield mock
+
+
+@pytest.fixture
+def mock_anthropic_api():
+    """Mock Anthropic API for LLM tests.
+
+    Returns a MagicMock that simulates streaming message generation.
+    """
+    with patch("anthropic.Anthropic") as mock:
+        # Mock streaming response
+        mock_stream = MagicMock()
+        mock_event = MagicMock()
+        mock_event.type = "content_block_delta"
+        mock_event.delta = MagicMock(text="Test response ")
+        mock_stream.__iter__ = lambda self: iter([mock_event])
+
+        mock.return_value.messages.stream.return_value.__enter__.return_value.text_stream = (
+            mock_stream
+        )
+
+        yield mock
+
+
+@pytest.fixture
+def mock_sentence_transformer():
+    """Mock SentenceTransformer for embedding tests.
+
+    Returns a MagicMock that simulates sentence-transformers model.
+    """
+    with patch("sentence_transformers.SentenceTransformer") as mock:
+        # Mock encode method to return random embeddings
+        mock.return_value.encode.return_value = np.random.rand(10, 384).astype(np.float32)
+        mock.return_value.get_sentence_embedding_dimension.return_value = 384
+
+        yield mock
+
+
+@pytest.fixture(autouse=True)
+def clear_streamlit_cache():
+    """Automatically clear Streamlit caches before each test.
+
+    This prevents cache contamination between tests.
+    """
+    import streamlit as st
+
+    st.cache_data.clear()
+    st.cache_resource.clear()
+
+    yield
+
+    # Clear again after test
+    st.cache_data.clear()
+    st.cache_resource.clear()
