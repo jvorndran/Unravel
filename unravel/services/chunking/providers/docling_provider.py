@@ -9,14 +9,12 @@ from bisect import bisect_right
 from typing import Any
 
 import tiktoken
-
 from docling.chunking import HierarchicalChunker, HybridChunker
 from docling.document_converter import DocumentConverter
 from docling_core.transforms.chunker.tokenizer.openai import OpenAITokenizer
 
 from ..core import Chunk
 from .base import ChunkingProvider, ParameterInfo, SplitterInfo
-
 
 # Centralized metadata options for all chunking strategies
 # Maps display name -> internal key
@@ -253,9 +251,7 @@ def _find_blank_line_boundaries(text: str) -> list[int]:
     return boundaries
 
 
-def _find_last_boundary(
-    boundaries: list[int], start_char: int, end_char: int
-) -> int | None:
+def _find_last_boundary(boundaries: list[int], start_char: int, end_char: int) -> int | None:
     if not boundaries:
         return None
     idx = bisect_right(boundaries, end_char) - 1
@@ -327,18 +323,14 @@ def _chunk_raw_hybrid(
         protected_ranges.extend(_find_list_block_ranges(text))
     protected_ranges = _merge_ranges(protected_ranges)
 
-    blank_line_boundaries = (
-        _find_blank_line_boundaries(text) if paragraph_aligned else []
-    )
+    blank_line_boundaries = _find_blank_line_boundaries(text) if paragraph_aligned else []
 
     chunks: list[Chunk] = []
     start_token = 0
     while start_token < len(tokens):
         base_end_token = min(start_token + safe_max_tokens, len(tokens))
         start_char = offsets[start_token]
-        base_end_char = (
-            len(text) if base_end_token >= len(tokens) else offsets[base_end_token]
-        )
+        base_end_char = len(text) if base_end_token >= len(tokens) else offsets[base_end_token]
         end_char = base_end_char
 
         if paragraph_aligned:
@@ -346,9 +338,7 @@ def _chunk_raw_hybrid(
             if boundary:
                 end_char = boundary
 
-        start_char, end_char = _adjust_for_protected_ranges(
-            start_char, end_char, protected_ranges
-        )
+        start_char, end_char = _adjust_for_protected_ranges(start_char, end_char, protected_ranges)
 
         if end_char <= start_char:
             end_char = base_end_char
@@ -393,14 +383,14 @@ def _extract_metadata_from_chunk(
     tokenizer_name: str = "cl100k_base",
 ) -> dict[str, Any]:
     """Extract metadata from a native Docling chunk.
-    
+
     Args:
         native_chunk: Native BaseChunk from Docling
         include_metadata: List of metadata fields to include
         chunk_index: Index of this chunk in the sequence
         strategy: Chunking strategy name ("Hierarchical" or "Hybrid")
         tokenizer_name: Name of tokenizer for token counting
-        
+
     Returns:
         Dictionary of metadata fields
     """
@@ -411,11 +401,11 @@ def _extract_metadata_from_chunk(
         "chunk_index": chunk_index,
         "size": len(chunk_text),
     }
-    
+
     # Extract metadata from native chunk
     if hasattr(native_chunk, "meta") and native_chunk.meta:
         meta = native_chunk.meta
-        
+
     # Section hierarchy from headings (always include for UI)
     if hasattr(meta, "headings"):
         if meta.headings:
@@ -427,13 +417,15 @@ def _extract_metadata_from_chunk(
             metadata["heading_text"] = (
                 last_heading.text if hasattr(last_heading, "text") else str(last_heading)
             )
-        
+
         # Element type from doc_items
         if "element_type" in include_metadata and hasattr(meta, "doc_items"):
             if meta.doc_items:
                 # Get unique labels from doc items
                 labels = list(set(str(item.label) for item in meta.doc_items))
-                metadata["element_type"] = labels if len(labels) > 1 else labels[0] if labels else "text"
+                metadata["element_type"] = (
+                    labels if len(labels) > 1 else labels[0] if labels else "text"
+                )
 
     # Page numbers from provenance (often outside meta in Docling)
     if "page_no" in include_metadata:
@@ -443,7 +435,7 @@ def _extract_metadata_from_chunk(
             for p in native_chunk.prov:
                 if hasattr(p, "page_no"):
                     pages.add(p.page_no)
-        
+
         # Fallback to doc_items provenance if direct prov is empty/missing
         if not pages and hasattr(native_chunk, "meta") and native_chunk.meta:
             if hasattr(native_chunk.meta, "doc_items") and native_chunk.meta.doc_items:
@@ -452,14 +444,14 @@ def _extract_metadata_from_chunk(
                         for p in item.prov:
                             if hasattr(p, "page_no"):
                                 pages.add(p.page_no)
-        
+
         if pages:
             metadata["page_no"] = sorted(list(pages))
-    
+
     # Token count
     if "token_count" in include_metadata:
         metadata["token_count"] = _count_tokens(chunk_text, tokenizer_name)
-    
+
     return metadata
 
 
@@ -518,12 +510,12 @@ def _build_raw_chunk(
 
 def _text_to_docling_document(text: str, output_format: str):
     """Convert plain text/markdown to a DoclingDocument for chunking.
-    
+
     Uses Docling's document converter to parse markdown text into a structured document.
     """
     import tempfile
     from pathlib import Path
-    
+
     normalized = (output_format or "markdown").strip().lower()
     if normalized == "html":
         suffix = ".html"
@@ -531,12 +523,10 @@ def _text_to_docling_document(text: str, output_format: str):
         suffix = ".md"
 
     # Create a temporary file matching the parsed output format
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=suffix, delete=False, encoding="utf-8"
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False, encoding="utf-8") as f:
         f.write(text)
         temp_path = f.name
-    
+
     try:
         converter = DocumentConverter()
         result = converter.convert(Path(temp_path))
@@ -662,9 +652,7 @@ class DoclingProvider(ChunkingProvider):
             ),
         ]
 
-    def chunk(
-        self, splitter_name: str, text: str, **params: Any  # noqa: ANN401
-    ) -> list[Chunk]:
+    def chunk(self, splitter_name: str, text: str, **params: Any) -> list[Chunk]:  # noqa: ANN401
         """Split text using specified Docling chunking strategy."""
         if not text:
             return []
@@ -676,9 +664,7 @@ class DoclingProvider(ChunkingProvider):
             if include_metadata is None:
                 include_metadata = DEFAULT_METADATA
             heading_index = (
-                _build_markdown_heading_index(text)
-                if normalized_format == "markdown"
-                else None
+                _build_markdown_heading_index(text) if normalized_format == "markdown" else None
             )
             if splitter_name == "HierarchicalChunker":
                 merge_small_chunks = params.get("merge_small_chunks", True)
@@ -777,14 +763,18 @@ class DoclingProvider(ChunkingProvider):
         chunks: list[Chunk] = []
         for i, native_chunk in enumerate(native_chunks):
             chunk_text = native_chunk.text
-            
+
             # Extract metadata using helper
             metadata = _extract_metadata_from_chunk(
                 native_chunk, include_metadata, i, "Hierarchical"
             )
 
             # Find chunk position in original text (approximate)
-            start_index = original_text.find(chunk_text[:50]) if len(chunk_text) >= 50 else original_text.find(chunk_text)
+            start_index = (
+                original_text.find(chunk_text[:50])
+                if len(chunk_text) >= 50
+                else original_text.find(chunk_text)
+            )
             if start_index == -1:
                 start_index = 0
             end_index = start_index + len(chunk_text)
@@ -850,14 +840,18 @@ class DoclingProvider(ChunkingProvider):
         chunks: list[Chunk] = []
         for i, native_chunk in enumerate(native_chunks):
             chunk_text = native_chunk.text
-            
+
             # Extract metadata using helper
             metadata = _extract_metadata_from_chunk(
                 native_chunk, include_metadata, i, "Hybrid", tokenizer_name
             )
 
             # Find chunk position in original text (approximate)
-            start_index = original_text.find(chunk_text[:50]) if len(chunk_text) >= 50 else original_text.find(chunk_text)
+            start_index = (
+                original_text.find(chunk_text[:50])
+                if len(chunk_text) >= 50
+                else original_text.find(chunk_text)
+            )
             if start_index == -1:
                 start_index = 0
             end_index = start_index + len(chunk_text)
@@ -872,4 +866,3 @@ class DoclingProvider(ChunkingProvider):
             )
 
         return chunks
-

@@ -337,19 +337,19 @@ def load_bm25_index() -> dict[str, Any] | None:
 
 def save_session_state(state_data: dict[str, Any]) -> None:
     """Save session state data to disk for persistence across refreshes.
-    
+
     Args:
         state_data: Dictionary containing session state to persist
     """
     import numpy as np
-    
+
     ensure_storage_dir()
     state_dir = get_storage_dir() / "session"
     state_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Prepare data for JSON serialization
     serializable: dict[str, Any] = {}
-    
+
     # Save basic fields
     if "doc_name" in state_data:
         serializable["doc_name"] = state_data["doc_name"]
@@ -359,7 +359,7 @@ def save_session_state(state_data: dict[str, Any]) -> None:
         serializable["chunking_params"] = state_data["chunking_params"]
     if "parsing_params" in state_data:
         serializable["parsing_params"] = state_data["parsing_params"]
-    
+
     # Save chunks as JSON
     if "chunks" in state_data and state_data["chunks"]:
         chunks_data = []
@@ -373,7 +373,7 @@ def save_session_state(state_data: dict[str, Any]) -> None:
                 }
             )
         serializable["chunks"] = chunks_data
-    
+
     # Save embeddings result metadata
     if "last_embeddings_result" in state_data:
         emb_result = state_data["last_embeddings_result"]
@@ -386,7 +386,7 @@ def save_session_state(state_data: dict[str, Any]) -> None:
         if embeddings is not None:
             np.save(state_dir / "embeddings.npy", embeddings)
             serializable["has_embeddings"] = True
-        
+
         # Save reduced embeddings from projections dict (new format) or legacy key (old format)
         # Try new projections format first
         projections = emb_result.get("projections", {})
@@ -413,7 +413,7 @@ def save_session_state(state_data: dict[str, Any]) -> None:
                 serializable["reduced_embeddings_components"] = emb_result.get(
                     "reduced_embeddings_components"
                 )
-        
+
         # Save vector store
         if "vector_store" in emb_result and emb_result["vector_store"] is not None:
             vs_path = state_dir / VECTOR_STORE_DIR
@@ -442,7 +442,7 @@ def save_session_state(state_data: dict[str, Any]) -> None:
 
 def load_session_state() -> dict[str, Any] | None:
     """Load persisted session state from disk.
-    
+
     Returns:
         Dictionary with restored state data, or None if no saved state exists
     """
@@ -450,20 +450,20 @@ def load_session_state() -> dict[str, Any] | None:
 
     from unravel.services.chunking import Chunk
     from unravel.services.vector_store import VectorStore
-    
+
     state_dir = get_storage_dir() / "session"
     state_file = state_dir / SESSION_STATE_FILE
-    
+
     if not state_file.exists():
         return None
-    
+
     try:
         serializable = cast(dict[str, Any], json.loads(state_file.read_text()))
     except (OSError, json.JSONDecodeError):
         return None
-    
+
     state_data: dict[str, Any] = {}
-    
+
     # Restore basic fields
     if "doc_name" in serializable:
         state_data["doc_name"] = serializable["doc_name"]
@@ -473,19 +473,21 @@ def load_session_state() -> dict[str, Any] | None:
         state_data["chunking_params"] = serializable["chunking_params"]
     if "parsing_params" in serializable:
         state_data["parsing_params"] = serializable["parsing_params"]
-    
+
     # Restore chunks
     if "chunks" in serializable:
         chunks: list[Chunk] = []
         for cd in serializable["chunks"]:
-            chunks.append(Chunk(
-                text=cd["text"],
-                metadata=cd["metadata"],
-                start_index=cd.get("start_index", 0),
-                end_index=cd.get("end_index", len(cd["text"])),
-            ))
+            chunks.append(
+                Chunk(
+                    text=cd["text"],
+                    metadata=cd["metadata"],
+                    start_index=cd.get("start_index", 0),
+                    end_index=cd.get("end_index", len(cd["text"])),
+                )
+            )
         state_data["chunks"] = chunks
-    
+
     # Restore embeddings result
     if serializable.get("embeddings_key"):
         emb_result = {
@@ -493,7 +495,7 @@ def load_session_state() -> dict[str, Any] | None:
             "model": serializable.get("embeddings_model", ""),
             # NOTE: embedder is NOT restored - will be recreated on-demand
         }
-        
+
         # Load reduced embeddings
         embeddings_path = state_dir / "embeddings.npy"
         if serializable.get("has_embeddings") and embeddings_path.exists():
@@ -506,7 +508,7 @@ def load_session_state() -> dict[str, Any] | None:
             emb_result["reduced_embeddings_components"] = serializable.get(
                 "reduced_embeddings_components"
             )
-        
+
         # Load vector store
         vs_path = state_dir / VECTOR_STORE_DIR
         if serializable.get("has_vector_store") and vs_path.exists():
@@ -521,7 +523,7 @@ def load_session_state() -> dict[str, Any] | None:
                 except Exception as exc:
                     # Log but don't crash - vector store can be regenerated
                     emb_result["vector_store_error"] = str(exc)
-        
+
         # Include chunks reference
         if "chunks" in state_data:
             emb_result["chunks"] = state_data["chunks"]
@@ -548,6 +550,7 @@ def load_session_state() -> dict[str, Any] | None:
 def clear_session_state() -> None:
     """Clear persisted session state."""
     import shutil
+
     state_dir = get_storage_dir() / "session"
     if state_dir.exists():
         shutil.rmtree(state_dir)

@@ -3,8 +3,8 @@
 Supports parsing PDF, TXT, MD, and DOCX files into plain text.
 """
 
-import os
 import inspect
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -15,6 +15,7 @@ from PIL import Image as PILImage
 Document: Any | None
 try:
     from docx import Document as DocxDocument
+
     Document = DocxDocument
 except ImportError:
     Document = None
@@ -31,6 +32,7 @@ from docling.datamodel.accelerator_options import AcceleratorDevice, Accelerator
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import TableStructureOptions
 from docling.document_converter import DocumentConverter, FormatOption
+
 try:
     from docling.document_converter import PageRange
 except Exception:
@@ -39,7 +41,11 @@ from docling.pipeline.standard_pdf_pipeline import (  # type: ignore[attr-define
     StandardPdfPipeline,
     ThreadedPdfPipelineOptions,
 )
-from docling_core.types.doc import DocItemLabel, PictureItem  # type: ignore[attr-defined]
+from docling_core.types.doc import (  # type: ignore[attr-defined]
+    DocItemLabel,
+    PictureItem,
+)
+
 try:
     from docling_core.transforms.serializer.html import HTMLDocSerializer
     from docling_core.transforms.serializer.markdown import MarkdownDocSerializer
@@ -117,6 +123,7 @@ def _build_page_range(max_pages_value: int | None) -> Any | None:
 @dataclass
 class ExtractedImage:
     """An image extracted from a document."""
+
     index: int  # 1-based index
     pil_image: PILImage.Image
     caption: str | None = None
@@ -238,26 +245,26 @@ def _extract_images_from_docling(doc: Any) -> list[ExtractedImage]:
                 if pil_image is not None:
                     # Try to get page number from item's provenance
                     page_number = None
-                    if hasattr(item, 'prov') and item.prov:
+                    if hasattr(item, "prov") and item.prov:
                         for prov in item.prov:
-                            if hasattr(prov, 'page_no'):
+                            if hasattr(prov, "page_no"):
                                 page_number = prov.page_no
                                 break
 
-                    images.append(ExtractedImage(
-                        index=index,
-                        pil_image=pil_image,
-                        caption=None,
-                        page_number=page_number,
-                    ))
+                    images.append(
+                        ExtractedImage(
+                            index=index,
+                            pil_image=pil_image,
+                            caption=None,
+                            page_number=page_number,
+                        )
+                    )
                     index += 1
             except Exception:
                 # Skip images that fail to extract
                 continue
 
     return images
-
-
 
 
 def export_document(
@@ -355,7 +362,7 @@ def parse_pdf_docling(
     extract_images = bool(params.get("docling_extract_images", False))
     use_native_description = bool(params.get("docling_use_native_description", False))
     device = params.get("docling_device", "auto")
-    
+
     # Advanced table options
     enable_table_merging = bool(params.get("enable_table_merging", True))
     enable_table_reconstruction = bool(params.get("enable_table_reconstruction", True))
@@ -374,11 +381,7 @@ def parse_pdf_docling(
             pass
 
     max_pages = params.get("max_pages")
-    max_pages_value = (
-        int(max_pages)
-        if isinstance(max_pages, int) and max_pages > 0
-        else None
-    )
+    max_pages_value = int(max_pages) if isinstance(max_pages, int) and max_pages > 0 else None
     page_range = _build_page_range(max_pages_value)
     page_range = _build_page_range(max_pages_value)
 
@@ -391,6 +394,7 @@ def parse_pdf_docling(
             tmp_path = tmp.name
 
         try:
+
             def _convert_pdf_with_docling(
                 *,
                 enable_ocr_value: bool,
@@ -539,11 +543,7 @@ def parse_with_docling(
             pass
 
     max_pages = params.get("max_pages")
-    max_pages_value = (
-        int(max_pages)
-        if isinstance(max_pages, int) and max_pages > 0
-        else None
-    )
+    max_pages_value = int(max_pages) if isinstance(max_pages, int) and max_pages > 0 else None
 
     try:
         import tempfile
@@ -619,8 +619,7 @@ def parse_docx(content: bytes, params: dict[str, Any] | None = None) -> str:
     params = params or {}
     if Document is None:
         raise ImportError(
-            "python-docx is required for DOCX parsing. "
-            "Install with: pip install python-docx"
+            "python-docx is required for DOCX parsing. " "Install with: pip install python-docx"
         )
 
     try:
@@ -711,8 +710,6 @@ def parse_text(content: bytes) -> str:
         raise ValueError("Failed to decode text file with common encodings") from None
 
 
-
-
 def _markdown_to_plain_text(text: str) -> str:
     """Convert markdown content to plain text."""
     import html as html_lib
@@ -735,9 +732,7 @@ def _markdown_to_plain_text(text: str) -> str:
     return html_lib.unescape(text)
 
 
-def _convert_to_format(
-    text: str, source_format: str, target_format: str  # noqa: ARG001
-) -> str:
+def _convert_to_format(text: str, source_format: str, target_format: str) -> str:  # noqa: ARG001
     """Convert text between different formats.
 
     For Docling-parsed documents (PDF, PPTX, XLSX, HTML, Image), the output
@@ -854,4 +849,3 @@ def get_file_preview(text: str, max_length: int = 500) -> str:
         preview = preview[:max_length] + "..."
 
     return preview + "..." if len(text) > max_length else preview
-

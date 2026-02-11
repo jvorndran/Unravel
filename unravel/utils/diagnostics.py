@@ -5,15 +5,14 @@ Run this module directly to diagnose and fix common issues:
 """
 
 import sys
-from pathlib import Path
 
 from unravel.services.storage import get_storage_dir
 from unravel.utils.qdrant_manager import (
+    QDRANT_HOST,
+    QDRANT_PORT,
     _docker_available,
     _is_port_open,
     get_qdrant_status,
-    QDRANT_HOST,
-    QDRANT_PORT,
 )
 
 # ASCII-safe status indicators for Windows compatibility
@@ -116,7 +115,7 @@ def check_processes() -> None:
                 for line in processes[1:]:  # Skip header
                     parts = line.split('","')
                     if len(parts) >= 2:
-                        pid = parts[1].replace('"', '')
+                        pid = parts[1].replace('"', "")
                         print(f"  PID: {pid}")
             else:
                 print("No Python processes found (besides this one)")
@@ -129,7 +128,8 @@ def check_processes() -> None:
                 check=False,
             )
             lines = [
-                line for line in result.stdout.split("\n")
+                line
+                for line in result.stdout.split("\n")
                 if "python" in line.lower() or "streamlit" in line.lower()
             ]
             if lines:
@@ -144,26 +144,26 @@ def check_processes() -> None:
 
 def run_diagnostics() -> None:
     """Run all diagnostic checks."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Unravel Diagnostics")
-    print("="*60)
+    print("=" * 60)
 
     check_storage()
     check_docker_requirement()
     check_qdrant()
     check_processes()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("  Diagnostic Report Complete")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
 
 def interactive_fix() -> None:
     """Interactive menu for fixing common issues."""
     while True:
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("  Fix Issues")
-        print("="*60)
+        print("=" * 60)
         print("\n1. Re-run diagnostics")
         print("2. Exit")
 

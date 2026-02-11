@@ -3,6 +3,6 @@
 **/__pycache__
 *.py.tmp.*
 .claude
-.cursor/
+.cursor
 .streamlit/secrets.toml
 tmpclaude-*

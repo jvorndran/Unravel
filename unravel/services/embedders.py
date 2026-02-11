@@ -7,8 +7,8 @@ Provides a unified interface for generating embeddings using sentence-transforme
 from typing import Any, cast
 
 import numpy as np
-from numpy.typing import NDArray
 import streamlit as st
+from numpy.typing import NDArray
 
 # Lazy import to avoid slow startup
 _SentenceTransformer: Any | None = None
@@ -19,6 +19,7 @@ def _get_sentence_transformer() -> Any:
     global _SentenceTransformer
     if _SentenceTransformer is None:
         from sentence_transformers import SentenceTransformer
+
         _SentenceTransformer = SentenceTransformer
     return _SentenceTransformer
 
@@ -191,9 +192,7 @@ class Embedder:
     Uses lazy loading - model is only loaded on first use.
     """
 
-    def __init__(
-        self, model_name: str = DEFAULT_MODEL, device: str | None = None
-    ) -> None:
+    def __init__(self, model_name: str = DEFAULT_MODEL, device: str | None = None) -> None:
         """Initialize the embedder with a specific model.
 
         Args:
@@ -233,9 +232,7 @@ class Embedder:
         elif hasattr(self.model, "dim"):
             return self.model.dim
         else:
-            raise ValueError(
-                f"Cannot determine dimension for model: {self.model_name}"
-            )
+            raise ValueError(f"Cannot determine dimension for model: {self.model_name}")
 
     def embed_texts(
         self,
@@ -283,16 +280,12 @@ class Embedder:
         from unravel.services.embedding_backends import get_backend
 
         backend = get_backend(self.backend_name)
-        embedding = backend.embed_query(
-            self.model, query, normalize=normalize
-        )
+        embedding = backend.embed_query(self.model, query, normalize=normalize)
         return cast(NDArray[Any], embedding)
 
 
 @st.cache_resource
-def get_embedder(
-    model_name: str = DEFAULT_MODEL, **kwargs: Any  # noqa: ANN401
-) -> Embedder:
+def get_embedder(model_name: str = DEFAULT_MODEL, **kwargs: Any) -> Embedder:  # noqa: ANN401
     """Factory function to get a cached embedder instance.
 
     Model is loaded once and reused across reruns.
@@ -313,8 +306,4 @@ def list_available_models() -> list[dict[str, Any]]:
     Returns:
         List of dictionaries with model info
     """
-    return [
-        {"name": name, **info}
-        for name, info in EMBEDDING_MODELS.items()
-    ]
-
+    return [{"name": name, **info} for name, info in EMBEDDING_MODELS.items()]

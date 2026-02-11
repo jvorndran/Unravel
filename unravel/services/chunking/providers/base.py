@@ -58,9 +58,7 @@ class ChunkingProvider(ABC):
         pass
 
     @abstractmethod
-    def chunk(
-        self, splitter_name: str, text: str, **params: Any  # noqa: ANN401
-    ) -> list["Chunk"]:
+    def chunk(self, splitter_name: str, text: str, **params: Any) -> list["Chunk"]:  # noqa: ANN401
         """Split text into chunks using the specified splitter.
 
         Must return Chunk objects with accurate start_index and end_index.

@@ -3,7 +3,6 @@
 import re
 import time
 from datetime import datetime
-from typing import Optional
 from urllib.parse import urlparse
 
 import trafilatura
@@ -11,9 +10,11 @@ from trafilatura import feeds, sitemaps, spider
 
 try:
     from curl_cffi import requests
+
     _IMPERSONATE = "chrome120"
 except ImportError:
     import requests
+
     _IMPERSONATE = None
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -21,19 +22,19 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
 _BROWSER_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1',
-    'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
 }
 
 
@@ -76,8 +77,12 @@ def validate_url(url: str) -> str:
     # Check for valid scheme
     if parsed.scheme not in ("http", "https"):
         if parsed.scheme == "file":
-            raise ValueError("Local file paths are not supported. Please use the file upload feature instead.")
-        raise ValueError(f"Unsupported protocol: {parsed.scheme}. Only HTTP and HTTPS are supported.")
+            raise ValueError(
+                "Local file paths are not supported. Please use the file upload feature instead."
+            )
+        raise ValueError(
+            f"Unsupported protocol: {parsed.scheme}. Only HTTP and HTTPS are supported."
+        )
 
     # Check for valid domain
     if not parsed.netloc:
@@ -226,8 +231,8 @@ def scrape_with_trafilatura(
         metadata_dict = trafilatura.extract_metadata(downloaded)
 
         metadata = {
-            "title": metadata_dict.title if metadata_dict and metadata_dict.title else "",
-            "author": metadata_dict.author if metadata_dict and metadata_dict.author else "",
+            "title": (metadata_dict.title if metadata_dict and metadata_dict.title else ""),
+            "author": (metadata_dict.author if metadata_dict and metadata_dict.author else ""),
             "domain": extract_domain(url),
             "scraping_method": "trafilatura",
             "output_format": output_format,
@@ -240,17 +245,19 @@ def scrape_with_trafilatura(
     except requests.exceptions.HTTPError as e:
         status_code = e.response.status_code if e.response else "Unknown"
         if status_code == 403:
-            raise ValueError(f"Access forbidden (403). The site may be blocking automated requests.")
+            raise ValueError("Access forbidden (403). The site may be blocking automated requests.")
         elif status_code == 404:
-            raise ValueError(f"Page not found (404). Please check the URL.")
+            raise ValueError("Page not found (404). Please check the URL.")
         elif status_code == 429:
-            raise ValueError(f"Too many requests (429). The site is rate limiting.")
+            raise ValueError("Too many requests (429). The site is rate limiting.")
         else:
             raise ValueError(f"HTTP error {status_code} while accessing {extract_domain(url)}")
     except requests.exceptions.Timeout:
         raise ValueError(f"Request timed out while accessing {extract_domain(url)}")
     except requests.exceptions.ConnectionError:
-        raise ValueError(f"Failed to connect to {extract_domain(url)}. Please check the URL and your internet connection.")
+        raise ValueError(
+            f"Failed to connect to {extract_domain(url)}. Please check the URL and your internet connection."
+        )
     except requests.exceptions.SSLError:
         raise ValueError(f"SSL certificate error while accessing {extract_domain(url)}")
     except Exception as e:
@@ -258,7 +265,9 @@ def scrape_with_trafilatura(
         if "timeout" in error_msg:
             raise ValueError(f"Request timed out while accessing {extract_domain(url)}")
         elif "connection" in error_msg or "network" in error_msg:
-            raise ValueError(f"Failed to connect to {extract_domain(url)}. Please check the URL and your internet connection.")
+            raise ValueError(
+                f"Failed to connect to {extract_domain(url)}. Please check the URL and your internet connection."
+            )
         elif "ssl" in error_msg or "certificate" in error_msg:
             raise ValueError(f"SSL certificate error while accessing {extract_domain(url)}")
         else:
@@ -320,7 +329,9 @@ def _scrape_selenium_with_html(url: str, **extraction_params) -> tuple[bytes, st
     body_text = re.sub(r"<[^>]+>", " ", html)
 
     if not body_text or len(body_text.strip()) < 100:
-        raise ValueError("No content extracted or content is too short. The page may be empty or protected.")
+        raise ValueError(
+            "No content extracted or content is too short. The page may be empty or protected."
+        )
 
     content = trafilatura.extract(
         html,
@@ -371,7 +382,9 @@ def scrape_with_selenium(
         body_text = re.sub(r"<[^>]+>", " ", html).strip()
 
         if not body_text or len(body_text) < 100:
-            raise ValueError("No content extracted or content is too short. The page may be empty or protected.")
+            raise ValueError(
+                "No content extracted or content is too short. The page may be empty or protected."
+            )
 
         content = trafilatura.extract(
             html,
@@ -428,7 +441,17 @@ def _discover_links_browser(url: str, start_path: str, max_links: int) -> list:
 
         parsed_base = urlparse(url)
         base = f"{parsed_base.scheme}://{parsed_base.netloc}"
-        _skip_ext = {".pdf", ".jpg", ".jpeg", ".png", ".gif", ".zip", ".css", ".js", ".xml"}
+        _skip_ext = {
+            ".pdf",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".zip",
+            ".css",
+            ".js",
+            ".xml",
+        }
 
         links = set()
         for el in driver.find_elements(By.TAG_NAME, "a"):
@@ -477,7 +500,11 @@ def _format_page_section(
     if include_description and page_meta and page_meta.description:
         meta_parts.append(f"**Description:** {page_meta.description}")
     if include_tags and page_meta and page_meta.tags:
-        tags_str = ", ".join(page_meta.tags) if isinstance(page_meta.tags, (list, tuple)) else str(page_meta.tags)
+        tags_str = (
+            ", ".join(page_meta.tags)
+            if isinstance(page_meta.tags, (list, tuple))
+            else str(page_meta.tags)
+        )
         meta_parts.append(f"**Tags:** {tags_str}")
     if include_sitename and page_meta and page_meta.sitename:
         meta_parts.append(f"**Site:** {page_meta.sitename}")
@@ -518,9 +545,9 @@ def crawl_url(
     url: str,
     method: str = "crawler",
     max_pages: int = 10,
-    lang: Optional[str] = None,
+    lang: str | None = None,
     respect_robots: bool = True,
-    sitemap_url: Optional[str] = None,
+    sitemap_url: str | None = None,
     use_browser: bool = False,
     include_author: bool = True,
     include_date: bool = True,
@@ -618,19 +645,28 @@ def crawl_url(
 
             title = (page_meta.title if page_meta and page_meta.title else None) or page_url
 
-            sections.append(_format_page_section(
-                page_url, content, page_meta,
-                include_author, include_date, include_description,
-                include_tags, include_sitename,
-            ))
+            sections.append(
+                _format_page_section(
+                    page_url,
+                    content,
+                    page_meta,
+                    include_author,
+                    include_date,
+                    include_description,
+                    include_tags,
+                    include_sitename,
+                )
+            )
             page_results.append({"url": page_url, "title": title, "status": "ok"})
         except Exception as e:
-            page_results.append({
-                "url": page_url,
-                "title": page_url,
-                "status": "failed",
-                "reason": _classify_fetch_error(e),
-            })
+            page_results.append(
+                {
+                    "url": page_url,
+                    "title": page_url,
+                    "status": "failed",
+                    "reason": _classify_fetch_error(e),
+                }
+            )
 
         time.sleep(1)  # polite pacing between requests
 
@@ -641,12 +677,18 @@ def crawl_url(
         reasons = "; ".join({p["reason"] for p in page_results if p.get("reason")})
         raise ValueError(
             f"Failed to extract content from any of the {len(page_results)} discovered pages. "
-            + (f"Errors: {reasons}" if reasons else "The site may require JavaScript rendering or block automated access.")
+            + (
+                f"Errors: {reasons}"
+                if reasons
+                else "The site may require JavaScript rendering or block automated access."
+            )
         )
 
     # Build merged document
     date_str = datetime.now().strftime("%Y-%m-%d")
-    header = f"Crawl: {domain} | Date: {date_str} | Pages: {scraped_count} | Method: {method}\n\n---\n\n"
+    header = (
+        f"Crawl: {domain} | Date: {date_str} | Pages: {scraped_count} | Method: {method}\n\n---\n\n"
+    )
     merged = header + "".join(sections)
 
     metadata = {

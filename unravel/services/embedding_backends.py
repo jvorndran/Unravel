@@ -119,9 +119,7 @@ class SentenceTransformersAdapter(EmbedderBackend):
         """
         normalize = kwargs.get("normalize", True)
 
-        embedding = model.encode(
-            query, normalize_embeddings=normalize, convert_to_numpy=True
-        )
+        embedding = model.encode(query, normalize_embeddings=normalize, convert_to_numpy=True)
         return embedding
 
 
@@ -162,9 +160,7 @@ class FlagEmbeddingAdapter(EmbedderBackend):
         embeddings = model.encode(texts, batch_size=batch_size)
 
         # Normalize embeddings for consistency with sentence-transformers
-        embeddings = embeddings / np.linalg.norm(
-            embeddings, axis=1, keepdims=True
-        )
+        embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
         return embeddings.astype(np.float32)
 
     def embed_query(

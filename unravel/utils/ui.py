@@ -68,7 +68,7 @@ def apply_custom_styles() -> None:
 
 def render_step_nav(active_step: str = "chunks") -> None:
     """Render the step navigation bar using shadcn tabs."""
-    
+
     # Map internal IDs to Display Labels
     step_map = {
         "upload": "Upload",
@@ -77,24 +77,24 @@ def render_step_nav(active_step: str = "chunks") -> None:
         "query": "Response Generation",
         "export": "Export Code",
     }
-    
+
     # Reverse map for lookup
     label_map = {v: k for k, v in step_map.items()}
-    
+
     # Get current label
     default_value = step_map.get(active_step, "Text Splitting")
-    
+
     # Render Tabs
-    st.write("") # Spacer
+    st.write("")  # Spacer
     selected_label = ui.tabs(
         options=list(step_map.values()),
         default_value=default_value,
         key="main_navigation_tabs",
     )
-    
+
     # Handle Navigation
     selected_id = label_map.get(selected_label)
-    
+
     if selected_id and selected_id != active_step:
         st.session_state.current_step = selected_id
         st.rerun()

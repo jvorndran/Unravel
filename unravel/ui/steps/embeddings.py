@@ -12,7 +12,6 @@ from unravel.services.embedders import (
     get_embedder,
 )
 from unravel.services.retrieval import (
-    preprocess_retriever,
     retrieve,
 )
 from unravel.services.storage import (
@@ -38,9 +37,7 @@ from unravel.utils.visualization import (
 
 
 @st.cache_data(show_spinner="Generating embeddings...")
-def generate_embeddings(
-    texts: list[str], model_name: str
-) -> tuple[NDArray[Any], int]:
+def generate_embeddings(texts: list[str], model_name: str) -> tuple[NDArray[Any], int]:
     """Generate embeddings for texts using specified model.
 
     Cached based on texts content and model name.
@@ -58,7 +55,7 @@ def generate_embeddings(
 
 
 def render_embeddings_step() -> None:
-    
+
     # Read configuration from session state (set in sidebar)
     chunks = st.session_state.get("chunks", [])
     doc_name = st.session_state.get("doc_name")
@@ -67,7 +64,9 @@ def render_embeddings_step() -> None:
 
     # --- Main Header ---
     st.markdown("## Embeddings & Similarity")
-    st.caption("Visualize how your document chunks are represented in vector space and test semantic search.")
+    st.caption(
+        "Visualize how your document chunks are represented in vector space and test semantic search."
+    )
 
     # --- Docker/Qdrant Requirement Check ---
     qdrant_url = st.session_state.get("qdrant_url")
@@ -75,8 +74,7 @@ def render_embeddings_step() -> None:
         # Docker not available - block embeddings functionality
         with st.container(border=True):
             st.error("**Docker Required for Embeddings**")
-            st.markdown(
-                """
+            st.markdown("""
                 This feature requires Qdrant vector database, which runs via Docker.
 
                 **To enable embeddings:**
@@ -85,8 +83,7 @@ def render_embeddings_step() -> None:
                 3. Refresh this page
 
                 The Chunks step still works without Docker.
-                """
-            )
+                """)
         return
 
     # --- Qdrant Status Header ---
@@ -100,18 +97,22 @@ def render_embeddings_step() -> None:
 
         with col_status:
             if is_running:
-                url = qdrant_status.get('url', '')
+                url = qdrant_status.get("url", "")
                 if url:
                     dashboard_url = url + "/dashboard"
                     st.markdown(
                         f"**Qdrant Status** &nbsp; <span style='color: #16a34a; background-color: #dcfce7; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Running</span> &nbsp; <a href='{dashboard_url}' target='_blank' style='color: #4b5563; text-decoration: none; border-bottom: 1px dotted #9ca3af;'>{dashboard_url} ↗</a>",
-                        unsafe_allow_html=True
+                        unsafe_allow_html=True,
                     )
             else:
-                error_msg = "Docker not found" if not qdrant_status.get("docker_available") else "Connection lost"
+                error_msg = (
+                    "Docker not found"
+                    if not qdrant_status.get("docker_available")
+                    else "Connection lost"
+                )
                 st.markdown(
                     f"**Qdrant Status** &nbsp; <span style='color: #dc2626; background-color: #fee2e2; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Stopped</span> &nbsp; <span style='color: #ef4444; font-size: 0.9em;'>{error_msg}</span>",
-                    unsafe_allow_html=True
+                    unsafe_allow_html=True,
                 )
 
         with col_action:
@@ -125,16 +126,16 @@ def render_embeddings_step() -> None:
 
         # Contextual Warnings/Errors
         if not is_running and qdrant_status.get("error"):
-            error_text = str(qdrant_status['error'])
+            error_text = str(qdrant_status["error"])
             st.markdown(
                 f"<div style='margin-top: 8px; font-size: 0.85em; color: #dc2626; background: #fef2f2; padding: 8px; border-radius: 4px; word-wrap: break-word; overflow-wrap: break-word;'>{error_text}</div>",
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
 
         if is_running and qdrant_status.get("mount_type") == "bind":
             st.markdown(
                 "<div style='margin-top: 8px; font-size: 0.85em; color: #854d0e; background: #fef9c3; padding: 8px; border-radius: 4px;'>Performance Note: Using bind mount on Windows (slower I/O).</div>",
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
 
     st.write("")
@@ -159,7 +160,10 @@ def render_embeddings_step() -> None:
                 content = load_document(selected_doc)
                 if content:
                     # Use applied params, not current
-                    parsing_params = st.session_state.get("applied_parsing_params", st.session_state.get("parsing_params", {}))
+                    parsing_params = st.session_state.get(
+                        "applied_parsing_params",
+                        st.session_state.get("parsing_params", {}),
+                    )
                     source_text, _, _ = parse_document(selected_doc, content, parsing_params)
                 else:
                     st.error(f"Failed to load document: {selected_doc}")
@@ -171,36 +175,43 @@ def render_embeddings_step() -> None:
             # 2. Chunk Text
             if source_text:
                 # Use applied params, not current
-                params = st.session_state.get("applied_chunking_params", st.session_state.get("chunking_params", {
-                    "provider": "Docling",
-                    "splitter": "HybridChunker",
-                    "max_tokens": 512,
-                    "chunk_overlap": 50,
-                    "tokenizer": "cl100k_base",
-                }))
+                params = st.session_state.get(
+                    "applied_chunking_params",
+                    st.session_state.get(
+                        "chunking_params",
+                        {
+                            "provider": "Docling",
+                            "splitter": "HybridChunker",
+                            "max_tokens": 512,
+                            "chunk_overlap": 50,
+                            "tokenizer": "cl100k_base",
+                        },
+                    ),
+                )
 
                 try:
                     provider = params.get("provider", "Docling")
                     splitter = params.get("splitter", "HybridChunker")
-                    splitter_params = {k: v for k, v in params.items()
-                                       if k not in ["provider", "splitter"]}
+                    splitter_params = {
+                        k: v for k, v in params.items() if k not in ["provider", "splitter"]
+                    }
                     new_chunks = get_chunks(
                         provider=provider,
                         splitter=splitter,
                         text=source_text,
-                        **splitter_params
+                        **splitter_params,
                     )
 
                     # Update State
                     st.session_state["chunks"] = new_chunks
                     st.session_state["doc_name"] = selected_doc
-                    
+
                     # Invalidate embeddings
                     if "last_embeddings_result" in st.session_state:
                         del st.session_state["last_embeddings_result"]
                     if "search_results" in st.session_state:
                         del st.session_state["search_results"]
-                        
+
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error chunking document: {str(e)}")
@@ -214,18 +225,21 @@ def render_embeddings_step() -> None:
     # 1. Empty State Check
     chunks = st.session_state.get("chunks", [])
     if not chunks:
-        st.info("👋 No chunks available. Configure document and chunking parameters in the sidebar (RAG Config tab), then go to the **Chunks** step to generate chunks.")
+        st.info(
+            "👋 No chunks available. Configure document and chunking parameters in the sidebar (RAG Config tab), then go to the **Chunks** step to generate chunks."
+        )
         if ui.button("Go to Chunks Step", key="goto_chunks"):
-             st.session_state.current_step = "chunks"
-             st.rerun()
+            st.session_state.current_step = "chunks"
+            st.rerun()
         return
 
     # 2. Embedding Generation (if needed)
     # Include content hash to detect chunking parameter changes
     import hashlib
-    content_hash = hashlib.md5(''.join([c.text for c in chunks]).encode()).hexdigest()[:8]
+
+    content_hash = hashlib.md5("".join([c.text for c in chunks]).encode()).hexdigest()[:8]
     current_state_key = f"embeddings_{content_hash}_{selected_model}_{doc_name}"
-    
+
     # Initialize or recover state structure if it's old version
     if "last_embeddings_result" in st.session_state:
         state_data = st.session_state["last_embeddings_result"]
@@ -248,12 +262,12 @@ def render_embeddings_step() -> None:
                 if "reduced_embeddings_components" in state_data:
                     del state_data["reduced_embeddings_components"]
             else:
-                 state_data["projections"] = {}
-        
+                state_data["projections"] = {}
+
         # Migration: Clean up any old embedder objects
         if "embedder" in state_data:
             del state_data["embedder"]
-            
+
         st.session_state["last_embeddings_result"] = state_data
 
     # Generate if key changed, data missing, or store invalid
@@ -266,9 +280,7 @@ def render_embeddings_step() -> None:
             needs_regeneration = True
         elif state_data.get("vector_store_error"):
             # Vector store had an error - regenerate
-            st.warning(
-                "Stored vector data could not be loaded. Regenerating embeddings."
-            )
+            st.warning("Stored vector data could not be loaded. Regenerating embeddings.")
             needs_regeneration = True
         else:
             vector_store = state_data.get("vector_store")
@@ -287,7 +299,7 @@ def render_embeddings_step() -> None:
                     needs_regeneration = True
 
     if needs_regeneration:
-        
+
         with st.spinner(f"Generating embeddings for {len(chunks)} chunks..."):
             try:
                 texts = [c.text for c in chunks]
@@ -304,14 +316,12 @@ def render_embeddings_step() -> None:
                     # Docker/Qdrant not available
                     st.error(str(exc))
                     with st.expander("How to fix this"):
-                        st.markdown(
-                            """
+                        st.markdown("""
                             1. Install Docker Desktop if not installed
                             2. Start Docker Desktop application
                             3. Wait for "Docker is running" status
                             4. Refresh this page
-                            """
-                        )
+                            """)
                     return
 
                 vector_store.add(embeddings, texts, metadata=[c.metadata for c in chunks])
@@ -322,18 +332,21 @@ def render_embeddings_step() -> None:
                 st.session_state["last_embeddings_result"] = {
                     "key": current_state_key,
                     "vector_store": vector_store,
-                    "embeddings": embeddings, # Keep original embeddings for re-projection
-                    "projections": {
-                        3: (reduced_embeddings, reducer)
-                    },
+                    "embeddings": embeddings,  # Keep original embeddings for re-projection
+                    "projections": {3: (reduced_embeddings, reducer)},
                     "chunks": chunks,
                     "model": selected_model,
                 }
 
                 # Build BM25 index if needed for sparse/hybrid retrieval
                 retrieval_config_raw = st.session_state.get("retrieval_config")
-                retrieval_config = retrieval_config_raw if isinstance(retrieval_config_raw, dict) else {}
-                if retrieval_config.get("strategy") in ["SparseRetriever", "HybridRetriever"]:
+                retrieval_config = (
+                    retrieval_config_raw if isinstance(retrieval_config_raw, dict) else {}
+                )
+                if retrieval_config.get("strategy") in [
+                    "SparseRetriever",
+                    "HybridRetriever",
+                ]:
                     with st.spinner("Building BM25 index for sparse/hybrid retrieval..."):
                         try:
                             from unravel.services.retrieval import preprocess_retriever
@@ -341,23 +354,25 @@ def render_embeddings_step() -> None:
                             bm25_data = preprocess_retriever(
                                 "SparseRetriever",
                                 vector_store,
-                                **retrieval_config.get("params", {})
+                                **retrieval_config.get("params", {}),
                             )
                             st.session_state["bm25_index_data"] = bm25_data
                         except Exception as e:
                             st.warning(f"Failed to build BM25 index: {str(e)}")
 
                 # Persist session state to disk for refresh resilience
-                save_session_state({
-                    "doc_name": st.session_state.get("doc_name"),
-                    "embedding_model_name": selected_model,
-                    "chunking_params": st.session_state.get("chunking_params"),
-                    "chunks": chunks,
-                    "last_embeddings_result": st.session_state["last_embeddings_result"],
-                    "retrieval_config": st.session_state.get("retrieval_config"),
-                    "reranking_config": st.session_state.get("reranking_config"),
-                    "bm25_index_data": st.session_state.get("bm25_index_data"),
-                })
+                save_session_state(
+                    {
+                        "doc_name": st.session_state.get("doc_name"),
+                        "embedding_model_name": selected_model,
+                        "chunking_params": st.session_state.get("chunking_params"),
+                        "chunks": chunks,
+                        "last_embeddings_result": st.session_state["last_embeddings_result"],
+                        "retrieval_config": st.session_state.get("retrieval_config"),
+                        "reranking_config": st.session_state.get("reranking_config"),
+                        "bm25_index_data": st.session_state.get("bm25_index_data"),
+                    }
+                )
             except Exception as e:
                 st.error(f"Error: {str(e)}")
                 return
@@ -366,7 +381,7 @@ def render_embeddings_step() -> None:
     state_data = st.session_state["last_embeddings_result"]
     vector_store = state_data.get("vector_store")
     model_name = state_data.get("model", selected_model)
-    
+
     # Ensure raw embeddings are available (might be missing if loaded from disk/legacy)
     if "embeddings" not in state_data:
         if vector_store is None:
@@ -410,10 +425,10 @@ def render_embeddings_step() -> None:
 
     # Ensure projection exists for selected mode
     if n_components not in state_data["projections"]:
-        with st.spinner(f"Calculating 3D projection..."):
+        with st.spinner("Calculating 3D projection..."):
             reduced, reducer = reduce_dimensions(embeddings, n_components=n_components)
             state_data["projections"][n_components] = (reduced, reducer)
-            st.session_state["last_embeddings_result"] = state_data # Update session state
+            st.session_state["last_embeddings_result"] = state_data  # Update session state
 
     reduced_embeddings, reducer = state_data["projections"][n_components]
 
@@ -464,7 +479,7 @@ def render_embeddings_step() -> None:
                 label_visibility="collapsed",
             )
         with c2:
-            submit_button = st.form_submit_button("Search", type="primary", width='stretch')
+            submit_button = st.form_submit_button("Search", type="primary", width="stretch")
 
     # Process Query
     if "search_results" not in st.session_state:
@@ -472,9 +487,7 @@ def render_embeddings_step() -> None:
 
     if submit_button and query_text and query_text.strip():
         if vector_store is None:
-            st.warning(
-                "Semantic search is unavailable. Please regenerate embeddings."
-            )
+            st.warning("Semantic search is unavailable. Please regenerate embeddings.")
             st.session_state.search_results = None
         else:
             with st.spinner("Calculating similarity..."):
@@ -534,25 +547,31 @@ def render_embeddings_step() -> None:
     # Project Query Point (Dynamic based on current reducer)
     query_point_viz = None
     if query_embedding is not None and reducer is not None:
-         query_reshaped = query_embedding.reshape(1, -1)
-         try:
-             query_proj = reducer.transform(query_reshaped)
-             # Enforce 3D logic
-             query_point_viz = {"x": query_proj[0][0], "y": query_proj[0][1], "z": query_proj[0][2]}
-         except Exception as e:
-             st.warning(f"Could not project query point: {e}")
+        query_reshaped = query_embedding.reshape(1, -1)
+        try:
+            query_proj = reducer.transform(query_reshaped)
+            # Enforce 3D logic
+            query_point_viz = {
+                "x": query_proj[0][0],
+                "y": query_proj[0][1],
+                "z": query_proj[0][2],
+            }
+        except Exception as e:
+            st.warning(f"Could not project query point: {e}")
 
     # 4. Render Chart (Visual Location: Below Search)
     with st.container(border=True):
-        help_text = "Points: Each dot is a chunk. Colors represent semantic clusters. Pink Star = Query."
-        st.markdown(f"##### Embedding Space (3D UMAP)", help=help_text)
+        help_text = (
+            "Points: Each dot is a chunk. Colors represent semantic clusters. Pink Star = Query."
+        )
+        st.markdown("##### Embedding Space (3D UMAP)", help=help_text)
 
         # Prepare Data for Plotly
         df = pd.DataFrame(reduced_embeddings, columns=["x", "y", "z"])
         df["text_preview"] = [c.text[:150] + "..." for c in chunks]
         df["chunk_index"] = range(len(chunks))
         df["cluster_label"] = cluster_labels  # Numeric for color
-        df["Cluster"] = [f"Cluster {l}" for l in cluster_labels] # String for hover
+        df["Cluster"] = [f"Cluster {l}" for l in cluster_labels]  # String for hover
 
         fig = create_embedding_plot(
             df,
@@ -563,9 +582,9 @@ def render_embeddings_step() -> None:
             hover_data=["text_preview", "Cluster"],
             title="",
             query_point=query_point_viz,
-            neighbors_indices=neighbor_indices
+            neighbors_indices=neighbor_indices,
         )
-        st.plotly_chart(fig, width='stretch')
+        st.plotly_chart(fig, width="stretch")
 
     # Nearest Neighbors Section
     st.write("")
@@ -577,6 +596,7 @@ def render_embeddings_step() -> None:
         @dataclass
         class ChunkAdapter:
             """Adapter to make SearchResult compatible with chunk viewer."""
+
             text: str
             metadata: dict[str, Any]
             start_index: int = 0
@@ -604,27 +624,33 @@ def render_embeddings_step() -> None:
         for res in neighbors:
             badges = []
             # Main Score
-            badges.append({
-                "label": "Score",
-                "value": f"{res.score:.4f}",
-                "color": "#d1fae5"  # Green tint for similarity
-            })
+            badges.append(
+                {
+                    "label": "Score",
+                    "value": f"{res.score:.4f}",
+                    "color": "#d1fae5",  # Green tint for similarity
+                }
+            )
 
             dense_rrf_contribution = res.metadata.get("dense_rrf_contribution")
             if dense_rrf_contribution is not None:
-                badges.append({
-                    "label": "Dense Contribution",
-                    "value": f"{dense_rrf_contribution:.4f}",
-                    "color": "#93c5fd"
-                })
+                badges.append(
+                    {
+                        "label": "Dense Contribution",
+                        "value": f"{dense_rrf_contribution:.4f}",
+                        "color": "#93c5fd",
+                    }
+                )
 
             sparse_rrf_contribution = res.metadata.get("sparse_rrf_contribution")
             if sparse_rrf_contribution is not None:
-                badges.append({
-                    "label": "Sparse Contribution",
-                    "value": f"{sparse_rrf_contribution:.4f}",
-                    "color": "#fecdd3"
-                })
+                badges.append(
+                    {
+                        "label": "Sparse Contribution",
+                        "value": f"{sparse_rrf_contribution:.4f}",
+                        "color": "#fecdd3",
+                    }
+                )
 
             custom_badges.append(badges)
 

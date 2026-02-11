@@ -37,6 +37,7 @@ def _open_folder_in_explorer(folder_path: Path) -> None:
         if system == "Windows":
             # Use os.startfile for more reliable Windows folder opening
             import os
+
             os.startfile(str(folder_path))
         elif system == "Darwin":  # macOS
             subprocess.run(["open", str(folder_path)], check=False)
@@ -87,23 +88,17 @@ def _render_api_key_setup_message(provider: str, env_key_name: str) -> None:
 
         st.write("")
         st.markdown("**Setup Steps:**")
-        st.markdown(
-            f"""
+        st.markdown(f"""
             1. Click the button below to open the configuration folder
             2. Edit the `.env` file in a text editor
             3. Add your API key: `{env_key_name}=your-key-here`
             4. Save the file and refresh this page
-            """
-        )
+            """)
 
         st.write("")
         col1, col2 = st.columns([1, 2])
         with col1:
-            if ui.button(
-                "Open Config Folder",
-                variant="secondary",
-                key="open_config_folder_btn"
-            ):
+            if ui.button("Open Config Folder", variant="secondary", key="open_config_folder_btn"):
                 _ensure_env_file_exists()
                 _open_folder_in_explorer(get_storage_dir())
                 st.success("✓ Folder opened! Edit the .env file and refresh.")
@@ -128,33 +123,32 @@ def _render_empty_state() -> None:
         st.caption(
             "Please go to the Embeddings step to generate vector representations of your document chunks first."
         )
-        
+
         st.write("")
         if ui.button("Go to Embeddings Step", key="goto_embeddings"):
             st.session_state.current_step = "embeddings"
             st.rerun()
 
 
-def _render_retrieved_chunks(
-    results: list[Any], show_scores: bool = True
-) -> None:
+def _render_retrieved_chunks(results: list[Any], show_scores: bool = True) -> None:
     """Render retrieved chunks using the chunk viewer component."""
     if not results:
         return
-    
+
     st.markdown(f"#### Retrieved Context ({len(results)} chunks)")
-    
+
     # Convert search results to chunks for the viewer
     from dataclasses import dataclass
-    
+
     @dataclass
     class ChunkAdapter:
         """Adapter to make SearchResult compatible with chunk viewer."""
+
         text: str
         metadata: dict[str, Any]
         start_index: int = 0
         end_index: int = 0
-    
+
     retrieved_chunks = [
         ChunkAdapter(
             text=res.text,
@@ -164,7 +158,7 @@ def _render_retrieved_chunks(
         )
         for i, res in enumerate(results)
     ]
-    
+
     # Prepare display data
     retrieved_display_data = prepare_chunk_display_data(
         chunks=retrieved_chunks,
@@ -236,13 +230,14 @@ def _get_llm_config_from_sidebar() -> tuple[LLMConfig, str]:
     temperature = st.session_state.get("llm_temperature", 0.7)
     max_tokens = st.session_state.get("llm_max_tokens", 1024)
     system_prompt = st.session_state.get("llm_system_prompt", DEFAULT_SYSTEM_PROMPT)
-    
+
     # Check for env var API key
     from unravel.services.llm import get_api_key_from_env
+
     env_key = get_api_key_from_env(provider)
     if env_key:
         api_key = env_key
-    
+
     config = LLMConfig(
         provider=provider,
         model=model,
@@ -251,7 +246,7 @@ def _get_llm_config_from_sidebar() -> tuple[LLMConfig, str]:
         temperature=temperature,
         max_tokens=max_tokens,
     )
-    
+
     return config, system_prompt
 
 
@@ -301,21 +296,18 @@ def _merge_search_results(results_by_query: list[list[Any]]) -> list[Any]:
 
 def render_query_step() -> None:
     """Render the query tester step with unified RAG pipeline."""
-    
+
     # --- Check for embeddings data ---
     embeddings_data = _get_embeddings_data()
-    
+
     if not embeddings_data:
         _render_empty_state()
         return
-    
+
     # Extract data from state
     vector_store_error = embeddings_data.get("vector_store_error")
     if vector_store_error:
-        st.warning(
-            "Stored vector data could not be loaded. "
-            "Please regenerate embeddings."
-        )
+        st.warning("Stored vector data could not be loaded. " "Please regenerate embeddings.")
         _render_empty_state()
         return
 
@@ -324,11 +316,11 @@ def render_query_step() -> None:
 
     # Always recreate embedder on-demand (don't rely on stored object)
     embedder = get_embedder(model_name)
-    
+
     if not vector_store or vector_store.size == 0:
         _render_empty_state()
         return
-    
+
     # --- Initialize session state ---
     if "current_query" not in st.session_state:
         st.session_state.current_query = None
@@ -338,7 +330,7 @@ def render_query_step() -> None:
         st.session_state.last_search_results = None
     if "last_query_variations" not in st.session_state:
         st.session_state.last_query_variations = []
-    
+
     # === Header & Metrics ===
     st.subheader("Query & Retrieval")
     st.caption("Test your RAG pipeline with real-time retrieval and generation.")
@@ -360,27 +352,21 @@ def render_query_step() -> None:
 
     st.write("")
 
-    
     # === Query Input Section ===
     with st.container(border=True):
         col_input, col_btn = st.columns([6, 1])
-        
+
         with col_input:
             query_text = st.text_input(
                 "Enter your query",
                 placeholder="Ask a question about your documents...",
-                key="query_input"
+                key="query_input",
             )
-            
+
         with col_btn:
             # Add spacing to align with text input label
             st.markdown('<div style="margin-top: 29px;"></div>', unsafe_allow_html=True)
-            ask_clicked = st.button(
-                "Ask", 
-                type="primary",
-                key="ask_button", 
-                width='stretch'
-            )
+            ask_clicked = st.button("Ask", type="primary", key="ask_button", width="stretch")
 
         # Configuration
         with st.expander("Retrieval Settings", expanded=False):
@@ -391,7 +377,7 @@ def render_query_step() -> None:
                     min_value=1,
                     max_value=min(20, vector_store.size),
                     value=min(5, vector_store.size),
-                    key="top_k_slider"
+                    key="top_k_slider",
                 )
 
             with col_threshold:
@@ -402,27 +388,50 @@ def render_query_step() -> None:
                     fusion_method = None
                 else:
                     retrieval_strategy = retrieval_config_raw.get("strategy", "DenseRetriever")
-                    fusion_method = retrieval_config_raw.get("params", {}).get("fusion_method", "weighted_sum") if retrieval_strategy == "HybridRetriever" else None
+                    fusion_method = (
+                        retrieval_config_raw.get("params", {}).get("fusion_method", "weighted_sum")
+                        if retrieval_strategy == "HybridRetriever"
+                        else None
+                    )
 
                 # Strategy-specific threshold defaults and ranges
                 THRESHOLD_CONFIG = {
-                    "DenseRetriever": {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.05},
-                    "SparseRetriever": {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.5},
+                    "DenseRetriever": {
+                        "default": 0.3,
+                        "min": 0.0,
+                        "max": 1.0,
+                        "step": 0.05,
+                    },
+                    "SparseRetriever": {
+                        "default": 0.0,
+                        "min": 0.0,
+                        "max": 10.0,
+                        "step": 0.5,
+                    },
                     "HybridRetriever": {
-                        "weighted_sum": {"default": 0.2, "min": 0.0, "max": 1.0, "step": 0.05},
+                        "weighted_sum": {
+                            "default": 0.2,
+                            "min": 0.0,
+                            "max": 1.0,
+                            "step": 0.05,
+                        },
                         "rrf": {"default": 0.0, "min": 0.0, "max": 0.1, "step": 0.005},
-                    }
+                    },
                 }
 
                 # Get appropriate threshold config
                 if retrieval_strategy == "HybridRetriever":
                     threshold_cfg = THRESHOLD_CONFIG[retrieval_strategy][fusion_method]
                 else:
-                    threshold_cfg = THRESHOLD_CONFIG.get(retrieval_strategy, THRESHOLD_CONFIG["DenseRetriever"])
+                    threshold_cfg = THRESHOLD_CONFIG.get(
+                        retrieval_strategy, THRESHOLD_CONFIG["DenseRetriever"]
+                    )
 
                 # Use strategy and fusion method in key to make slider reactive to changes
                 # This ensures the slider regenerates with new config when strategy changes
-                strategy_key = f"{retrieval_strategy}_{fusion_method}" if fusion_method else retrieval_strategy
+                strategy_key = (
+                    f"{retrieval_strategy}_{fusion_method}" if fusion_method else retrieval_strategy
+                )
 
                 threshold = st.slider(
                     "Minimum Similarity Score",
@@ -431,7 +440,7 @@ def render_query_step() -> None:
                     value=threshold_cfg["default"],
                     step=threshold_cfg["step"],
                     key=f"threshold_slider_{strategy_key}",
-                    help=f"Filter results below this threshold ({retrieval_strategy}{', ' + fusion_method if fusion_method else ''})"
+                    help=f"Filter results below this threshold ({retrieval_strategy}{', ' + fusion_method if fusion_method else ''})",
                 )
 
         with st.expander("Query Expansion", expanded=False):
@@ -466,7 +475,7 @@ def render_query_step() -> None:
                 height=150,
                 key="query_system_prompt",
                 label_visibility="collapsed",
-                help="Instructions for how the model should behave."
+                help="Instructions for how the model should behave.",
             )
 
     # === Process Query: Retrieve + Generate ===
@@ -475,20 +484,21 @@ def render_query_step() -> None:
         st.session_state.current_query = query_text.strip()
         st.session_state.current_response = None
         st.session_state.last_query_variations = []
-        
+
         # Get LLM config from sidebar
         llm_config, _ = _get_llm_config_from_sidebar()
         system_prompt = query_system_prompt
-        
+
         # Validate LLM config
         from unravel.services.llm import validate_config
+
         is_valid, error_msg = validate_config(llm_config)
-        
+
         if not is_valid:
             st.error(f"Configuration Error: {error_msg}")
             st.info("Please configure your LLM settings in the sidebar.")
             return
-        
+
         # Step 1: Build query variations (optional)
         query_variations: list[str] = []
         if enable_query_expansion:
@@ -519,16 +529,16 @@ def render_query_step() -> None:
 
             retrieval_config_raw = st.session_state.get("retrieval_config")
             if retrieval_config_raw is None or not isinstance(retrieval_config_raw, dict):
-                retrieval_config = {
-                    "strategy": "DenseRetriever",
-                    "params": {}
-                }
+                retrieval_config = {"strategy": "DenseRetriever", "params": {}}
             else:
                 retrieval_config = retrieval_config_raw
 
             # Add BM25 data to params if needed
             params = retrieval_config.get("params", {}).copy()
-            if retrieval_config.get("strategy") in ["SparseRetriever", "HybridRetriever"]:
+            if retrieval_config.get("strategy") in [
+                "SparseRetriever",
+                "HybridRetriever",
+            ]:
                 bm25_data = st.session_state.get("bm25_index_data")
 
                 # Try to build BM25 index if missing
@@ -549,7 +559,7 @@ def render_query_step() -> None:
                             )
                             retrieval_config = {
                                 "strategy": "DenseRetriever",
-                                "params": {}
+                                "params": {},
                             }
                             params = {}
                             bm25_data = None
@@ -575,7 +585,7 @@ def render_query_step() -> None:
                             embedder=embedder,
                             retriever_name=retrieval_config["strategy"],
                             k=top_k,
-                            **params
+                            **params,
                         )
                     )
                 all_results = _merge_search_results(results_by_query)
@@ -589,18 +599,26 @@ def render_query_step() -> None:
 
             # Optional reranking (uses original query)
             reranking_config_raw = st.session_state.get("reranking_config")
-            reranking_config = reranking_config_raw if isinstance(reranking_config_raw, dict) else {"enabled": False}
+            reranking_config = (
+                reranking_config_raw
+                if isinstance(reranking_config_raw, dict)
+                else {"enabled": False}
+            )
             if reranking_config.get("enabled", False) and search_results:
                 with st.spinner("Reranking results..."):
                     try:
                         rerank_cfg = RerankerConfig(
                             enabled=True,
                             model=reranking_config.get("model", "ms-marco-MiniLM-L-12-v2"),
-                            top_n=reranking_config.get("top_n", 5)
+                            top_n=reranking_config.get("top_n", 5),
                         )
-                        search_results = rerank_results(query_text.strip(), search_results, rerank_cfg)
+                        search_results = rerank_results(
+                            query_text.strip(), search_results, rerank_cfg
+                        )
                     except ImportError:
-                        st.warning("FlashRank not installed. Install with: pip install unravel[reranking]")
+                        st.warning(
+                            "FlashRank not installed. Install with: pip install unravel[reranking]"
+                        )
                     except Exception as e:
                         st.error(f"Reranking failed: {str(e)}")
 
@@ -610,9 +628,9 @@ def render_query_step() -> None:
         # Prepare containers for layout: Response (top) -> Chunks (bottom)
         st.write("")
         response_container = st.container()
-        st.write("") 
+        st.write("")
         chunks_container = st.container()
-        
+
         # Display retrieved chunks immediately in the bottom container
         with chunks_container:
             _render_query_variations(st.session_state.last_query_variations)
@@ -623,17 +641,17 @@ def render_query_step() -> None:
                     "No chunks found matching the similarity threshold. "
                     "Try lowering the Minimum Score or rephrasing your query."
                 )
-                return # Stop if no context
+                return  # Stop if no context
 
         # Step 2: Generate response with retrieved chunks in the top container
         with response_container:
             st.markdown("#### Model Response")
-            
+
             # Use a nice card for the response
             with st.container(border=True):
                 response_placeholder = st.empty()
                 full_response = ""
-                
+
                 try:
                     # Build RAG context
                     context = RAGContext(
@@ -641,7 +659,7 @@ def render_query_step() -> None:
                         chunks=[r.text for r in search_results],
                         scores=[r.score for r in search_results],
                     )
-                    
+
                     # Get model instance
                     model = get_model(
                         provider=llm_config.provider,
@@ -651,26 +669,27 @@ def render_query_step() -> None:
                         temperature=llm_config.temperature,
                         max_tokens=llm_config.max_tokens,
                     )
-                    
+
                     # Stream response
                     with st.spinner("Generating response..."):
                         for chunk in model.stream(context, system_prompt):
                             full_response += chunk
                             # Update placeholder for streaming effect
                             response_placeholder.markdown(full_response + "▌")
-                    
+
                     # Final update without cursor
                     response_placeholder.markdown(full_response)
                     st.session_state.current_response = full_response
-                    
+
                 except ImportError as e:
                     st.error(f"Missing Dependency: {str(e)}")
                     st.info("Install the required library with: `pip install unravel[llm]`")
                 except Exception as e:
                     st.error(f"Generation Error: {str(e)}")
                     import traceback
+
                     st.code(traceback.format_exc())
-    
+
     # === Display Previous Results ===
     elif st.session_state.current_query:
         # Show previous response first

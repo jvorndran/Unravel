@@ -6,16 +6,16 @@ from unravel.services.chunking import (
     get_chunks,
     get_provider_splitters,
 )
-from unravel.services.embedding_backends import (
-    EmbedderBackend,
-    get_backend,
-)
 from unravel.services.embedders import (
     DEFAULT_MODEL,
     EMBEDDING_MODELS,
     Embedder,
     get_embedder,
     list_available_models,
+)
+from unravel.services.embedding_backends import (
+    EmbedderBackend,
+    get_backend,
 )
 from unravel.services.llm import (
     DEFAULT_SYSTEM_PROMPT,

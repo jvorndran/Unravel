@@ -38,7 +38,6 @@ class HybridRetriever(RetrieverProvider):
         **params: Any,
     ) -> list["SearchResult"]:
         """Search using both dense and sparse retrieval, then fuse results."""
-        from unravel.services.vector_store import SearchResult
 
         dense_weight = params.get("dense_weight", 0.7)
         fusion_method = params.get("fusion_method", "weighted_sum")
@@ -57,9 +56,7 @@ class HybridRetriever(RetrieverProvider):
 
         # Normalize and combine scores
         if fusion_method == "weighted_sum":
-            return self._weighted_sum_fusion(
-                dense_results, sparse_results, dense_weight, k
-            )
+            return self._weighted_sum_fusion(dense_results, sparse_results, dense_weight, k)
         else:  # RRF
             return self._rrf_fusion(dense_results, sparse_results, k)
 
@@ -110,9 +107,7 @@ class HybridRetriever(RetrieverProvider):
         if sparse_scores:
             sparse_score_list = list(sparse_scores.values())
             norm_sparse_scores = self._normalize_scores(sparse_score_list)
-            sparse_scores = dict(
-                zip(sparse_scores.keys(), norm_sparse_scores, strict=True)
-            )
+            sparse_scores = dict(zip(sparse_scores.keys(), norm_sparse_scores, strict=True))
 
         # Combine scores
         all_indices = set(dense_scores.keys()) | set(sparse_scores.keys())
@@ -124,9 +119,7 @@ class HybridRetriever(RetrieverProvider):
             combined_scores[idx] = dense_weight * d_score + sparse_weight * s_score
 
         # Sort by combined score and get top k
-        sorted_indices = sorted(
-            combined_scores.items(), key=lambda x: x[1], reverse=True
-        )[:k]
+        sorted_indices = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)[:k]
 
         # Build results (get text from either dense or sparse results)
         result_map = {r.index: r for r in dense_results + sparse_results}
@@ -136,7 +129,7 @@ class HybridRetriever(RetrieverProvider):
             original = result_map[idx]
             d_score = dense_scores.get(idx, 0.0)
             s_score = sparse_scores.get(idx, 0.0)
-            
+
             results.append(
                 SearchResult(
                     index=idx,
@@ -189,16 +182,14 @@ class HybridRetriever(RetrieverProvider):
             normalized_scores = self._normalize_scores(rrf_score_list)
             # Create a map of raw score -> normalized score for metadata if needed
             # But here we just need to update the scores in rrf_scores
-            # However, we lost the raw score if we overwrite. 
+            # However, we lost the raw score if we overwrite.
             # Let's keep a separate map for normalized scores.
             normalized_rrf_scores = dict(zip(rrf_scores.keys(), normalized_scores, strict=True))
         else:
             normalized_rrf_scores = {}
 
         # Sort by RRF score (normalized or raw, order is same) and get top k
-        sorted_indices = sorted(normalized_rrf_scores.items(), key=lambda x: x[1], reverse=True)[
-            :k
-        ]
+        sorted_indices = sorted(normalized_rrf_scores.items(), key=lambda x: x[1], reverse=True)[:k]
 
         # Build results
         result_map = {r.index: r for r in dense_results + sparse_results}
@@ -206,11 +197,11 @@ class HybridRetriever(RetrieverProvider):
 
         for idx, score in sorted_indices:
             original = result_map[idx]
-            
+
             # Calculate contribution scores for visualization
             dense_rank = dense_ranks.get(idx)
             sparse_rank = sparse_ranks.get(idx)
-            
+
             dense_rrf_score = (1.0 / (rrf_k + dense_rank)) if dense_rank else 0.0
             sparse_rrf_score = (1.0 / (rrf_k + sparse_rank)) if sparse_rank else 0.0
             raw_total = dense_rrf_score + sparse_rrf_score
@@ -218,7 +209,7 @@ class HybridRetriever(RetrieverProvider):
             sparse_rrf_share = sparse_rrf_score / raw_total if raw_total > 0 else 0.0
             dense_rrf_contribution = score * dense_rrf_share
             sparse_rrf_contribution = score * sparse_rrf_share
-            
+
             results.append(
                 SearchResult(
                     index=idx,

@@ -79,14 +79,13 @@ DEFAULT_QUERY_REWRITE_PROMPT = (
     "Question: {query}"
 )
 
-DEFAULT_QUERY_REWRITE_SYSTEM_PROMPT = (
-    "You rewrite user questions into effective search queries."
-)
+DEFAULT_QUERY_REWRITE_SYSTEM_PROMPT = "You rewrite user questions into effective search queries."
 
 
 @dataclass
 class LLMConfig:
     """Configuration for an LLM provider."""
+
     provider: str
     model: str
     api_key: str
@@ -98,6 +97,7 @@ class LLMConfig:
 @dataclass
 class RAGContext:
     """Context for RAG generation."""
+
     query: str
     chunks: list[str]
     scores: list[float] | None = None
@@ -107,17 +107,17 @@ def _get_openai_client(api_key: str, base_url: str | None = None) -> Any:
     """Get or create OpenAI client."""
     try:
         from openai import OpenAI
+
         return OpenAI(api_key=api_key, base_url=base_url)
     except ImportError as err:
-        raise ImportError(
-            "OpenAI library not installed. Install with: pip install openai"
-        ) from err
+        raise ImportError("OpenAI library not installed. Install with: pip install openai") from err
 
 
 def _get_anthropic_client(api_key: str) -> Any:
     """Get or create Anthropic client."""
     try:
         from anthropic import Anthropic
+
         return Anthropic(api_key=api_key)
     except ImportError as err:
         raise ImportError(
@@ -129,21 +129,21 @@ def _build_context_prompt(context: RAGContext) -> str:
     """Build the context section of the prompt from retrieved chunks."""
     if not context.chunks:
         return ""
-    
+
     parts = []
     for i, chunk in enumerate(context.chunks):
         if context.scores:
             parts.append(f"[Chunk {i+1} (relevance: {context.scores[i]:.2f})]\n{chunk}")
         else:
             parts.append(f"[Chunk {i+1}]\n{chunk}")
-    
+
     return "\n\n".join(parts)
 
 
 def _build_user_prompt(context: RAGContext) -> str:
     """Build the complete user prompt with context and question."""
     context_text = _build_context_prompt(context)
-    
+
     if context_text:
         return f"{context_text}\n\nQuestion: {context.query}"
     return f"Question: {context.query}"
@@ -157,7 +157,7 @@ def _parse_rewrite_variations(text: str, max_count: int) -> list[str]:
             continue
         for prefix in ("- ", "* ", "• "):
             if line.startswith(prefix):
-                line = line[len(prefix):].strip()
+                line = line[len(prefix) :].strip()
                 break
         if line and line[0].isdigit():
             idx = 1
@@ -206,17 +206,17 @@ def generate_response(
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
 ) -> str:
     """Generate a response using the configured LLM.
-    
+
     Args:
         config: LLM configuration
         context: RAG context with query and chunks
         system_prompt: System prompt for the LLM
-        
+
     Returns:
         Generated response text
     """
     user_prompt = _build_user_prompt(context)
-    
+
     if config.provider == "OpenAI" or config.provider == "OpenAI-Compatible":
         return _generate_openai(config, system_prompt, user_prompt)
     elif config.provider == "Anthropic":
@@ -231,17 +231,17 @@ def generate_response_stream(
     system_prompt: str = DEFAULT_SYSTEM_PROMPT,
 ) -> Generator[str, None, None]:
     """Generate a streaming response using the configured LLM.
-    
+
     Args:
         config: LLM configuration
         context: RAG context with query and chunks
         system_prompt: System prompt for the LLM
-        
+
     Yields:
         Response text chunks
     """
     user_prompt = _build_user_prompt(context)
-    
+
     if config.provider == "OpenAI" or config.provider == "OpenAI-Compatible":
         yield from _generate_openai_stream(config, system_prompt, user_prompt)
     elif config.provider == "Anthropic":
@@ -253,7 +253,7 @@ def generate_response_stream(
 def _generate_openai(config: LLMConfig, system_prompt: str, user_prompt: str) -> str:
     """Generate response using OpenAI API."""
     client = _get_openai_client(config.api_key, config.base_url)
-    
+
     response = client.chat.completions.create(
         model=config.model,
         messages=[
@@ -263,7 +263,7 @@ def _generate_openai(config: LLMConfig, system_prompt: str, user_prompt: str) ->
         temperature=config.temperature,
         max_tokens=config.max_tokens,
     )
-    
+
     return cast(str, response.choices[0].message.content)
 
 
@@ -272,7 +272,7 @@ def _generate_openai_stream(
 ) -> Generator[str, None, None]:
     """Generate streaming response using OpenAI API."""
     client = _get_openai_client(config.api_key, config.base_url)
-    
+
     stream = client.chat.completions.create(
         model=config.model,
         messages=[
@@ -283,7 +283,7 @@ def _generate_openai_stream(
         max_tokens=config.max_tokens,
         stream=True,
     )
-    
+
     for chunk in stream:
         content = chunk.choices[0].delta.content
         if content:
@@ -293,7 +293,7 @@ def _generate_openai_stream(
 def _generate_anthropic(config: LLMConfig, system_prompt: str, user_prompt: str) -> str:
     """Generate response using Anthropic API."""
     client = _get_anthropic_client(config.api_key)
-    
+
     response = client.messages.create(
         model=config.model,
         max_tokens=config.max_tokens,
@@ -302,7 +302,7 @@ def _generate_anthropic(config: LLMConfig, system_prompt: str, user_prompt: str)
             {"role": "user", "content": user_prompt},
         ],
     )
-    
+
     return cast(str, response.content[0].text)
 
 
@@ -311,7 +311,7 @@ def _generate_anthropic_stream(
 ) -> Generator[str, None, None]:
     """Generate streaming response using Anthropic API."""
     client = _get_anthropic_client(config.api_key)
-    
+
     with client.messages.stream(
         model=config.model,
         max_tokens=config.max_tokens,
@@ -352,10 +352,7 @@ def get_api_key_from_env(provider: str) -> str | None:
 
 def list_providers() -> list[dict[str, Any]]:
     """List available LLM providers with their details."""
-    return [
-        {"name": name, **info}
-        for name, info in LLM_PROVIDERS.items()
-    ]
+    return [{"name": name, **info} for name, info in LLM_PROVIDERS.items()]
 
 
 def get_provider_models(provider: str) -> list[str]:
@@ -367,51 +364,49 @@ def get_provider_models(provider: str) -> list[str]:
 
 def validate_config(config: LLMConfig) -> tuple[bool, str]:
     """Validate LLM configuration.
-    
+
     Returns:
         Tuple of (is_valid, error_message)
     """
     if not config.api_key:
         return False, "API key is required"
-    
+
     if not config.model:
         return False, "Model name is required"
-    
+
     if config.provider == "OpenAI-Compatible" and not config.base_url:
         return False, "Base URL is required for OpenAI-Compatible provider"
-    
+
     return True, ""
 
 
 class ModelWrapper:
     """Unified model interface wrapper (Vercel AI SDK style)."""
-    
+
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
-    
+
     def stream(
         self, context: RAGContext, system_prompt: str = DEFAULT_SYSTEM_PROMPT
     ) -> Generator[str, None, None]:
         """Stream a response using the configured model.
-        
+
         Args:
             context: RAG context with query and chunks
             system_prompt: System prompt for the LLM
-            
+
         Yields:
             Response text chunks
         """
         yield from generate_response_stream(self.config, context, system_prompt)
-    
-    def generate(
-        self, context: RAGContext, system_prompt: str = DEFAULT_SYSTEM_PROMPT
-    ) -> str:
+
+    def generate(self, context: RAGContext, system_prompt: str = DEFAULT_SYSTEM_PROMPT) -> str:
         """Generate a complete response using the configured model.
-        
+
         Args:
             context: RAG context with query and chunks
             system_prompt: System prompt for the LLM
-            
+
         Returns:
             Generated response text
         """
@@ -427,7 +422,7 @@ def get_model(
     max_tokens: int = 1024,
 ) -> ModelWrapper:
     """Get a model instance with unified interface (Vercel AI SDK style).
-    
+
     Args:
         provider: LLM provider name (OpenAI, Anthropic, OpenAI-Compatible)
         model: Model name/identifier
@@ -435,10 +430,10 @@ def get_model(
         base_url: Optional base URL (required for OpenAI-Compatible)
         temperature: Temperature setting (default: 0.7)
         max_tokens: Maximum tokens (default: 1024)
-    
+
     Returns:
         ModelWrapper instance with stream() and generate() methods
-    
+
     Example:
         >>> model = get_model("OpenAI", "gpt-4o-mini", api_key="sk-...")
         >>> for chunk in model.stream(context):
@@ -471,11 +466,9 @@ def is_vision_capable(provider: str, model: str) -> bool:
     return model in VISION_CAPABLE_MODELS.get(provider, [])
 
 
-def _resize_image_for_captioning(
-    pil_image: PILImage.Image, max_size: int = 1024
-) -> PILImage.Image:
+def _resize_image_for_captioning(pil_image: PILImage.Image, max_size: int = 1024) -> PILImage.Image:
     """Resize large images to optimize API costs and latency.
-    
+
     This is an optimization, not required by API limits. Both OpenAI and Anthropic
     can handle larger images, but smaller images reduce costs and improve latency.
 
@@ -510,11 +503,9 @@ def _pil_to_base64(pil_image: PILImage.Image) -> str:
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
-def _generate_image_caption_openai(
-    img_base64: str, prompt: str, config: LLMConfig
-) -> str:
+def _generate_image_caption_openai(img_base64: str, prompt: str, config: LLMConfig) -> str:
     """Generate image caption using OpenAI vision API.
-    
+
     Uses standard OpenAI vision message format with text prompt and image.
 
     Args:
@@ -548,11 +539,9 @@ def _generate_image_caption_openai(
     return cast(str, response.choices[0].message.content)
 
 
-def _generate_image_caption_anthropic(
-    img_base64: str, prompt: str, config: LLMConfig
-) -> str:
+def _generate_image_caption_anthropic(img_base64: str, prompt: str, config: LLMConfig) -> str:
     """Generate image caption using Anthropic vision API.
-    
+
     Uses standard Anthropic vision message format with image and text prompt.
     Note: Anthropic requires image content before text in the content array.
 
@@ -596,7 +585,7 @@ def generate_image_caption(
     prompt: str = DEFAULT_IMAGE_CAPTION_PROMPT,
 ) -> str:
     """Generate a caption for an image using a vision-capable LLM.
-    
+
     Follows standard vision prompting patterns for OpenAI and Anthropic APIs.
     Images are optionally resized for cost/latency optimization.
 
@@ -621,4 +610,3 @@ def generate_image_caption(
         return _generate_image_caption_anthropic(img_base64, prompt, config)
     else:
         raise ValueError(f"Provider {config.provider} does not support vision")
-

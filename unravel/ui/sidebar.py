@@ -29,11 +29,17 @@ def render_rag_config_sidebar() -> None:
         saved_config = load_rag_config()
         if saved_config:
             st.session_state.doc_name = saved_config.get("doc_name")
-            st.session_state.embedding_model_name = saved_config.get("embedding_model_name", DEFAULT_MODEL)
+            st.session_state.embedding_model_name = saved_config.get(
+                "embedding_model_name", DEFAULT_MODEL
+            )
             st.session_state.chunking_params = saved_config.get("chunking_params", {})
             st.session_state.parsing_params = saved_config.get("parsing_params", {})
-            st.session_state.retrieval_config = saved_config.get("retrieval_config", {"strategy": "DenseRetriever", "params": {}})
-            st.session_state.reranking_config = saved_config.get("reranking_config", {"enabled": False})
+            st.session_state.retrieval_config = saved_config.get(
+                "retrieval_config", {"strategy": "DenseRetriever", "params": {}}
+            )
+            st.session_state.reranking_config = saved_config.get(
+                "reranking_config", {"enabled": False}
+            )
         st.session_state.rag_config_loaded = True
 
     # Initialize session state if not present
@@ -45,7 +51,7 @@ def render_rag_config_sidebar() -> None:
             st.session_state.doc_name = docs[0]
         else:
             st.session_state.doc_name = None
-    
+
     # Auto-select first file if currently on "Sample Text" and files exist
     if st.session_state.doc_name == "Sample Text" and docs:
         st.session_state.doc_name = docs[0]
@@ -56,7 +62,7 @@ def render_rag_config_sidebar() -> None:
             del st.session_state["last_embeddings_result"]
         if "search_results" in st.session_state:
             del st.session_state["search_results"]
-    
+
     if "chunking_params" not in st.session_state:
         st.session_state.chunking_params = {
             "provider": "Docling",
@@ -94,7 +100,7 @@ def render_rag_config_sidebar() -> None:
         all_docs = docs
     else:
         all_docs = ["Sample Text"] if st.session_state.doc_name == "Sample Text" else []
-    
+
     # Ensure current selection is valid
     if st.session_state.doc_name and st.session_state.doc_name not in all_docs:
         if docs:
@@ -119,7 +125,7 @@ def render_rag_config_sidebar() -> None:
         "Document",
         options=all_docs,
         key="sidebar_doc_selector",
-        label_visibility="collapsed"
+        label_visibility="collapsed",
     )
 
     st.write("")
@@ -128,35 +134,31 @@ def render_rag_config_sidebar() -> None:
     # Get current retrieval config or set defaults
     retrieval_config_raw = st.session_state.get("retrieval_config")
     if retrieval_config_raw is None or not isinstance(retrieval_config_raw, dict):
-        current_retrieval_config = {
-            "strategy": "DenseRetriever",
-            "params": {}
-        }
+        current_retrieval_config = {"strategy": "DenseRetriever", "params": {}}
     else:
         current_retrieval_config = retrieval_config_raw
 
     # Ensure current_retrieval_config is always a dict (defensive check)
     if not isinstance(current_retrieval_config, dict):
-        current_retrieval_config = {
-            "strategy": "DenseRetriever",
-            "params": {}
-        }
+        current_retrieval_config = {"strategy": "DenseRetriever", "params": {}}
 
     retrieval_strategies = ["Dense (Qdrant)", "Sparse (BM25)", "Hybrid"]
     strategy_map = {
         "Dense (Qdrant)": "DenseRetriever",
         "Sparse (BM25)": "SparseRetriever",
-        "Hybrid": "HybridRetriever"
+        "Hybrid": "HybridRetriever",
     }
     reverse_strategy_map = {v: k for k, v in strategy_map.items()}
 
     # Fusion method mappings (needed for pending config building)
-    fusion_display_map = {"weighted_sum": "Weighted Sum", "rrf": "Reciprocal Rank Fusion"}
+    fusion_display_map = {
+        "weighted_sum": "Weighted Sum",
+        "rrf": "Reciprocal Rank Fusion",
+    }
     reverse_fusion_map = {v: k for k, v in fusion_display_map.items()}
 
     current_strategy_display = reverse_strategy_map.get(
-        current_retrieval_config.get("strategy", "DenseRetriever"),
-        "Dense (Qdrant)"
+        current_retrieval_config.get("strategy", "DenseRetriever"), "Dense (Qdrant)"
     )
 
     if "sidebar_retrieval_strategy" not in st.session_state:
@@ -166,7 +168,7 @@ def render_rag_config_sidebar() -> None:
         "Strategy",
         options=retrieval_strategies,
         key="sidebar_retrieval_strategy",
-        help="Choose how to retrieve relevant chunks"
+        help="Choose how to retrieve relevant chunks",
     )
 
     if retrieval_strategy == "Hybrid":
@@ -178,16 +180,18 @@ def render_rag_config_sidebar() -> None:
                 value=current_retrieval_config.get("params", {}).get("dense_weight", 0.7),
                 step=0.05,
                 help="Weight for vector similarity (1-weight goes to BM25)",
-                key="sidebar_dense_weight"
+                key="sidebar_dense_weight",
             )
 
-            current_fusion = current_retrieval_config.get("params", {}).get("fusion_method", "weighted_sum")
+            current_fusion = current_retrieval_config.get("params", {}).get(
+                "fusion_method", "weighted_sum"
+            )
 
             st.radio(
                 "Fusion method",
                 options=["Weighted Sum", "Reciprocal Rank Fusion"],
                 index=0 if current_fusion == "weighted_sum" else 1,
-                key="sidebar_fusion_method"
+                key="sidebar_fusion_method",
             )
     elif retrieval_strategy == "Sparse (BM25)":
         with st.expander("BM25 Settings", expanded=False):
@@ -211,7 +215,7 @@ def render_rag_config_sidebar() -> None:
         "Enable reranking",
         value=current_reranking_config.get("enabled", False),
         key="sidebar_enable_reranking",
-        help="Use cross-encoder to rerank results"
+        help="Use cross-encoder to rerank results",
     )
 
     if enable_reranking:
@@ -236,9 +240,12 @@ def render_rag_config_sidebar() -> None:
             # Find current library
             current_model = current_reranking_config.get("model", "ms-marco-MiniLM-L-12-v2")
             current_library = next(
-                (lib for lib, models in libraries.items()
-                 if any(m["name"] == current_model for m in models)),
-                library_names[0]
+                (
+                    lib
+                    for lib, models in libraries.items()
+                    if any(m["name"] == current_model for m in models)
+                ),
+                library_names[0],
             )
 
             selected_library = st.radio(
@@ -247,19 +254,21 @@ def render_rag_config_sidebar() -> None:
                 index=library_names.index(current_library),
                 horizontal=True,
                 label_visibility="collapsed",
-                key="sidebar_rerank_library"
+                key="sidebar_rerank_library",
             )
 
             # Show models from selected library
             available_models = [m["name"] for m in libraries[selected_library]]
-            current_model_in_lib = current_model if current_model in available_models else available_models[0]
+            current_model_in_lib = (
+                current_model if current_model in available_models else available_models[0]
+            )
 
             st.selectbox(
                 "Model",
                 options=available_models,
                 index=available_models.index(current_model_in_lib),
                 key="sidebar_rerank_model",
-                help="Select reranking model"
+                help="Select reranking model",
             )
 
             # Show model description
@@ -273,7 +282,7 @@ def render_rag_config_sidebar() -> None:
                 min_value=1,
                 max_value=20,
                 value=current_reranking_config.get("top_n", 5),
-                key="sidebar_rerank_top_n"
+                key="sidebar_rerank_top_n",
             )
 
     st.write("")
@@ -329,15 +338,13 @@ def render_rag_config_sidebar() -> None:
         selected_model_name = current_model_name
 
     # Display model details as caption
-    selected_model_info = next(
-        (m for m in models if m["name"] == selected_model_name), None
-    )
+    selected_model_info = next((m for m in models if m["name"] == selected_model_name), None)
     if selected_model_info:
-        provider = selected_model_info.get('library', 'N/A')
-        dimension = selected_model_info.get('dimension', 'N/A')
-        size = selected_model_info.get('size', 'N/A').title()
-        use_case = selected_model_info.get('use_case', 'general').replace('-', ' ').title()
-        max_tokens = selected_model_info.get('max_seq_length', 512)
+        provider = selected_model_info.get("library", "N/A")
+        dimension = selected_model_info.get("dimension", "N/A")
+        size = selected_model_info.get("size", "N/A").title()
+        use_case = selected_model_info.get("use_case", "general").replace("-", " ").title()
+        max_tokens = selected_model_info.get("max_seq_length", 512)
         params = selected_model_info.get("params_millions", 0)
         if params >= 1000:
             params_str = f"{params / 1000:.1f}B"
@@ -370,13 +377,13 @@ def render_rag_config_sidebar() -> None:
             "dense_weight": st.session_state.get("sidebar_dense_weight", 0.7),
             "fusion_method": reverse_fusion_map.get(
                 st.session_state.get("sidebar_fusion_method", "Weighted Sum"),
-                "weighted_sum"
-            )
+                "weighted_sum",
+            ),
         }
 
     pending_retrieval_config = {
         "strategy": strategy_map.get(retrieval_strategy, "DenseRetriever"),
-        "params": pending_retrieval_params
+        "params": pending_retrieval_params,
     }
 
     # Build reranking config from widgets
@@ -387,17 +394,17 @@ def render_rag_config_sidebar() -> None:
         pending_reranking_config = {
             "enabled": True,
             "model": st.session_state.get("sidebar_rerank_model", "ms-marco-MiniLM-L-12-v2"),
-            "top_n": st.session_state.get("sidebar_rerank_top_n", 5)
+            "top_n": st.session_state.get("sidebar_rerank_top_n", 5),
         }
 
     # Check for changes between pending and applied configuration
     default_retrieval = {"strategy": "DenseRetriever", "params": {}}
     default_reranking = {"enabled": False}
     has_changes = (
-        pending_doc_name != st.session_state.doc_name or
-        pending_embedding_model != st.session_state.embedding_model_name or
-        pending_retrieval_config != st.session_state.get("retrieval_config", default_retrieval) or
-        pending_reranking_config != st.session_state.get("reranking_config", default_reranking)
+        pending_doc_name != st.session_state.doc_name
+        or pending_embedding_model != st.session_state.embedding_model_name
+        or pending_retrieval_config != st.session_state.get("retrieval_config", default_retrieval)
+        or pending_reranking_config != st.session_state.get("reranking_config", default_reranking)
     )
 
     # Show status badge
@@ -416,16 +423,16 @@ def render_rag_config_sidebar() -> None:
         "Save & Apply",
         type="primary",
         disabled=not has_changes,
-        key="save_rag_config_btn"
+        key="save_rag_config_btn",
     ):
         # Detect specific changes for targeted cache invalidation
         doc_changed = pending_doc_name != st.session_state.doc_name
         model_changed = pending_embedding_model != st.session_state.embedding_model_name
 
         old_retrieval_config = st.session_state.get("retrieval_config", {})
-        retrieval_strategy_changed = (
-            pending_retrieval_config.get("strategy") != old_retrieval_config.get("strategy")
-        )
+        retrieval_strategy_changed = pending_retrieval_config.get(
+            "strategy"
+        ) != old_retrieval_config.get("strategy")
 
         # Update session state with pending configuration
         st.session_state.doc_name = pending_doc_name
@@ -436,7 +443,12 @@ def render_rag_config_sidebar() -> None:
         # Invalidate caches based on what changed
         if doc_changed:
             # Document changed - invalidate everything
-            for key in ["chunks", "last_embeddings_result", "bm25_index_data", "search_results"]:
+            for key in [
+                "chunks",
+                "last_embeddings_result",
+                "bm25_index_data",
+                "search_results",
+            ]:
                 if key in st.session_state:
                     del st.session_state[key]
 
@@ -492,10 +504,17 @@ def render_rag_config_sidebar() -> None:
 
         # Clear in-memory session state (keep only essential keys)
         keys_to_keep = {
-            "session_restored", "doc_name", "chunking_params", "embedding_model_name",
-            "llm_provider", "llm_model", "llm_api_key", "llm_base_url",
-            "llm_temperature", "llm_max_tokens",
-            "current_step"  # Keep current step to avoid navigation issues
+            "session_restored",
+            "doc_name",
+            "chunking_params",
+            "embedding_model_name",
+            "llm_provider",
+            "llm_model",
+            "llm_api_key",
+            "llm_base_url",
+            "llm_temperature",
+            "llm_max_tokens",
+            "current_step",  # Keep current step to avoid navigation issues
         }
         keys_to_delete = [key for key in st.session_state.keys() if key not in keys_to_keep]
         for key in keys_to_delete:
@@ -532,7 +551,7 @@ def render_llm_sidebar() -> None:
         st.session_state.llm_temperature = 0.7
     if "llm_max_tokens" not in st.session_state:
         st.session_state.llm_max_tokens = 1024
-    
+
     # Provider selection
     providers = list(LLM_PROVIDERS.keys())
     current_provider = cast(str, st.session_state.llm_provider)
@@ -545,30 +564,24 @@ def render_llm_sidebar() -> None:
 
     provider = cast(
         str,
-        ui.select(
-        options=providers,
-        key="sidebar_provider",
-        label="Provider"
-        ),
+        ui.select(options=providers, key="sidebar_provider", label="Provider"),
     )
     st.session_state.llm_provider = provider
-    
+
     st.write("")
-    
+
     # Show explanation for OpenAI-Compatible
     if provider == "OpenAI-Compatible":
         with ui.card(key="openai_compat_info"):
-            st.markdown(
-                """
+            st.markdown("""
                 **OpenAI-Compatible** allows local models (Ollama, LM Studio, etc).
                 
                 **Common Base URLs:**
                 - **Ollama**: `http://localhost:11434/v1`
                 - **LM Studio**: `http://localhost:1234/v1`
-                """
-            )
+                """)
         st.write("")
-    
+
     # Model selection
     models = get_provider_models(provider)
     if provider == "OpenAI-Compatible":
@@ -576,7 +589,7 @@ def render_llm_sidebar() -> None:
         model = ui.input(
             default_value=st.session_state.llm_model or "llama2",
             placeholder="e.g., llama2, mistral",
-            key="sidebar_model_input"
+            key="sidebar_model_input",
         )
         st.session_state.llm_model = model
     else:
@@ -585,18 +598,14 @@ def render_llm_sidebar() -> None:
         if current_model not in models:
             current_model = default_model
             st.session_state.llm_model = default_model
-        
+
         # Pre-select based on state
         if "sidebar_model_select" not in st.session_state:
             st.session_state["sidebar_model_select"] = current_model
 
-        model = ui.select(
-            options=models,
-            key="sidebar_model_select",
-            label="Model"
-        )
+        model = ui.select(options=models, key="sidebar_model_select", label="Model")
         st.session_state.llm_model = model
-    
+
     st.write("")
 
     # API Key status
@@ -623,13 +632,13 @@ def render_llm_sidebar() -> None:
         base_url = ui.input(
             default_value=st.session_state.llm_base_url or "http://localhost:11434/v1",
             placeholder="http://localhost:11434/v1",
-            key="sidebar_base_url"
+            key="sidebar_base_url",
         )
         st.session_state.llm_base_url = base_url
     else:
         base_url = None
         st.session_state.llm_base_url = ""
-    
+
     # Advanced settings
     with st.expander("Advanced Settings", expanded=False):
         temperature = st.slider(
@@ -639,10 +648,10 @@ def render_llm_sidebar() -> None:
             value=st.session_state.llm_temperature,
             step=0.1,
             key="sidebar_temperature",
-            help="Higher values make output more random, lower values more deterministic."
+            help="Higher values make output more random, lower values more deterministic.",
         )
         st.session_state.llm_temperature = temperature
-        
+
         max_tokens = st.slider(
             "Max Tokens",
             min_value=100,
@@ -650,11 +659,10 @@ def render_llm_sidebar() -> None:
             value=st.session_state.llm_max_tokens,
             step=100,
             key="sidebar_max_tokens",
-            help="Maximum number of tokens in the response."
+            help="Maximum number of tokens in the response.",
         )
         st.session_state.llm_max_tokens = max_tokens
-        
-    
+
     st.write("")
 
     # Save button
@@ -668,7 +676,7 @@ def render_llm_sidebar() -> None:
         }
         save_llm_config(config_data)
         st.success("✓ Configuration saved")
-    
+
     # Validation status
     config = LLMConfig(
         provider=provider,
@@ -687,13 +695,12 @@ def render_sidebar() -> None:
     """Render the main sidebar with tabs."""
     with st.sidebar:
         # Using ui.tabs in sidebar doesn't work well due to container width issues
-        # Stick to st.tabs for top-level sidebar navigation for now, 
+        # Stick to st.tabs for top-level sidebar navigation for now,
         # but usage of shadcn components inside tabs is fine.
         tab1, tab2 = st.tabs(["RAG Config", "LLM Config"])
-        
+
         with tab1:
             render_rag_config_sidebar()
-        
+
         with tab2:
             render_llm_sidebar()
-

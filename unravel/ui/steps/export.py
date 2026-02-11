@@ -24,17 +24,17 @@ def render_export_step() -> None:
 
     # Check if we have configuration to export
     chunking_params = st.session_state.get(
-        "applied_chunking_params",
-        st.session_state.get("chunking_params")
+        "applied_chunking_params", st.session_state.get("chunking_params")
     )
     parsing_params = st.session_state.get(
-        "applied_parsing_params",
-        st.session_state.get("parsing_params", {})
+        "applied_parsing_params", st.session_state.get("parsing_params", {})
     )
     embedding_model = st.session_state.get("embedding_model_name", DEFAULT_MODEL)
 
     if not chunking_params:
-        st.info("Configure your pipeline first. Go to the Text Splitting or Vector Embedding steps to set up your configuration.")
+        st.info(
+            "Configure your pipeline first. Go to the Text Splitting or Vector Embedding steps to set up your configuration."
+        )
         if ui.button("Go to Text Splitting", key="goto_chunks_export"):
             st.session_state.current_step = "chunks"
             st.rerun()
@@ -70,7 +70,10 @@ def render_export_step() -> None:
             "temperature": st.session_state.get("llm_temperature", 0.7),
             "max_tokens": st.session_state.get("llm_max_tokens", 1024),
             "base_url": st.session_state.get("llm_base_url"),
-            "system_prompt": st.session_state.get("llm_system_prompt", "You are a helpful assistant. Answer questions based on the provided context."),
+            "system_prompt": st.session_state.get(
+                "llm_system_prompt",
+                "You are a helpful assistant. Answer questions based on the provided context.",
+            ),
         }
 
     # Build export config
@@ -84,7 +87,6 @@ def render_export_step() -> None:
         reranking_config=reranking_config,
         llm_config=llm_config,
     )
-
 
     # Installation section
     st.markdown("### Installation")
@@ -166,7 +168,7 @@ def _get_file_format(filename: str) -> str:
 def _generate_full_pipeline(config: ExportConfig) -> str:
     """Generate a complete pipeline script."""
     summary = get_config_summary(config)
-    chunk_size_label = summary.get('chunk_size_key', 'chunk_size')
+    chunk_size_label = summary.get("chunk_size_key", "chunk_size")
     chunk_size_display = "Max Tokens" if chunk_size_label == "max_tokens" else "Chunk Size"
 
     script = f'''"""RAG Pipeline - Full Script
@@ -200,35 +202,35 @@ Configuration exported from Unravel:
     # Add retrieval section if configured
     retrieval_code = generate_retrieval_code(config)
     if retrieval_code:
-        script += f'''
+        script += f"""
 
 # =============================================================================
 # STEP 4: Retrieval Strategy
 # =============================================================================
 
-{_strip_docstring(retrieval_code)}'''
+{_strip_docstring(retrieval_code)}"""
 
     # Add reranking section if configured
     reranking_code = generate_reranking_code(config)
     if reranking_code:
-        script += f'''
+        script += f"""
 
 # =============================================================================
 # STEP 5: Reranking
 # =============================================================================
 
-{_strip_docstring(reranking_code)}'''
+{_strip_docstring(reranking_code)}"""
 
     # Add LLM section if configured
     llm_code = generate_llm_code(config)
     if llm_code:
-        script += f'''
+        script += f"""
 
 # =============================================================================
 # STEP 6: RAG Response Generation
 # =============================================================================
 
-{_strip_docstring(llm_code)}'''
+{_strip_docstring(llm_code)}"""
 
     # Determine the final step number
     final_step_num = 4
@@ -288,46 +290,46 @@ def run_pipeline(file_path: str, query: str = None):
     if has_retrieval:
         # Use configured retrieval method
         if config.retrieval_strategy == "DenseRetriever":
-            script += '''
-        retrieved = retrieve_dense(query, chunks, embeddings)'''
+            script += """
+        retrieved = retrieve_dense(query, chunks, embeddings)"""
         elif config.retrieval_strategy == "SparseRetriever":
-            script += '''
-        retrieved = retrieve_sparse(query, chunks)'''
+            script += """
+        retrieved = retrieve_sparse(query, chunks)"""
         elif config.retrieval_strategy == "HybridRetriever":
-            script += '''
-        retrieved = retrieve_hybrid(query, chunks, embeddings)'''
+            script += """
+        retrieved = retrieve_hybrid(query, chunks, embeddings)"""
     else:
         # Default to simple dense retrieval
-        script += '''
+        script += """
         query_embedding = embed_query(query)
         similarities = embeddings @ query_embedding
         top_indices = similarities.argsort()[::-1][:5]
-        retrieved = [(chunks[i], float(similarities[i])) for i in top_indices]'''
+        retrieved = [(chunks[i], float(similarities[i])) for i in top_indices]"""
 
     if has_reranking:
-        script += '''
+        script += """
         candidate_chunks = [chunk for chunk, _ in retrieved]
         reranked = rerank(query, candidate_chunks)
-        result["top_chunks"] = reranked'''
+        result["top_chunks"] = reranked"""
     else:
-        script += '''
-        result["top_chunks"] = retrieved'''
+        script += """
+        result["top_chunks"] = retrieved"""
 
     if has_llm:
-        script += '''
+        script += """
         top_chunks = [chunk for chunk, _ in result["top_chunks"]]
         response = generate_rag_response(query, top_chunks)
         result["response"] = response
-        print(f"\\nAnswer: {{response}}")'''
+        print(f"\\nAnswer: {{response}}")"""
     else:
-        script += '''
+        script += """
 
         print("\\nTop results:")
         for i, (chunk, score) in enumerate(result["top_chunks"]):
             print(f"{{i+1}}. Score: {{score:.4f}}")
-            print(f"   {{chunk[:100]}}...\\n")'''
+            print(f"   {{chunk[:100]}}...\\n")"""
 
-    script += '''
+    script += """
 
     return result
 
@@ -345,14 +347,14 @@ if __name__ == "__main__":
 
     result = run_pipeline(file_path, query)
     print(f"\\nPipeline complete! {{len(result['chunks'])}} chunks embedded.")
-'''
+"""
 
     return script
 
 
 def _strip_docstring(code: str) -> str:
     """Remove the module docstring from generated code."""
-    lines = code.split('\n')
+    lines = code.split("\n")
     in_docstring = False
     result_lines = []
 
@@ -371,7 +373,7 @@ def _strip_docstring(code: str) -> str:
 
         result_lines.append(line)
 
-    return '\n'.join(result_lines).strip()
+    return "\n".join(result_lines).strip()
 
 
 def _get_parse_function_name(config: ExportConfig) -> str:

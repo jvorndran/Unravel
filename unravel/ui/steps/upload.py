@@ -129,12 +129,28 @@ def _render_url_scraping() -> None:
 
         col1, col2 = st.columns(2)
         with col1:
-            include_links = st.checkbox("Include links", value=True, help="Keep hyperlinks with their targets")
-            include_images = st.checkbox("Include images", value=True, help="Include image alt text and references")
-            include_tables = st.checkbox("Include tables", value=True, help="Extract content from HTML tables")
+            include_links = st.checkbox(
+                "Include links", value=True, help="Keep hyperlinks with their targets"
+            )
+            include_images = st.checkbox(
+                "Include images",
+                value=True,
+                help="Include image alt text and references",
+            )
+            include_tables = st.checkbox(
+                "Include tables", value=True, help="Extract content from HTML tables"
+            )
         with col2:
-            include_formatting = st.checkbox("Include formatting", value=False, help="Preserve text formatting (bold, italic)")
-            deduplicate = st.checkbox("Deduplicate content", value=False, help="Remove duplicate content segments")
+            include_formatting = st.checkbox(
+                "Include formatting",
+                value=False,
+                help="Preserve text formatting (bold, italic)",
+            )
+            deduplicate = st.checkbox(
+                "Deduplicate content",
+                value=False,
+                help="Remove duplicate content segments",
+            )
 
     submit_button = st.button(
         "Crawl Site" if crawl_mode else "Scrape URL",
@@ -175,6 +191,7 @@ def _render_url_scraping() -> None:
 
             if crawl_mode:
                 from urllib.parse import urlparse
+
                 crawl_domain = urlparse(url_input).netloc or url_input
                 with st.status(f"Crawling {crawl_domain}...", expanded=True) as crawl_status:
                     st.write(f"Discovering pages via {crawl_method.lower()}...")
@@ -210,7 +227,9 @@ def _render_url_scraping() -> None:
                 safe_domain = metadata.get("domain", "site").replace(".", "_")
                 filename = f"{safe_domain}_crawl_{timestamp}.md"
             else:
-                spinner_msg = "Rendering page with JavaScript..." if use_browser else "Scraping URL..."
+                spinner_msg = (
+                    "Rendering page with JavaScript..." if use_browser else "Scraping URL..."
+                )
                 with st.spinner(spinner_msg):
                     content_bytes, metadata = scrape_url_to_markdown(
                         url_input,
@@ -242,7 +261,12 @@ def _render_url_scraping() -> None:
             st.session_state.document_metadata = doc_meta
             st.session_state.doc_name = filename
 
-            for key in ["chunks", "last_embeddings_result", "search_results", "bm25_index"]:
+            for key in [
+                "chunks",
+                "last_embeddings_result",
+                "search_results",
+                "bm25_index",
+            ]:
                 if key in st.session_state:
                     del st.session_state[key]
 
@@ -263,7 +287,10 @@ def render_upload_step() -> None:
     current_doc = get_current_document()
     if current_doc:
         doc_name, _ = current_doc
-        if st.session_state.document_metadata and st.session_state.document_metadata.get("name") != doc_name:
+        if (
+            st.session_state.document_metadata
+            and st.session_state.document_metadata.get("name") != doc_name
+        ):
             st.session_state.document_metadata = None
     else:
         st.session_state.document_metadata = None
@@ -286,7 +313,22 @@ def render_upload_step() -> None:
 
             uploaded_file = st.file_uploader(
                 "Choose a file to upload",
-                type=["pdf", "docx", "pptx", "xlsx", "html", "htm", "md", "txt", "png", "jpg", "jpeg", "bmp", "tiff", "tif"],
+                type=[
+                    "pdf",
+                    "docx",
+                    "pptx",
+                    "xlsx",
+                    "html",
+                    "htm",
+                    "md",
+                    "txt",
+                    "png",
+                    "jpg",
+                    "jpeg",
+                    "bmp",
+                    "tiff",
+                    "tif",
+                ],
                 accept_multiple_files=False,
                 label_visibility="collapsed",
             )
@@ -314,7 +356,12 @@ def render_upload_step() -> None:
                         }
                         st.session_state.doc_name = uploaded_file.name
 
-                        for key in ["chunks", "last_embeddings_result", "search_results", "bm25_index"]:
+                        for key in [
+                            "chunks",
+                            "last_embeddings_result",
+                            "search_results",
+                            "bm25_index",
+                        ]:
                             if key in st.session_state:
                                 del st.session_state[key]
 
@@ -370,7 +417,9 @@ def render_upload_step() -> None:
                         page_count = metadata.get("page_count", 0)
                         failed_count = metadata.get("failed_count", 0)
                         if failed_count > 0:
-                            st.caption(f"Crawled {page_count} pages via {metadata['crawl_method']} — {failed_count} failed")
+                            st.caption(
+                                f"Crawled {page_count} pages via {metadata['crawl_method']} — {failed_count} failed"
+                            )
                         else:
                             st.caption(f"Crawled {page_count} pages via {metadata['crawl_method']}")
                         page_results = metadata.get("page_results", [])
@@ -380,9 +429,13 @@ def render_upload_step() -> None:
                                     if p["status"] == "ok":
                                         st.caption(f"[ok] {p.get('title') or p['url']}")
                                     else:
-                                        st.caption(f"[failed] {p['url']} — {p.get('reason', 'unknown error')}")
+                                        st.caption(
+                                            f"[failed] {p['url']} — {p.get('reason', 'unknown error')}"
+                                        )
                     elif source_url:
-                        display_url = source_url if len(source_url) <= 60 else source_url[:57] + "..."
+                        display_url = (
+                            source_url if len(source_url) <= 60 else source_url[:57] + "..."
+                        )
                         st.caption(f"Source: {display_url}")
                 else:
                     st.caption(f"{file_format} | {size_str}")

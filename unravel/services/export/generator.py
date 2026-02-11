@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from unravel.services.embedders import EMBEDDING_MODELS
+
 from .templates import (
     BACKEND_DISPLAY_NAMES,
     CHUNKING_GENERIC,
@@ -56,6 +57,7 @@ EMBEDDING_DEPENDENCIES = {
 @dataclass
 class ExportConfig:
     """Configuration for code export."""
+
     parsing_params: dict[str, Any]
     chunking_params: dict[str, Any]
     embedding_model: str
@@ -64,8 +66,6 @@ class ExportConfig:
     retrieval_params: dict[str, Any] | None = None
     reranking_config: dict[str, Any] | None = None
     llm_config: dict[str, Any] | None = None
-
-
 
 
 def _get_separator(params: dict[str, Any]) -> str:
@@ -145,7 +145,11 @@ def generate_chunking_code(config: ExportConfig) -> str:
             "chunk_overlap": params.get("chunk_overlap", 50),
             "encoding_name": params.get("encoding_name", "cl100k_base"),
         }
-    elif splitter in ["MarkdownTextSplitter", "LatexTextSplitter", "PythonCodeTextSplitter"]:
+    elif splitter in [
+        "MarkdownTextSplitter",
+        "LatexTextSplitter",
+        "PythonCodeTextSplitter",
+    ]:
         format_kwargs = {
             "chunk_size": params.get("chunk_size", 500),
             "chunk_overlap": params.get("chunk_overlap", 50),
@@ -196,7 +200,7 @@ def _generate_generic_chunking(splitter_name: str, params: dict[str, Any]) -> st
     return CHUNKING_GENERIC.format(
         splitter_name=splitter_name,
         config_comment="\n".join(config_lines) if config_lines else "Default settings",
-        params_code="\n".join(params_lines) if params_lines else "        # Default parameters",
+        params_code=("\n".join(params_lines) if params_lines else "        # Default parameters"),
     )
 
 
@@ -297,7 +301,7 @@ def generate_reranking_code(config: ExportConfig) -> str | None:
     if backend == "flashrank":
         import_statement = "from flashrank import Ranker, RerankRequest"
         init_code = f'# Initialize FlashRank model\nranker = Ranker(model_name="{model_name}", cache_dir="./models")'
-        rerank_code = '''    # Prepare passages for reranking
+        rerank_code = """    # Prepare passages for reranking
     passages = [{"text": chunk} for chunk in chunks]
 
     # Create rerank request
@@ -308,13 +312,15 @@ def generate_reranking_code(config: ExportConfig) -> str | None:
 
     # Sort by score and return top_n
     ranked = sorted(results, key=lambda x: x["score"], reverse=True)[:top_n]
-    return [(r["text"], r["score"]) for r in ranked]'''
+    return [(r["text"], r["score"]) for r in ranked]"""
         description = "Fast CPU-based reranking using FlashRank"
 
     elif backend == "sentence-transformers":
         import_statement = "from sentence_transformers import CrossEncoder"
-        init_code = f'# Initialize cross-encoder model\ncross_encoder = CrossEncoder("{model_name}")'
-        rerank_code = '''    # Create query-chunk pairs
+        init_code = (
+            f'# Initialize cross-encoder model\ncross_encoder = CrossEncoder("{model_name}")'
+        )
+        rerank_code = """    # Create query-chunk pairs
     pairs = [[query, chunk] for chunk in chunks]
 
     # Get relevance scores
@@ -325,13 +331,13 @@ def generate_reranking_code(config: ExportConfig) -> str | None:
     scored_chunks.sort(key=lambda x: x[1], reverse=True)
 
     # Return top_n
-    return [(chunk, float(score)) for chunk, score in scored_chunks[:top_n]]'''
+    return [(chunk, float(score)) for chunk, score in scored_chunks[:top_n]]"""
         description = "High-quality reranking using Sentence-Transformers cross-encoder"
 
     elif backend == "flagembedding":
         import_statement = "from FlagEmbedding import FlagReranker"
         init_code = f'# Initialize FlagEmbedding reranker\nreranker = FlagReranker("{model_name}", use_fp16=True)'
-        rerank_code = '''    # Create query-chunk pairs
+        rerank_code = """    # Create query-chunk pairs
     pairs = [[query, chunk] for chunk in chunks]
 
     # Get relevance scores
@@ -346,7 +352,7 @@ def generate_reranking_code(config: ExportConfig) -> str | None:
     scored_chunks.sort(key=lambda x: x[1], reverse=True)
 
     # Return top_n
-    return [(chunk, float(score)) for chunk, score in scored_chunks[:top_n]]'''
+    return [(chunk, float(score)) for chunk, score in scored_chunks[:top_n]]"""
         description = "State-of-the-art reranking using FlagEmbedding"
 
     else:
@@ -374,7 +380,10 @@ def generate_llm_code(config: ExportConfig) -> str | None:
     temperature = llm_config.get("temperature", 0.7)
     max_tokens = llm_config.get("max_tokens", 1024)
     base_url = llm_config.get("base_url")
-    system_prompt = llm_config.get("system_prompt", "You are a helpful assistant. Answer questions based on the provided context.")
+    system_prompt = llm_config.get(
+        "system_prompt",
+        "You are a helpful assistant. Answer questions based on the provided context.",
+    )
 
     if not provider or not model:
         return None
@@ -383,7 +392,7 @@ def generate_llm_code(config: ExportConfig) -> str | None:
     if provider == "OpenAI":
         import_statement = "from openai import OpenAI"
         client_init = "# Initialize OpenAI client\nclient = OpenAI()"
-        generation_code = '''    # Generate response
+        generation_code = f"""    # Generate response
     response = client.chat.completions.create(
         model="{model}",
         messages=[
@@ -394,13 +403,13 @@ def generate_llm_code(config: ExportConfig) -> str | None:
         max_tokens=max_tokens,
     )
 
-    return response.choices[0].message.content'''.format(model=model)
+    return response.choices[0].message.content"""
         base_url_display = ""
 
     elif provider == "Anthropic":
         import_statement = "from anthropic import Anthropic"
         client_init = "# Initialize Anthropic client\nclient = Anthropic()"
-        generation_code = '''    # Generate response
+        generation_code = f"""    # Generate response
     response = client.messages.create(
         model="{model}",
         system=system_prompt,
@@ -411,14 +420,14 @@ def generate_llm_code(config: ExportConfig) -> str | None:
         max_tokens=max_tokens,
     )
 
-    return response.content[0].text'''.format(model=model)
+    return response.content[0].text"""
         base_url_display = ""
 
     elif provider == "OpenAI-Compatible":
         import_statement = "from openai import OpenAI"
         base_url_str = f'base_url="{base_url}"' if base_url else ""
         client_init = f"# Initialize OpenAI-compatible client\nclient = OpenAI({base_url_str})"
-        generation_code = '''    # Generate response
+        generation_code = f"""    # Generate response
     response = client.chat.completions.create(
         model="{model}",
         messages=[
@@ -429,7 +438,7 @@ def generate_llm_code(config: ExportConfig) -> str | None:
         max_tokens=max_tokens,
     )
 
-    return response.choices[0].message.content'''.format(model=model)
+    return response.choices[0].message.content"""
         base_url_display = f"- Base URL: {base_url}" if base_url else ""
 
     else:
@@ -468,9 +477,7 @@ def generate_installation_command(config: ExportConfig) -> str:
     # Embedding dependencies (backend-specific)
     if config.embedding_model in EMBEDDING_MODELS:
         backend = EMBEDDING_MODELS[config.embedding_model]["backend"]
-        embedding_deps = EMBEDDING_DEPENDENCIES.get(
-            backend, ["sentence-transformers", "numpy"]
-        )
+        embedding_deps = EMBEDDING_DEPENDENCIES.get(backend, ["sentence-transformers", "numpy"])
         deps.update(embedding_deps)
     else:
         deps.update(["sentence-transformers", "numpy"])

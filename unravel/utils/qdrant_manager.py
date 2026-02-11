@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import http.client
 import socket
 import subprocess
 import time
-import http.client
 import urllib.error
 import urllib.request
 

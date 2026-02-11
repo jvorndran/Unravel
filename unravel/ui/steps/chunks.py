@@ -23,9 +23,7 @@ def render_chunks_step() -> None:
     # Render chunking configuration
     st.write("")
     with st.expander("Configuration", expanded=True):
-        new_parsing_params, new_chunking_params, has_changes = (
-            render_chunking_configuration()
-        )
+        new_parsing_params, new_chunking_params, has_changes = render_chunking_configuration()
 
         st.write("")
         if st.button(
@@ -41,7 +39,12 @@ def render_chunks_step() -> None:
             st.session_state.applied_chunking_params = new_chunking_params.copy()
 
             # Invalidate downstream caches
-            for key in ["chunks", "last_embeddings_result", "search_results", "bm25_index_data"]:
+            for key in [
+                "chunks",
+                "last_embeddings_result",
+                "search_results",
+                "bm25_index_data",
+            ]:
                 if key in st.session_state:
                     del st.session_state[key]
 
@@ -97,12 +100,12 @@ def render_chunks_step() -> None:
 
     # Check if parsing settings have changed (compare current vs applied)
     parsing_settings_changed = current_parsing_params != applied_parsing_params
-    
+
     # Always use applied params for lookup (what was actually used for the current parsed text)
     # This ensures we show the existing parsed document even after "Save & Apply"
     params_for_lookup = applied_parsing_params
     parsed_text_key = get_parsed_text_key(selected_doc, params_for_lookup)
-    
+
     # Try to load parsed text from session state first, then from persistent storage
     # Use applied params to get the currently displayed parsed text
     source_text = st.session_state.get(parsed_text_key, "")
@@ -112,9 +115,9 @@ def render_chunks_step() -> None:
         if source_text:
             # Restore to session state
             st.session_state[parsed_text_key] = source_text
-    
+
     doc_display_name = selected_doc
-    
+
     # Show parse button if no parsed text OR if parsing settings have changed
     needs_parsing = not source_text or parsing_settings_changed
     if needs_parsing:
@@ -122,9 +125,7 @@ def render_chunks_step() -> None:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col1:
             button_text = (
-                "Reparse Document"
-                if parsing_settings_changed and source_text
-                else "Parse Document"
+                "Reparse Document" if parsing_settings_changed and source_text else "Parse Document"
             )
             if st.button(button_text, key="parse_document_btn", type="primary"):
                 with st.spinner("Parsing document..."):
@@ -155,27 +156,30 @@ def render_chunks_step() -> None:
                         st.error(f"Error parsing document: {str(e)}")
 
         if parsing_settings_changed and source_text:
-            st.info("Parsing settings have changed. Click the button above to reparse the document with new settings.")
+            st.info(
+                "Parsing settings have changed. Click the button above to reparse the document with new settings."
+            )
         else:
             st.info("Click the button above to parse the document and generate chunks.")
-        
+
         # If we have no parsed text, return early until the user parses.
         # Otherwise, continue to show the existing parsed text even if settings changed.
         if not source_text:
             return
-    
+
     # Generate Chunks (only if we have parsed text)
     output_format = applied_parsing_params.get("output_format", "markdown")
     if source_text:
         # Extract splitter-specific params (exclude provider/splitter keys)
-        splitter_params = {k: v for k, v in chunking_params.items()
-                          if k not in ["provider", "splitter"]}
+        splitter_params = {
+            k: v for k, v in chunking_params.items() if k not in ["provider", "splitter"]
+        }
         chunks = get_chunks(
             provider=provider,
             splitter=splitter,
             text=source_text,
             output_format=output_format,
-            **splitter_params
+            **splitter_params,
         )
 
         # Save chunks to session state (config already set in sidebar)
@@ -195,26 +199,24 @@ def render_chunks_step() -> None:
         source_text=source_text,
         calculate_overlap=True,
     )
-    
+
     # Calculate real stats based on generated chunks
     num_chunks = len(chunks)
     avg_size = int(sum(len(c.text) for c in chunks) / num_chunks) if num_chunks > 0 else 0
-    
+
     chunks_with_overlap = sum(1 for d in chunk_display_data if d["overlap_text"])
     total_overlap_len = sum(len(d["overlap_text"]) for d in chunk_display_data)
-    
+
     avg_overlap_size = (
-        int(total_overlap_len / chunks_with_overlap)
-        if chunks_with_overlap > 0
-        else 0
+        int(total_overlap_len / chunks_with_overlap) if chunks_with_overlap > 0 else 0
     )
 
     view_mode = ui.tabs(
         options=["Visual View", "Raw JSON"],
         default_value="Visual View",
-        key="chunks_view_tab"
+        key="chunks_view_tab",
     )
-    
+
     # Render based on selected view
     st.write("")
     if view_mode == "Visual View":
@@ -236,6 +238,6 @@ def render_chunks_step() -> None:
                 "metadata": chunk.metadata,
             }
             chunks_json.append(chunk_dict)
-        
+
         with st.container(border=True):
             st.json(chunks_json, expanded=True)

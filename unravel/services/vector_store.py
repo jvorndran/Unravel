@@ -16,7 +16,6 @@ from numpy.typing import NDArray
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
-
 _PATH_CLIENTS: dict[Path, QdrantClient] = {}
 _URL_CLIENTS: dict[str, QdrantClient] = {}
 
@@ -43,6 +42,7 @@ def _get_client(storage_path: Path | None = None, url: str | None = None) -> Qdr
 @dataclass
 class SearchResult:
     """Result from a vector similarity search."""
+
     index: int
     score: float
     text: str
@@ -95,9 +95,7 @@ class VectorStore:
             return models.Distance.EUCLID
         if self.metric == "ip":
             return models.Distance.DOT
-        raise ValueError(
-            f"Unknown metric: {self.metric}. Use 'cosine', 'l2', or 'ip'."
-        )
+        raise ValueError(f"Unknown metric: {self.metric}. Use 'cosine', 'l2', or 'ip'.")
 
     def _ensure_collection(self) -> None:
         collections = self._client.get_collections().collections
@@ -136,9 +134,7 @@ class VectorStore:
 
         points.sort(key=lambda item: item[0])
         self._texts = [p[1].get("text", "") for p in points]
-        self._metadata = [
-            cast(dict[str, Any], p[1].get("metadata", {})) for p in points
-        ]
+        self._metadata = [cast(dict[str, Any], p[1].get("metadata", {})) for p in points]
         self._next_id = (points[-1][0] + 1) if points else 0
         self._size = len(points)
         self._cache_loaded = True
@@ -147,9 +143,7 @@ class VectorStore:
     def size(self) -> int:
         """Return the number of vectors in the store."""
         if self._size is None:
-            count = self._client.count(
-                collection_name=self.collection_name, exact=True
-            )
+            count = self._client.count(collection_name=self.collection_name, exact=True)
             self._size = int(count.count)
         return self._size
 
@@ -427,4 +421,3 @@ def create_vector_store(
         storage_path=storage_path,
         url=resolved_url,
     )
-

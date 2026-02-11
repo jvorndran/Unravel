@@ -41,9 +41,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
     current_output_format = current_parsing_params.get("output_format", "markdown")
 
     format_value_map = {v: k for k, v in format_display_map.items()}
-    current_format_display = format_value_map.get(
-        current_output_format, "Markdown"
-    )
+    current_format_display = format_value_map.get(current_output_format, "Markdown")
 
     # Sync widget state only if needed
     if "chunking_config_output_format" not in st.session_state:
@@ -150,9 +148,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
     default_filters = ["PAGE_HEADER", "PAGE_FOOTER"]
 
     # Get current selection from session state
-    current_filter_labels = current_parsing_params.get(
-        "docling_filter_labels", default_filters
-    )
+    current_filter_labels = current_parsing_params.get("docling_filter_labels", default_filters)
 
     # Convert stored values to display names
     current_display_labels = [
@@ -171,9 +167,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
     )
 
     # Convert display names back to internal values
-    docling_filter_labels = [
-        docling_filter_options[label] for label in selected_display_labels
-    ]
+    docling_filter_labels = [docling_filter_options[label] for label in selected_display_labels]
 
     st.write("")
     st.markdown("**Image Extraction**")
@@ -225,9 +219,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
             elif llm_provider != "OpenAI-Compatible" and llm_model not in VISION_CAPABLE_MODELS.get(
                 llm_provider, []
             ):
-                st.warning(
-                    f"Model '{llm_model}' may not support vision. Use GPT-4o or Claude 3."
-                )
+                st.warning(f"Model '{llm_model}' may not support vision. Use GPT-4o or Claude 3.")
 
     # Update parsing params
     new_parsing_params = {
@@ -257,9 +249,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
     if "chunking_config_provider" not in st.session_state:
         st.session_state["chunking_config_provider"] = current_provider
 
-    provider = st.selectbox(
-        "Library", options=providers, key="chunking_config_provider"
-    )
+    provider = st.selectbox("Library", options=providers, key="chunking_config_provider")
 
     # Get splitters for selected provider
     splitter_infos = get_provider_splitters(provider)
@@ -309,9 +299,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
             st.markdown(f"**Best for:** {details['best_for']}")
 
     # Get parameter schema for selected splitter
-    selected_info = next(
-        (info for info in splitter_infos if info.name == splitter_name), None
-    )
+    selected_info = next((info for info in splitter_infos if info.name == splitter_name), None)
 
     # Render dynamic parameters
     splitter_params = {}
@@ -326,7 +314,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
                     param.name.replace("_", " ").title(),
                     min_value=param.min_value or 0,
                     max_value=param.max_value or 10000,
-                    value=int(current_value) if current_value is not None else param.default,
+                    value=(int(current_value) if current_value is not None else param.default),
                     step=50 if "size" in param.name else 10,
                     help=param.description,
                     key=f"chunking_config_param_{param.name}",
@@ -334,9 +322,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
             elif param.type == "str":
                 if param.options:
                     if f"chunking_config_param_{param.name}" not in st.session_state:
-                        st.session_state[f"chunking_config_param_{param.name}"] = str(
-                            current_value
-                        )
+                        st.session_state[f"chunking_config_param_{param.name}"] = str(current_value)
                     value = st.selectbox(
                         param.name.replace("_", " ").title(),
                         options=param.options,
@@ -361,16 +347,10 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
                 metadata_value_to_display = {v: k for k, v in METADATA_OPTIONS.items()}
 
                 # Convert stored internal values to display names for the widget
-                current_list = (
-                    current_value if isinstance(current_value, list) else param.default
-                )
-                current_display_list = [
-                    metadata_value_to_display.get(v, v) for v in current_list
-                ]
+                current_list = current_value if isinstance(current_value, list) else param.default
+                current_display_list = [metadata_value_to_display.get(v, v) for v in current_list]
                 # Filter to only valid options
-                current_display_list = [
-                    v for v in current_display_list if v in param.options
-                ]
+                current_display_list = [v for v in current_display_list if v in param.options]
                 if not current_display_list:
                     current_display_list = param.default
 
