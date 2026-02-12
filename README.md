@@ -85,63 +85,63 @@ uv run python -m unravel
 
 Unravel guides you through a structured 5-step pipeline for building and testing RAG systems:
 
-### Step 1: Document Upload
+### Step 1: Document Upload 📄
 Advanced multi-format document ingestion with file upload and URL scraping:
-- **File Upload**: PDF, DOCX, PPTX, XLSX, HTML, Markdown, TXT, and Images (PNG, JPG, BMP, TIFF)
-- **URL Scraping**: Extract content from web pages with JavaScript rendering support
+- 📁 **File Upload**: PDF, DOCX, PPTX, XLSX, HTML, Markdown, TXT, and Images (PNG, JPG, BMP, TIFF)
+- 🌐 **URL Scraping**: Extract content from web pages with JavaScript rendering support
   - **Crawl Modes**: Single page scraping or multi-page crawling
   - **Discovery Methods**: Crawler (follows internal links), Sitemap, or Feeds (RSS/Atom)
   - **Extraction Modes**: Balanced, Favor Precision, or Favor Recall
   - **Output Formats**: Markdown, TXT, CSV, JSON, HTML, XML, XML-TEI
   - **Metadata Extraction**: Author, publication date, description, tags/categories, site name
   - **Advanced Options**: robots.txt compliance, language filtering, content options (links, images, tables, formatting)
-- **Advanced Parsing**: OCR support for scanned documents and images
-- **Structure Preservation**: Intelligent table structure extraction and hierarchical layout understanding
-- **Content Filtering**: Selective extraction by element type (headers, footers, code blocks, etc.)
-- **Configurable Processing**: Thread settings and OCR options for optimal performance
+- 🔍 **Advanced Parsing**: OCR support for scanned documents and images
+- 🏗️ **Structure Preservation**: Intelligent table structure extraction and hierarchical layout understanding
+- 🎯 **Content Filtering**: Selective extraction by element type (headers, footers, code blocks, etc.)
+- ⚙️ **Configurable Processing**: Thread settings and OCR options for optimal performance
 
 
-### Step 2: Chunk Visualization
+### Step 2: Chunk Visualization ✂️
 Flexible text splitting with transparent, visual chunk inspection:
-- **Two Chunking Strategies**:
+- 🔀 **Two Chunking Strategies**:
   - **Hierarchical Chunker**: One chunk per document element, preserving semantic structure
   - **Hybrid Chunker**: Token-aware splitting with configurable limits and overlap for consistency
-- **Token-Aware Configuration**: Set maximum chunk size (default: 512 tokens) and overlap percentage
-- **Rich Metadata**: Attach configurable metadata to each chunk (section hierarchy, element type, token count, heading text, page numbers)
-- **Visual Chunk Cards**: Display full text with section breadcrumbs, metadata badges, and overlap highlighting
-- **Context Preview**: Expandable previews showing how chunks overlap with neighbors for seamless retrieval
+- 🎚️ **Token-Aware Configuration**: Set maximum chunk size (default: 512 tokens) and overlap percentage
+- 🏷️ **Rich Metadata**: Attach configurable metadata to each chunk (section hierarchy, element type, token count, heading text, page numbers)
+- 🎴 **Visual Chunk Cards**: Display full text with section breadcrumbs, metadata badges, and overlap highlighting
+- 👁️ **Context Preview**: Expandable previews showing how chunks overlap with neighbors for seamless retrieval
 
-### Step 3: Embedding Explorer
+### Step 3: Embedding Explorer 🧭
 Visualize and analyze your document embeddings:
-- **10+ Embedding Models**: Choose from sentence-transformers models (all-MiniLM, all-mpnet, paraphrase variants), multilingual, QA-optimized, and BGE embeddings
-- **Fast Startup**: Lazy model loading ensures snappy UI responsiveness
-- **GPU Acceleration**: Automatic CUDA detection and acceleration when available
-- **3D UMAP Visualization**: Interactive 3D scatter plot showing embedding space with cluster analysis
-- **Color Coding Options**: Visualize by KMeans clustering to identify semantic groupings
-- **Outlier Detection**: Identify and analyze outlier chunks in the embedding space
-- **Detailed Inspection**: Hover over points to preview chunks, click to view full details
-- **Semantic Search**: Test similarity search within embeddings with visual query point projection
+- 🤖 **10+ Embedding Models**: Choose from sentence-transformers models (all-MiniLM, all-mpnet, paraphrase variants), multilingual, QA-optimized, and BGE embeddings
+- ⚡ **Fast Startup**: Lazy model loading ensures snappy UI responsiveness
+- 🚀 **GPU Acceleration**: Automatic CUDA detection and acceleration when available
+- 📊 **3D UMAP Visualization**: Interactive 3D scatter plot showing embedding space with cluster analysis
+- 🎨 **Color Coding Options**: Visualize by KMeans clustering to identify semantic groupings
+- 🔴 **Outlier Detection**: Identify and analyze outlier chunks in the embedding space
+- 🔬 **Detailed Inspection**: Hover over points to preview chunks, click to view full details
+- 🔎 **Semantic Search**: Test similarity search within embeddings with visual query point projection
 
-### Step 4: Query Testing
+### Step 4: Query Testing 🔍
 End-to-end RAG testing with multiple retrieval strategies:
-- **Three Retrieval Methods**:
+- 🎯 **Three Retrieval Methods**:
   - **Dense (Qdrant)**: Vector similarity search using embeddings for semantic matching
   - **Sparse (BM25)**: Keyword-based search for exact term matching
   - **Hybrid**: Combines dense and sparse with configurable fusion methods (weighted sum or reciprocal rank fusion)
-- **Query Expansion**: Generate multiple query variations with LLM to improve retrieval coverage (Reciprocal Rank Fusion for result merging)
-- **Retrieval Configuration**: Adjust Top K results and minimum similarity score thresholds (strategy-specific defaults)
-- **Reranking (Optional)**: Cross-encoder reranking to re-score and improve retrieval relevance
-- **LLM Answer Generation**: Integrate OpenAI, Anthropic, or local models (Ollama, LM Studio) to generate answers from retrieved chunks
-- **Flexible Configuration**: Customize temperature, max tokens, system prompts, and API keys
-- **Detailed Results**: View ranked chunks with similarity scores, source locations, and generated answers with full transparency
+- 🔄 **Query Expansion**: Generate multiple query variations with LLM to improve retrieval coverage (Reciprocal Rank Fusion for result merging)
+- ⚙️ **Retrieval Configuration**: Adjust Top K results and minimum similarity score thresholds (strategy-specific defaults)
+- 📈 **Reranking (Optional)**: Cross-encoder reranking to re-score and improve retrieval relevance
+- 🤖 **LLM Answer Generation**: Integrate OpenAI, Anthropic, or local models (Ollama, LM Studio) to generate answers from retrieved chunks
+- 🎛️ **Flexible Configuration**: Customize temperature, max tokens, system prompts, and API keys
+- 📋 **Detailed Results**: View ranked chunks with similarity scores, source locations, and generated answers with full transparency
 
-### Step 5: Code Export
+### Step 5: Code Export 💾
 Generate production-ready Python code capturing your exact configuration:
-- **Complete Implementation Code**: Exports working Python snippets for parsing, chunking, embedding, retrieval, and reranking
-- **Exact Configuration Preservation**: Every parameter and choice is captured in the generated code
-- **Dependencies Management**: Complete requirements.txt with all necessary libraries and pinned versions
-- **Copy-Paste Ready**: Integration-ready code for immediate deployment to your application
-- **Supports All Features**: Includes code for parsing options, chunking strategies, embedding models, retrieval methods, and LLM configuration
+- 📝 **Complete Implementation Code**: Exports working Python snippets for parsing, chunking, embedding, retrieval, and reranking
+- 🎯 **Exact Configuration Preservation**: Every parameter and choice is captured in the generated code
+- 📦 **Dependencies Management**: Complete requirements.txt with all necessary libraries and pinned versions
+- ✂️ **Copy-Paste Ready**: Integration-ready code for immediate deployment to your application
+- ✨ **Supports All Features**: Includes code for parsing options, chunking strategies, embedding models, retrieval methods, and LLM configuration
 
 ## Storage
 
