@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "unravel"
+name = "unravel-rag"
 version = "0.1.0"
 description = "A visual sandbox for experimenting with RAG configurations"
 readme = "README.md"

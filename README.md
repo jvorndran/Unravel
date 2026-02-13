@@ -6,6 +6,10 @@ A visual sandbox for experimenting with RAG (Retrieval-Augmented Generation) con
 
 Unravel helps developers understand and optimize their RAG pipelines through interactive visualizations. Experiment with document parsing, chunking strategies, embedding models, and retrieval configurations—all running locally on your machine.
 
+## Demo
+
+![Unravel Demo](docs/demo.gif)
+
 ## Installation
 
 ### From PyPI
