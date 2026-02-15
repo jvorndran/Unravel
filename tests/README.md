@@ -59,8 +59,6 @@ pytest tests/test_infrastructure.py -v
 
 ### Mock Fixtures
 - `mock_qdrant_client` - Mock Qdrant vector database client
-- `mock_openai_api` - Mock OpenAI API for LLM tests
-- `mock_anthropic_api` - Mock Anthropic API for LLM tests
 - `mock_sentence_transformer` - Mock SentenceTransformer for embeddings
 
 ### UI Fixtures

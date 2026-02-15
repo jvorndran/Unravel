@@ -216,10 +216,10 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
 
             if not llm_api_key:
                 st.warning("Configure a vision-capable LLM in the LLM Config tab.")
-            elif llm_provider != "OpenAI-Compatible" and llm_model not in VISION_CAPABLE_MODELS.get(
+            elif llm_provider not in ("OpenAI-Compatible", "OpenRouter") and llm_model not in VISION_CAPABLE_MODELS.get(
                 llm_provider, []
             ):
-                st.warning(f"Model '{llm_model}' may not support vision. Use GPT-4o or Claude 3.")
+                st.warning(f"Model '{llm_model}' may not support vision. Use GPT-5, Claude Opus, or Gemini 3 Pro.")
 
     # Update parsing params
     new_parsing_params = {

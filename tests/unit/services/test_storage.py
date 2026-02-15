@@ -75,6 +75,8 @@ class TestStorageDirectories:
             content = env_file.read_text()
             assert "OPENAI_API_KEY" in content
             assert "ANTHROPIC_API_KEY" in content
+            assert "GEMINI_API_KEY" in content
+            assert "OPENROUTER_API_KEY" in content
 
     def test_get_documents_dir(self, tmp_path):
         """get_documents_dir returns documents subdirectory."""

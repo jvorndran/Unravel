@@ -82,6 +82,12 @@ def ensure_storage_dir() -> Path:
 # Anthropic API Key (for Claude models)
 # ANTHROPIC_API_KEY=sk-ant-...
 
+# Google Gemini API Key (for Gemini models)
+# GEMINI_API_KEY=...
+
+# OpenRouter API Key (for OpenRouter models)
+# OPENROUTER_API_KEY=sk-or-...
+
 # For local models (Ollama, LM Studio, etc.), no API key is usually needed
 """
         env_file.write_text(env_template)

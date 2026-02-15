@@ -521,12 +521,11 @@ def render_rag_config_sidebar() -> None:
         for key in keys_to_delete:
             del st.session_state[key]
 
-        st.success("✓ Session state cleared! Refresh the page to regenerate embeddings.")
+        st.success("Session state cleared. Refresh the page to regenerate embeddings.")
 
 
 def render_llm_sidebar() -> None:
     """Render LLM configuration in the sidebar."""
-    st.markdown("### LLM Configuration")
 
     # Load saved LLM config on first run
     if "llm_config_loaded" not in st.session_state:
@@ -559,37 +558,64 @@ def render_llm_sidebar() -> None:
     if current_provider not in providers:
         current_provider = providers[0]
 
-    # Pre-select based on state
     if WidgetKeys.SIDEBAR_PROVIDER not in st.session_state:
         st.session_state[WidgetKeys.SIDEBAR_PROVIDER] = current_provider
 
+    st.markdown("**Provider**")
     provider = cast(
         str,
-        ui.select(options=providers, key=WidgetKeys.SIDEBAR_PROVIDER, label="Provider"),
+        st.selectbox(
+            "Provider",
+            options=providers,
+            key=WidgetKeys.SIDEBAR_PROVIDER,
+            label_visibility="collapsed",
+        ),
     )
+
+    # Detect provider change and reset model to the new provider's default
+    previous_provider = st.session_state.get("_last_llm_provider")
+    if previous_provider and previous_provider != provider:
+        default_model = cast(str, LLM_PROVIDERS[provider].get("default", ""))
+        st.session_state.llm_model = default_model
+        # Clear model widget keys so they re-initialize with new options/defaults
+        for key in (WidgetKeys.SIDEBAR_MODEL_SELECT, WidgetKeys.SIDEBAR_MODEL_INPUT):
+            if key in st.session_state:
+                del st.session_state[key]
+    st.session_state._last_llm_provider = provider
     st.session_state.llm_provider = provider
 
     st.write("")
 
     # Show explanation for OpenAI-Compatible
     if provider == "OpenAI-Compatible":
-        with ui.card(key=WidgetKeys.SIDEBAR_OPENAI_COMPAT_INFO):
-            st.markdown("""
-                **OpenAI-Compatible** allows local models (Ollama, LM Studio, etc).
-                
-                **Common Base URLs:**
-                - **Ollama**: `http://localhost:11434/v1`
-                - **LM Studio**: `http://localhost:1234/v1`
-                """)
-        st.write("")
+        st.info(
+            "**OpenAI-Compatible** allows local models (Ollama, LM Studio, etc).\n\n"
+            "**Common Base URLs:**\n"
+            "- Ollama: `http://localhost:11434/v1`\n"
+            "- LM Studio: `http://localhost:1234/v1`"
+        )
+
+    if provider == "OpenRouter":
+        st.info(
+            "**OpenRouter** provides access to hundreds of models via a single API.\n\n"
+            "Enter any model identifier from [openrouter.ai/models](https://openrouter.ai/models)."
+        )
 
     # Model selection
     models = get_provider_models(provider)
     if provider == "OpenAI-Compatible":
-        st.markdown("**Model Name**")
-        model = ui.input(
-            default_value=st.session_state.llm_model or "llama2",
+        model = st.text_input(
+            "Model Name",
+            value=st.session_state.llm_model or "llama2",
             placeholder="e.g., llama2, mistral",
+            key=WidgetKeys.SIDEBAR_MODEL_INPUT,
+        )
+        st.session_state.llm_model = model
+    elif provider == "OpenRouter":
+        model = st.text_input(
+            "Model Name",
+            value=st.session_state.llm_model or "anthropic/claude-opus-4-6",
+            placeholder="e.g., anthropic/claude-opus-4-6",
             key=WidgetKeys.SIDEBAR_MODEL_INPUT,
         )
         st.session_state.llm_model = model
@@ -600,38 +626,41 @@ def render_llm_sidebar() -> None:
             current_model = default_model
             st.session_state.llm_model = default_model
 
-        # Pre-select based on state
         if WidgetKeys.SIDEBAR_MODEL_SELECT not in st.session_state:
             st.session_state[WidgetKeys.SIDEBAR_MODEL_SELECT] = current_model
 
-        model = ui.select(options=models, key=WidgetKeys.SIDEBAR_MODEL_SELECT, label="Model")
+        model = cast(
+            str,
+            st.selectbox(
+                "Model",
+                options=models,
+                key=WidgetKeys.SIDEBAR_MODEL_SELECT,
+                label_visibility="collapsed",
+            ),
+        )
         st.session_state.llm_model = model
 
     st.write("")
 
     # API Key status
-    env_key = get_api_key_from_env(provider)
-    if env_key:
-        st.success("✓ API key loaded")
-        api_key = env_key
+    api_key_from_env = get_api_key_from_env(provider)
+    if api_key_from_env:
+        st.success("API key loaded")
+        api_key = api_key_from_env
     else:
         if provider == "OpenAI-Compatible":
-            st.info("No API key required for most local models")
             api_key = "not-needed"
         else:
-            st.warning("⚠️ No API key found")
-            st.caption(f"Set `{LLM_PROVIDERS[provider]['env_key']}` in `.env` file")
+            st.caption(f"Set `{LLM_PROVIDERS[provider]['env_key']}` in `~/.unravel/.env`")
             api_key = ""
 
     st.session_state.llm_api_key = ""  # Never store API keys in session state
 
-    st.write("")
-
-    # Base URL (for OpenAI-Compatible)
+    # Base URL (for OpenAI-Compatible only; OpenRouter uses a hardcoded URL)
     if provider == "OpenAI-Compatible":
-        st.markdown("**Base URL**")
-        base_url = ui.input(
-            default_value=st.session_state.llm_base_url or "http://localhost:11434/v1",
+        base_url = st.text_input(
+            "Base URL",
+            value=st.session_state.llm_base_url or "http://localhost:11434/v1",
             placeholder="http://localhost:11434/v1",
             key=WidgetKeys.SIDEBAR_BASE_URL,
         )
@@ -667,7 +696,10 @@ def render_llm_sidebar() -> None:
     st.write("")
 
     # Save button
-    if ui.button("Save Configuration", variant="outline", key=WidgetKeys.SIDEBAR_SAVE_CONFIG_BTN):
+    if st.button(
+        "Save Configuration",
+        key=WidgetKeys.SIDEBAR_SAVE_CONFIG_BTN,
+    ):
         config_data = {
             "provider": provider,
             "model": model,
@@ -676,7 +708,7 @@ def render_llm_sidebar() -> None:
             "max_tokens": max_tokens,
         }
         save_llm_config(config_data)
-        st.success("✓ Configuration saved")
+        st.success("Configuration saved")
 
     # Validation status
     config = LLMConfig(
@@ -689,7 +721,7 @@ def render_llm_sidebar() -> None:
     )
     is_valid, error_msg = validate_config(config)
     if not is_valid:
-        st.warning(f"⚠️ {error_msg}")
+        st.warning(error_msg)
 
 
 def render_sidebar() -> None:

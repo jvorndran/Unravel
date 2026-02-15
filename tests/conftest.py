@@ -211,45 +211,6 @@ def mock_qdrant_client():
 
 
 @pytest.fixture
-def mock_openai_api():
-    """Mock OpenAI API for LLM tests.
-
-    Returns a MagicMock that simulates streaming chat completions.
-    """
-    with patch("openai.OpenAI") as mock:
-        # Mock streaming response
-        mock_stream = MagicMock()
-        mock_chunk = MagicMock()
-        mock_chunk.choices = [MagicMock(delta=MagicMock(content="Test response "))]
-        mock_stream.__iter__ = lambda self: iter([mock_chunk])
-
-        mock.return_value.chat.completions.create.return_value = mock_stream
-
-        yield mock
-
-
-@pytest.fixture
-def mock_anthropic_api():
-    """Mock Anthropic API for LLM tests.
-
-    Returns a MagicMock that simulates streaming message generation.
-    """
-    with patch("anthropic.Anthropic") as mock:
-        # Mock streaming response
-        mock_stream = MagicMock()
-        mock_event = MagicMock()
-        mock_event.type = "content_block_delta"
-        mock_event.delta = MagicMock(text="Test response ")
-        mock_stream.__iter__ = lambda self: iter([mock_event])
-
-        mock.return_value.messages.stream.return_value.__enter__.return_value.text_stream = (
-            mock_stream
-        )
-
-        yield mock
-
-
-@pytest.fixture
 def mock_sentence_transformer():
     """Mock SentenceTransformer for embedding tests.
 

@@ -369,8 +369,21 @@ def generate_reranking_code(config: ExportConfig) -> str | None:
     )
 
 
+_LITELLM_MODEL_PREFIX: dict[str, str] = {
+    "OpenAI": "",
+    "Anthropic": "anthropic/",
+    "Gemini": "gemini/",
+    "OpenRouter": "openrouter/",
+    "OpenAI-Compatible": "openai/",
+}
+
+
 def generate_llm_code(config: ExportConfig) -> str | None:
-    """Generate LLM integration code based on configuration."""
+    """Generate LLM integration code based on configuration.
+
+    Uses LiteLLM as the unified SDK so exported code works identically
+    across all providers without provider-specific client logic.
+    """
     if not config.llm_config:
         return None
 
@@ -388,61 +401,37 @@ def generate_llm_code(config: ExportConfig) -> str | None:
     if not provider or not model:
         return None
 
-    # Provider-specific configurations
-    if provider == "OpenAI":
-        import_statement = "from openai import OpenAI"
-        client_init = "# Initialize OpenAI client\nclient = OpenAI()"
-        generation_code = f"""    # Generate response
-    response = client.chat.completions.create(
-        model="{model}",
-        messages=[
-            {{"role": "system", "content": system_prompt}},
-            {{"role": "user", "content": user_message}},
-        ],
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
+    # Build the LiteLLM model identifier
+    prefix = _LITELLM_MODEL_PREFIX.get(provider, "")
+    litellm_model = f"{prefix}{model}"
 
-    return response.choices[0].message.content"""
-        base_url_display = ""
+    import_statement = "import litellm\n\nlitellm.drop_params = True"
 
-    elif provider == "Anthropic":
-        import_statement = "from anthropic import Anthropic"
-        client_init = "# Initialize Anthropic client\nclient = Anthropic()"
-        generation_code = f"""    # Generate response
-    response = client.messages.create(
-        model="{model}",
-        system=system_prompt,
-        messages=[
-            {{"role": "user", "content": user_message}},
-        ],
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-
-    return response.content[0].text"""
-        base_url_display = ""
-
-    elif provider == "OpenAI-Compatible":
-        import_statement = "from openai import OpenAI"
-        base_url_str = f'base_url="{base_url}"' if base_url else ""
-        client_init = f"# Initialize OpenAI-compatible client\nclient = OpenAI({base_url_str})"
-        generation_code = f"""    # Generate response
-    response = client.chat.completions.create(
-        model="{model}",
-        messages=[
-            {{"role": "system", "content": system_prompt}},
-            {{"role": "user", "content": user_message}},
-        ],
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-
-    return response.choices[0].message.content"""
-        base_url_display = f"- Base URL: {base_url}" if base_url else ""
-
+    # Build client init with optional api_base for OpenAI-Compatible
+    if provider == "OpenAI-Compatible" and base_url:
+        client_init = f'# LiteLLM handles all provider differences\napi_base = "{base_url}"'
+        base_url_display = f"- Base URL: {base_url}"
     else:
-        return None
+        client_init = "# LiteLLM handles all provider differences automatically"
+        base_url_display = ""
+
+    # Build extra kwargs string for the completion call
+    extra_kwargs = ""
+    if provider == "OpenAI-Compatible" and base_url:
+        extra_kwargs = '\n        api_base=api_base,'
+
+    generation_code = f"""    # Generate response (works with any provider via LiteLLM)
+    response = litellm.completion(
+        model="{litellm_model}",
+        messages=[
+            {{"role": "system", "content": system_prompt}},
+            {{"role": "user", "content": user_message}},
+        ],
+        temperature=temperature,
+        max_tokens=max_tokens,{extra_kwargs}
+    )
+
+    return response.choices[0].message.content"""
 
     return LLM_TEMPLATE.format(
         provider=provider,
@@ -501,13 +490,9 @@ def generate_installation_command(config: ExportConfig) -> str:
                 elif backend == "flagembedding":
                     deps.add("FlagEmbedding")
 
-    # LLM dependencies
+    # LLM dependencies (litellm handles all providers)
     if config.llm_config:
-        provider = config.llm_config.get("provider")
-        if provider == "OpenAI" or provider == "OpenAI-Compatible":
-            deps.add("openai")
-        elif provider == "Anthropic":
-            deps.add("anthropic")
+        deps.add("litellm")
 
     # Sort for consistent output
     sorted_deps = sorted(deps)

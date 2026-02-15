@@ -1,47 +1,65 @@
 """
 LLM service for RAG response generation.
 
-Provides a unified interface for generating responses using various LLM providers.
+Uses LiteLLM as a unified interface across all providers.
+LiteLLM automatically handles parameter normalization (max_tokens vs
+max_completion_tokens, unsupported temperature values, etc.) via drop_params.
 """
 
 import base64
-import os
 from collections.abc import Generator
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
 
-from dotenv import load_dotenv
+import litellm
+from dotenv import dotenv_values
 from PIL import Image as PILImage
 
-# Lazy imports for LLM clients
-_openai_client: Any | None = None
-_anthropic_client: Any | None = None
-
+# Let LiteLLM silently drop unsupported params (e.g. temperature for gpt-5-mini)
+litellm.drop_params = True
 
 # Available LLM providers and their models
 LLM_PROVIDERS: dict[str, dict[str, Any]] = {
     "OpenAI": {
         "models": [
+            "gpt-5",
+            "gpt-5-mini",
             "gpt-4o",
             "gpt-4o-mini",
-            "gpt-4-turbo",
-            "gpt-3.5-turbo",
         ],
-        "default": "gpt-4o-mini",
+        "default": "gpt-5-mini",
         "env_key": "OPENAI_API_KEY",
         "description": "OpenAI's GPT models",
     },
     "Anthropic": {
         "models": [
+            "claude-opus-4-6",
+            "claude-opus-4-5-20251101",
             "claude-sonnet-4-20250514",
-            "claude-3-5-haiku-20241022",
             "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
         ],
-        "default": "claude-sonnet-4-20250514",
+        "default": "claude-opus-4-6",
         "env_key": "ANTHROPIC_API_KEY",
         "description": "Anthropic's Claude models",
+    },
+    "Gemini": {
+        "models": [
+            "gemini-3-pro-preview",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+        ],
+        "default": "gemini-3-pro-preview",
+        "env_key": "GEMINI_API_KEY",
+        "description": "Google's Gemini models",
+    },
+    "OpenRouter": {
+        "models": [],  # User specifies model name
+        "default": "",
+        "env_key": "OPENROUTER_API_KEY",
+        "description": "Access any model via OpenRouter (openrouter.ai)",
     },
     "OpenAI-Compatible": {
         "models": [],  # User specifies model name
@@ -54,12 +72,20 @@ LLM_PROVIDERS: dict[str, dict[str, Any]] = {
 
 # Models that support vision/image input
 VISION_CAPABLE_MODELS: dict[str, list[str]] = {
-    "OpenAI": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
+    "OpenAI": ["gpt-5", "gpt-5-mini", "gpt-4o", "gpt-4o-mini"],
     "Anthropic": [
+        "claude-opus-4-6",
+        "claude-opus-4-5-20251101",
         "claude-sonnet-4-20250514",
         "claude-3-5-sonnet-20241022",
         "claude-3-5-haiku-20241022",
     ],
+    "Gemini": [
+        "gemini-3-pro-preview",
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+    ],
+    "OpenRouter": [],  # Assume user knows if their model supports vision
     "OpenAI-Compatible": [],  # Assume user knows if their model supports vision
 }
 
@@ -103,26 +129,39 @@ class RAGContext:
     scores: list[float] | None = None
 
 
-def _get_openai_client(api_key: str, base_url: str | None = None) -> Any:
-    """Get or create OpenAI client."""
-    try:
-        from openai import OpenAI
+# ---------------------------------------------------------------------------
+# LiteLLM model name resolution
+# ---------------------------------------------------------------------------
 
-        return OpenAI(api_key=api_key, base_url=base_url)
-    except ImportError as err:
-        raise ImportError("OpenAI library not installed. Install with: pip install openai") from err
+_PROVIDER_PREFIX: dict[str, str] = {
+    "OpenAI": "",  # LiteLLM uses bare model names for OpenAI
+    "Anthropic": "anthropic/",
+    "Gemini": "gemini/",
+    "OpenRouter": "openrouter/",
+    "OpenAI-Compatible": "openai/",
+}
 
 
-def _get_anthropic_client(api_key: str) -> Any:
-    """Get or create Anthropic client."""
-    try:
-        from anthropic import Anthropic
+def _litellm_model(config: LLMConfig) -> str:
+    """Convert our provider + model into a LiteLLM model identifier."""
+    prefix = _PROVIDER_PREFIX.get(config.provider, "")
+    return f"{prefix}{config.model}"
 
-        return Anthropic(api_key=api_key)
-    except ImportError as err:
-        raise ImportError(
-            "Anthropic library not installed. Install with: pip install anthropic"
-        ) from err
+
+def _litellm_kwargs(config: LLMConfig) -> dict[str, Any]:
+    """Build extra kwargs for litellm.completion based on provider."""
+    kwargs: dict[str, Any] = {}
+    if config.provider == "OpenAI-Compatible" and config.base_url:
+        kwargs["api_base"] = config.base_url
+        kwargs["api_key"] = config.api_key or "not-needed"
+    elif config.api_key:
+        kwargs["api_key"] = config.api_key
+    return kwargs
+
+
+# ---------------------------------------------------------------------------
+# Prompt helpers
+# ---------------------------------------------------------------------------
 
 
 def _build_context_prompt(context: RAGContext) -> str:
@@ -172,6 +211,64 @@ def _parse_rewrite_variations(text: str, max_count: int) -> list[str]:
     return lines
 
 
+# ---------------------------------------------------------------------------
+# Unified generation via LiteLLM
+# ---------------------------------------------------------------------------
+
+
+def _complete(
+    config: LLMConfig,
+    messages: list[dict[str, Any]],
+    *,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+) -> str:
+    """Run a non-streaming completion via LiteLLM."""
+    response = litellm.completion(
+        model=_litellm_model(config),
+        messages=messages,
+        temperature=temperature if temperature is not None else config.temperature,
+        max_tokens=max_tokens or config.max_tokens,
+        **_litellm_kwargs(config),
+    )
+    return cast(str, response.choices[0].message.content)
+
+
+def _complete_stream(
+    config: LLMConfig,
+    messages: list[dict[str, Any]],
+    *,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+) -> Generator[str, None, None]:
+    """Run a streaming completion via LiteLLM."""
+    response = litellm.completion(
+        model=_litellm_model(config),
+        messages=messages,
+        temperature=temperature if temperature is not None else config.temperature,
+        max_tokens=max_tokens or config.max_tokens,
+        stream=True,
+        **_litellm_kwargs(config),
+    )
+    for chunk in response:
+        content = chunk.choices[0].delta.content
+        if content:
+            yield cast(str, content)
+
+
+def _make_messages(system_prompt: str, user_prompt: str) -> list[dict[str, Any]]:
+    """Build a standard system + user message list."""
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Public generation API
+# ---------------------------------------------------------------------------
+
+
 def rewrite_query_variations(
     config: LLMConfig,
     query: str,
@@ -189,14 +286,7 @@ def rewrite_query_variations(
         max_tokens=min(256, config.max_tokens),
     )
     user_prompt = prompt.format(query=query, count=count)
-
-    if rewrite_config.provider in ("OpenAI", "OpenAI-Compatible"):
-        response = _generate_openai(rewrite_config, system_prompt, user_prompt)
-    elif rewrite_config.provider == "Anthropic":
-        response = _generate_anthropic(rewrite_config, system_prompt, user_prompt)
-    else:
-        raise ValueError(f"Unknown provider: {rewrite_config.provider}")
-
+    response = _complete(rewrite_config, _make_messages(system_prompt, user_prompt))
     return _parse_rewrite_variations(response, count)
 
 
@@ -216,13 +306,7 @@ def generate_response(
         Generated response text
     """
     user_prompt = _build_user_prompt(context)
-
-    if config.provider == "OpenAI" or config.provider == "OpenAI-Compatible":
-        return _generate_openai(config, system_prompt, user_prompt)
-    elif config.provider == "Anthropic":
-        return _generate_anthropic(config, system_prompt, user_prompt)
-    else:
-        raise ValueError(f"Unknown provider: {config.provider}")
+    return _complete(config, _make_messages(system_prompt, user_prompt))
 
 
 def generate_response_stream(
@@ -241,92 +325,18 @@ def generate_response_stream(
         Response text chunks
     """
     user_prompt = _build_user_prompt(context)
-
-    if config.provider == "OpenAI" or config.provider == "OpenAI-Compatible":
-        yield from _generate_openai_stream(config, system_prompt, user_prompt)
-    elif config.provider == "Anthropic":
-        yield from _generate_anthropic_stream(config, system_prompt, user_prompt)
-    else:
-        raise ValueError(f"Unknown provider: {config.provider}")
+    yield from _complete_stream(config, _make_messages(system_prompt, user_prompt))
 
 
-def _generate_openai(config: LLMConfig, system_prompt: str, user_prompt: str) -> str:
-    """Generate response using OpenAI API."""
-    client = _get_openai_client(config.api_key, config.base_url)
-
-    response = client.chat.completions.create(
-        model=config.model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=config.temperature,
-        max_tokens=config.max_tokens,
-    )
-
-    return cast(str, response.choices[0].message.content)
-
-
-def _generate_openai_stream(
-    config: LLMConfig, system_prompt: str, user_prompt: str
-) -> Generator[str, None, None]:
-    """Generate streaming response using OpenAI API."""
-    client = _get_openai_client(config.api_key, config.base_url)
-
-    stream = client.chat.completions.create(
-        model=config.model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=config.temperature,
-        max_tokens=config.max_tokens,
-        stream=True,
-    )
-
-    for chunk in stream:
-        content = chunk.choices[0].delta.content
-        if content:
-            yield cast(str, content)
-
-
-def _generate_anthropic(config: LLMConfig, system_prompt: str, user_prompt: str) -> str:
-    """Generate response using Anthropic API."""
-    client = _get_anthropic_client(config.api_key)
-
-    response = client.messages.create(
-        model=config.model,
-        max_tokens=config.max_tokens,
-        system=system_prompt,
-        messages=[
-            {"role": "user", "content": user_prompt},
-        ],
-    )
-
-    return cast(str, response.content[0].text)
-
-
-def _generate_anthropic_stream(
-    config: LLMConfig, system_prompt: str, user_prompt: str
-) -> Generator[str, None, None]:
-    """Generate streaming response using Anthropic API."""
-    client = _get_anthropic_client(config.api_key)
-
-    with client.messages.stream(
-        model=config.model,
-        max_tokens=config.max_tokens,
-        system=system_prompt,
-        messages=[
-            {"role": "user", "content": user_prompt},
-        ],
-    ) as stream:
-        yield from stream.text_stream
+# ---------------------------------------------------------------------------
+# Environment / config helpers
+# ---------------------------------------------------------------------------
 
 
 def get_api_key_from_env(provider: str) -> str | None:
     """Get API key from environment variable for a provider.
 
-    Loads from ~/.unravel/.env file first, then falls back to system environment.
+    Loads from ~/.unravel/.env only (by design).
 
     Args:
         provider: LLM provider name
@@ -341,13 +351,15 @@ def get_api_key_from_env(provider: str) -> str | None:
     if not env_key:
         return None
 
-    # Load from ~/.unravel/.env
     dotenv_path = Path.home() / ".unravel" / ".env"
-    if dotenv_path.exists():
-        load_dotenv(dotenv_path, override=False)
+    if not dotenv_path.exists():
+        return None
 
-    # Check environment (includes .env variables now)
-    return os.environ.get(env_key)
+    values = dotenv_values(dotenv_path)
+    value = values.get(env_key)
+    if not value:
+        return None
+    return cast(str, value)
 
 
 def list_providers() -> list[dict[str, Any]]:
@@ -368,8 +380,6 @@ def validate_config(config: LLMConfig) -> tuple[bool, str]:
     Returns:
         Tuple of (is_valid, error_message)
     """
-    if not config.api_key:
-        return False, "API key is required"
 
     if not config.model:
         return False, "Model name is required"
@@ -377,11 +387,16 @@ def validate_config(config: LLMConfig) -> tuple[bool, str]:
     if config.provider == "OpenAI-Compatible" and not config.base_url:
         return False, "Base URL is required for OpenAI-Compatible provider"
 
+    provider_info = LLM_PROVIDERS.get(config.provider, {})
+    env_key = cast(str, provider_info.get("env_key", ""))
+    if env_key and not config.api_key:
+        return False, f"{env_key} is required. Set it in ~/.unravel/.env"
+
     return True, ""
 
 
 class ModelWrapper:
-    """Unified model interface wrapper (Vercel AI SDK style)."""
+    """Unified model interface wrapper."""
 
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
@@ -389,27 +404,11 @@ class ModelWrapper:
     def stream(
         self, context: RAGContext, system_prompt: str = DEFAULT_SYSTEM_PROMPT
     ) -> Generator[str, None, None]:
-        """Stream a response using the configured model.
-
-        Args:
-            context: RAG context with query and chunks
-            system_prompt: System prompt for the LLM
-
-        Yields:
-            Response text chunks
-        """
+        """Stream a response using the configured model."""
         yield from generate_response_stream(self.config, context, system_prompt)
 
     def generate(self, context: RAGContext, system_prompt: str = DEFAULT_SYSTEM_PROMPT) -> str:
-        """Generate a complete response using the configured model.
-
-        Args:
-            context: RAG context with query and chunks
-            system_prompt: System prompt for the LLM
-
-        Returns:
-            Generated response text
-        """
+        """Generate a complete response using the configured model."""
         return generate_response(self.config, context, system_prompt)
 
 
@@ -421,10 +420,10 @@ def get_model(
     temperature: float = 0.7,
     max_tokens: int = 1024,
 ) -> ModelWrapper:
-    """Get a model instance with unified interface (Vercel AI SDK style).
+    """Get a model instance with unified interface.
 
     Args:
-        provider: LLM provider name (OpenAI, Anthropic, OpenAI-Compatible)
+        provider: LLM provider name (OpenAI, Anthropic, Gemini, OpenRouter, OpenAI-Compatible)
         model: Model name/identifier
         api_key: API key for the provider
         base_url: Optional base URL (required for OpenAI-Compatible)
@@ -433,11 +432,6 @@ def get_model(
 
     Returns:
         ModelWrapper instance with stream() and generate() methods
-
-    Example:
-        >>> model = get_model("OpenAI", "gpt-4o-mini", api_key="sk-...")
-        >>> for chunk in model.stream(context):
-        ...     print(chunk, end="")
     """
     config = LLMConfig(
         provider=provider,
@@ -460,25 +454,18 @@ def is_vision_capable(provider: str, model: str) -> bool:
     Returns:
         True if the model supports vision input
     """
-    if provider == "OpenAI-Compatible":
-        # For OpenAI-compatible, assume user knows what they're doing
+    if provider in ("OpenAI-Compatible", "OpenRouter"):
         return True
     return model in VISION_CAPABLE_MODELS.get(provider, [])
 
 
+# ---------------------------------------------------------------------------
+# Image captioning
+# ---------------------------------------------------------------------------
+
+
 def _resize_image_for_captioning(pil_image: PILImage.Image, max_size: int = 1024) -> PILImage.Image:
-    """Resize large images to optimize API costs and latency.
-
-    This is an optimization, not required by API limits. Both OpenAI and Anthropic
-    can handle larger images, but smaller images reduce costs and improve latency.
-
-    Args:
-        pil_image: PIL image to resize
-        max_size: Maximum dimension (width or height) in pixels
-
-    Returns:
-        Resized image (or original if already small enough)
-    """
+    """Resize large images to optimize API costs and latency."""
     if max(pil_image.size) > max_size:
         pil_image = pil_image.copy()
         pil_image.thumbnail((max_size, max_size), PILImage.Resampling.LANCZOS)
@@ -486,97 +473,13 @@ def _resize_image_for_captioning(pil_image: PILImage.Image, max_size: int = 1024
 
 
 def _pil_to_base64(pil_image: PILImage.Image) -> str:
-    """Convert PIL image to base64 string.
-
-    Args:
-        pil_image: PIL image
-
-    Returns:
-        Base64 encoded PNG string
-    """
-    # Convert to RGB if necessary (handles RGBA, palette modes, etc.)
+    """Convert PIL image to base64 string."""
     if pil_image.mode not in ("RGB", "L"):
         pil_image = pil_image.convert("RGB")
 
     buffered = BytesIO()
     pil_image.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-
-def _generate_image_caption_openai(img_base64: str, prompt: str, config: LLMConfig) -> str:
-    """Generate image caption using OpenAI vision API.
-
-    Uses standard OpenAI vision message format with text prompt and image.
-
-    Args:
-        img_base64: Base64 encoded PNG image
-        prompt: Text prompt describing the task
-        config: LLM configuration
-
-    Returns:
-        Generated caption text
-    """
-    client = _get_openai_client(config.api_key, config.base_url)
-
-    response = client.chat.completions.create(
-        model=config.model,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{img_base64}"},
-                    },
-                ],
-            }
-        ],
-        max_tokens=150,
-        temperature=0.3,
-    )
-
-    return cast(str, response.choices[0].message.content)
-
-
-def _generate_image_caption_anthropic(img_base64: str, prompt: str, config: LLMConfig) -> str:
-    """Generate image caption using Anthropic vision API.
-
-    Uses standard Anthropic vision message format with image and text prompt.
-    Note: Anthropic requires image content before text in the content array.
-
-    Args:
-        img_base64: Base64 encoded PNG image
-        prompt: Text prompt describing the task
-        config: LLM configuration
-
-    Returns:
-        Generated caption text
-    """
-    client = _get_anthropic_client(config.api_key)
-
-    response = client.messages.create(
-        model=config.model,
-        max_tokens=150,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",
-                            "data": img_base64,
-                        },
-                    },
-                    {"type": "text", "text": prompt},
-                ],
-            }
-        ],
-    )
-
-    return cast(str, response.content[0].text)
 
 
 def generate_image_caption(
@@ -586,8 +489,8 @@ def generate_image_caption(
 ) -> str:
     """Generate a caption for an image using a vision-capable LLM.
 
-    Follows standard vision prompting patterns for OpenAI and Anthropic APIs.
-    Images are optionally resized for cost/latency optimization.
+    Uses LiteLLM's OpenAI-format vision messages which work across all
+    providers (OpenAI, Anthropic, Gemini, OpenRouter).
 
     Args:
         pil_image: PIL image to caption
@@ -596,17 +499,21 @@ def generate_image_caption(
 
     Returns:
         Generated caption text
-
-    Raises:
-        ValueError: If provider doesn't support vision
     """
-    # Optional resize for cost/latency optimization (not required by API limits)
     resized = _resize_image_for_captioning(pil_image)
     img_base64 = _pil_to_base64(resized)
 
-    if config.provider in ("OpenAI", "OpenAI-Compatible"):
-        return _generate_image_caption_openai(img_base64, prompt, config)
-    elif config.provider == "Anthropic":
-        return _generate_image_caption_anthropic(img_base64, prompt, config)
-    else:
-        raise ValueError(f"Provider {config.provider} does not support vision")
+    messages: list[dict[str, Any]] = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{img_base64}"},
+                },
+            ],
+        }
+    ]
+
+    return _complete(config, messages, temperature=0.3, max_tokens=150)

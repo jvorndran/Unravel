@@ -77,7 +77,6 @@ class WidgetKeys:
     # Sidebar - LLM Configuration
     # =========================================================================
     SIDEBAR_PROVIDER = "sidebar_provider"
-    SIDEBAR_OPENAI_COMPAT_INFO = "openai_compat_info"
     SIDEBAR_MODEL_INPUT = "sidebar_model_input"
     SIDEBAR_MODEL_SELECT = "sidebar_model_select"
     SIDEBAR_TEMPERATURE = "sidebar_temperature"
