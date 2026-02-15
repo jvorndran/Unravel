@@ -87,7 +87,7 @@ def _render_api_key_setup_message(provider: str, env_key_name: str) -> None:
             f"To use **{provider}** for answer generation, you need to configure your API key."
         )
 
-        st.write("")
+       
         st.markdown("**Setup Steps:**")
         st.markdown(f"""
             1. Click the button below to open the configuration folder
@@ -96,7 +96,7 @@ def _render_api_key_setup_message(provider: str, env_key_name: str) -> None:
             4. Save the file and refresh this page
             """)
 
-        st.write("")
+       
         col1, col2 = st.columns([1, 2])
         with col1:
             if ui.button("Open Config Folder", variant="secondary", key=WidgetKeys.QUERY_OPEN_CONFIG_FOLDER_BTN):
@@ -125,7 +125,7 @@ def _render_empty_state() -> None:
             "Please go to the Embeddings step to generate vector representations of your document chunks first."
         )
 
-        st.write("")
+       
         if ui.button("Go to Embeddings Step", key=WidgetKeys.QUERY_GOTO_EMBEDDINGS):
             st.session_state.current_step = "embeddings"
             st.rerun()
@@ -336,7 +336,7 @@ def render_query_step() -> None:
     st.subheader("Query & Retrieval")
     st.caption("Test your RAG pipeline with real-time retrieval and generation.")
 
-    st.write("")
+   
 
     # === Check API Key Configuration ===
     provider = st.session_state.get("llm_provider", "OpenAI")
@@ -351,7 +351,7 @@ def render_query_step() -> None:
             _render_api_key_setup_message(provider, env_key_name)
             return
 
-    st.write("")
+   
 
     # === Query Input Section ===
     with st.container(border=True):
@@ -644,9 +644,9 @@ def render_query_step() -> None:
             st.session_state.last_search_results = search_results
 
         # Prepare containers for layout: Response (top) -> Chunks (bottom)
-        st.write("")
+       
         response_container = st.container()
-        st.write("")
+       
         chunks_container = st.container()
 
         # Display retrieved chunks immediately in the bottom container
@@ -711,12 +711,12 @@ def render_query_step() -> None:
     # === Display Previous Results ===
     elif st.session_state.current_query:
         # Show previous response first
-        st.write("")
+       
         if st.session_state.current_response:
             st.markdown("#### Model Response")
             with st.container(border=True):
                 st.markdown(st.session_state.current_response)
-            st.write("")
+           
 
         # Show previous chunks below
         if "last_search_results" in st.session_state:

@@ -85,7 +85,7 @@ def render_step_nav(active_step: str = "chunks") -> None:
     default_value = step_map.get(active_step, "Text Splitting")
 
     # Render Tabs
-    st.write("")  # Spacer
+     # Spacer
     selected_label = ui.tabs(
         options=list(step_map.values()),
         default_value=default_value,

@@ -94,28 +94,28 @@ def render_export_step() -> None:
     st.caption("Install the required dependencies")
     st.code(generate_installation_command(config), language="bash")
 
-    st.write("")
+   
 
     # Parsing section
     st.markdown("### Document Parsing")
     st.caption("Parse documents and extract text content")
     st.code(generate_parsing_code(config), language="python")
 
-    st.write("")
+   
 
     # Chunking section
     st.markdown("### Text Chunking")
     st.caption("Split text into overlapping chunks for embedding")
     st.code(generate_chunking_code(config), language="python")
 
-    st.write("")
+   
 
     # Embedding section
     st.markdown("### Embedding Generation")
     st.caption("Generate vector embeddings for semantic search")
     st.code(generate_embedding_code(config), language="python")
 
-    st.write("")
+   
 
     # Retrieval section (if configured)
     retrieval_code = generate_retrieval_code(config)
@@ -123,7 +123,7 @@ def render_export_step() -> None:
         st.markdown("### Retrieval Strategy")
         st.caption("Search for relevant chunks using your configured strategy")
         st.code(retrieval_code, language="python")
-        st.write("")
+       
 
     # Reranking section (if configured)
     reranking_code = generate_reranking_code(config)
@@ -131,7 +131,7 @@ def render_export_step() -> None:
         st.markdown("### Reranking")
         st.caption("Improve retrieval quality with cross-encoder reranking")
         st.code(reranking_code, language="python")
-        st.write("")
+       
 
     # LLM section (if configured)
     llm_code = generate_llm_code(config)
@@ -139,7 +139,7 @@ def render_export_step() -> None:
         st.markdown("### RAG Response Generation")
         st.caption("Generate answers using retrieved context and LLM")
         st.code(llm_code, language="python")
-        st.write("")
+       
 
     # Full pipeline section
     with st.expander("View Full Pipeline Script", expanded=False):

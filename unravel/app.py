@@ -147,7 +147,6 @@ st.query_params["step"] = st.session_state.current_step
 st.markdown(
     """<div class="title-container">
 <div class="main-title">Unravel</div>
-<div class="main-subtitle">Explore each step of the RAG pipeline through interactive visualizations</div>
 </div>""",
     unsafe_allow_html=True,
 )

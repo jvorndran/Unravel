@@ -22,11 +22,11 @@ def render_chunks_step() -> None:
     st.caption("Configure document parsing and text splitting")
 
     # Render chunking configuration
-    st.write("")
-    with st.expander("Configuration", expanded=True):
+   
+    with st.expander("Configuration", expanded=False):
         new_parsing_params, new_chunking_params, has_changes = render_chunking_configuration()
 
-        st.write("")
+       
         if st.button(
             "Apply Configuration",
             type="primary",
@@ -94,7 +94,7 @@ def render_chunks_step() -> None:
             "No document selected. Upload a file in the Upload step or "
             "select a document in the sidebar (RAG Config tab)."
         )
-        if ui.button("Go to Upload Step", key=WidgetKeys.CHUNKS_GOTO_UPLOAD):
+        if st.button("Go to Upload Step", key=WidgetKeys.CHUNKS_GOTO_UPLOAD, type="primary"):
             st.session_state.current_step = "upload"
             st.rerun()
         return
@@ -122,7 +122,7 @@ def render_chunks_step() -> None:
     # Show parse button if no parsed text OR if parsing settings have changed
     needs_parsing = not source_text or parsing_settings_changed
     if needs_parsing:
-        st.write("")
+       
         col1, col2, col3 = st.columns([1, 2, 1])
         with col1:
             button_text = (
@@ -190,7 +190,7 @@ def render_chunks_step() -> None:
         st.session_state["chunks"] = []
 
     # Main Visualization
-    st.write("")
+   
     st.markdown("### Generated Chunks")
     st.caption(f"Source: {doc_display_name} | Total characters: {len(source_text)}")
 
@@ -201,17 +201,6 @@ def render_chunks_step() -> None:
         calculate_overlap=True,
     )
 
-    # Calculate real stats based on generated chunks
-    num_chunks = len(chunks)
-    avg_size = int(sum(len(c.text) for c in chunks) / num_chunks) if num_chunks > 0 else 0
-
-    chunks_with_overlap = sum(1 for d in chunk_display_data if d["overlap_text"])
-    total_overlap_len = sum(len(d["overlap_text"]) for d in chunk_display_data)
-
-    avg_overlap_size = (
-        int(total_overlap_len / chunks_with_overlap) if chunks_with_overlap > 0 else 0
-    )
-
     view_mode = ui.tabs(
         options=["Visual View", "Raw JSON"],
         default_value="Visual View",
@@ -219,7 +208,7 @@ def render_chunks_step() -> None:
     )
 
     # Render based on selected view
-    st.write("")
+   
     if view_mode == "Visual View":
         with st.container(border=True):
             render_chunk_cards(

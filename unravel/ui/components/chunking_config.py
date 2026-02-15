@@ -54,9 +54,10 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
         options=output_formats,
         key="chunking_config_output_format",
         label_visibility="collapsed",
+        help="Format for parsed document text. Markdown is recommended for most use cases.",
     )
 
-    st.write("")
+   
     st.markdown("**Parsing Options**")
 
     # Global page cap (Docling formats)
@@ -111,7 +112,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
             help="Reconstruct table structure from detected layout elements.",
         )
 
-    st.write("")
+   
     st.markdown("**Content Filtering**")
 
     # All available DocItemLabel options with human-readable names
@@ -169,7 +170,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
     # Convert display names back to internal values
     docling_filter_labels = [docling_filter_options[label] for label in selected_display_labels]
 
-    st.write("")
+   
     st.markdown("**Image Extraction**")
 
     docling_extract_images = st.checkbox(
@@ -249,7 +250,12 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
     if "chunking_config_provider" not in st.session_state:
         st.session_state["chunking_config_provider"] = current_provider
 
-    provider = st.selectbox("Library", options=providers, key="chunking_config_provider")
+    provider = st.selectbox(
+        "Library",
+        options=providers,
+        key="chunking_config_provider",
+        help="Text splitting library to use. Docling is recommended for structured documents.",
+    )
 
     # Get splitters for selected provider
     splitter_infos = get_provider_splitters(provider)
@@ -267,9 +273,12 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
     elif st.session_state.get("chunking_config_splitter") not in splitter_options:
         st.session_state["chunking_config_splitter"] = current_display
 
-    st.write("")
+
     splitter_display = st.selectbox(
-        "Strategy", options=splitter_options, key="chunking_config_splitter"
+        "Strategy",
+        options=splitter_options,
+        key="chunking_config_splitter",
+        help="Chunking strategy to use. Hybrid is best for RAG applications with embedding models.",
     )
 
     splitter_name = splitter_name_map.get(splitter_display, "HybridChunker")
@@ -304,7 +313,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
     # Render dynamic parameters
     splitter_params = {}
     if selected_info:
-        st.write("")
+       
 
         for param in selected_info.parameters:
             current_value = current_chunking_params.get(param.name, param.default)
@@ -388,7 +397,7 @@ def render_chunking_configuration() -> tuple[dict, dict, bool]:
     )
 
     # Show status badge at the end, after all widgets are rendered
-    st.write("")
+   
     status_badge_html = (
         '<span style="background-color: #f59e0b; color: white; padding: 2px 8px; '
         'border-radius: 4px; font-size: 12px; font-weight: 500;">Changes pending</span>'

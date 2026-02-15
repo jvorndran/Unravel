@@ -116,7 +116,7 @@ def _render_url_scraping() -> None:
             help="Format for the extracted content",
         )
 
-        st.write("")
+       
 
         extraction_mode = st.radio(
             "Extraction Strategy",
@@ -126,7 +126,7 @@ def _render_url_scraping() -> None:
             horizontal=True,
         )
 
-        st.write("")
+       
 
         col1, col2 = st.columns(2)
         with col1:
@@ -307,7 +307,7 @@ def render_upload_step() -> None:
             label_visibility="collapsed",
         )
 
-        st.write("")
+       
 
         if source_mode == "File Upload":
             st.caption("Supported formats: PDF, DOCX, PPTX, XLSX, HTML, MD, TXT, PNG, JPG")
@@ -392,7 +392,7 @@ def render_upload_step() -> None:
     # Display current document
     metadata = st.session_state.document_metadata
     if metadata:
-        st.write("")
+       
         st.markdown("### Current Document")
 
         with st.container(border=True):

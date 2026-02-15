@@ -139,7 +139,7 @@ def render_embeddings_step() -> None:
                 unsafe_allow_html=True,
             )
 
-    st.write("")
+   
 
     # Check if document is selected
     if not selected_doc:
@@ -219,7 +219,7 @@ def render_embeddings_step() -> None:
             else:
                 st.warning("Selected document is empty.")
 
-    st.write("")
+   
 
     # --- Main Content Area ---
 
@@ -462,7 +462,7 @@ def render_embeddings_step() -> None:
     cluster_labels = state_data["cluster_labels"]
 
     # Query Interface
-    st.write("")
+   
     st.markdown("#### Semantic Search")
 
     # Streamlit reruns the script on every keystroke for text inputs.
@@ -588,7 +588,7 @@ def render_embeddings_step() -> None:
         st.plotly_chart(fig, width="stretch")
 
     # Nearest Neighbors Section
-    st.write("")
+   
     st.markdown("##### Nearest Neighbors")
     if neighbors:
         # Convert search results to chunks for the viewer

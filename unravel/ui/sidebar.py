@@ -120,7 +120,7 @@ def render_rag_config_sidebar() -> None:
         st.session_state.doc_name = None
         return  # Exit early before the form to avoid missing submit button error
 
-    st.write("")
+   
     st.markdown("**Document**")
     st.selectbox(
         "Document",
@@ -129,7 +129,7 @@ def render_rag_config_sidebar() -> None:
         label_visibility="collapsed",
     )
 
-    st.write("")
+   
     st.markdown("**Retrieval Strategy**")
 
     # Get current retrieval config or set defaults
@@ -198,7 +198,7 @@ def render_rag_config_sidebar() -> None:
         with st.expander("BM25 Settings", expanded=False):
             st.markdown("_Using rank-bm25 library with Okapi BM25_")
 
-    st.write("")
+   
     st.markdown("**Reranking**")
 
     # Get current reranking config or set defaults
@@ -286,7 +286,7 @@ def render_rag_config_sidebar() -> None:
                 key=WidgetKeys.SIDEBAR_RERANK_TOP_N,
             )
 
-    st.write("")
+   
     st.markdown("**Embedding Model**")
 
     # Embedding model selection
@@ -409,7 +409,7 @@ def render_rag_config_sidebar() -> None:
     )
 
     # Show status badge
-    st.write("")
+   
     status_badge_html = (
         '<span style="background-color: #f59e0b; color: white; padding: 2px 8px; '
         'border-radius: 4px; font-size: 12px; font-weight: 500;">Changes pending</span>'
@@ -419,7 +419,7 @@ def render_rag_config_sidebar() -> None:
     )
     st.markdown(status_badge_html, unsafe_allow_html=True)
 
-    st.write("")
+   
     if st.button(
         "Save & Apply",
         type="primary",
@@ -495,7 +495,7 @@ def render_rag_config_sidebar() -> None:
         st.rerun()
 
     # Clear session state button
-    st.write("")
+   
     st.markdown("**Troubleshooting**")
     st.caption("Clear cached embeddings and session data if you encounter errors.")
 
@@ -584,7 +584,7 @@ def render_llm_sidebar() -> None:
     st.session_state._last_llm_provider = provider
     st.session_state.llm_provider = provider
 
-    st.write("")
+   
 
     # Show explanation for OpenAI-Compatible
     if provider == "OpenAI-Compatible":
@@ -640,7 +640,7 @@ def render_llm_sidebar() -> None:
         )
         st.session_state.llm_model = model
 
-    st.write("")
+   
 
     # API Key status
     api_key_from_env = get_api_key_from_env(provider)
@@ -693,7 +693,7 @@ def render_llm_sidebar() -> None:
         )
         st.session_state.llm_max_tokens = max_tokens
 
-    st.write("")
+   
 
     # Save button
     if st.button(
