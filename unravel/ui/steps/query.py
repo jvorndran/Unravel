@@ -19,12 +19,20 @@ from unravel.services.llm import (
     LLMConfig,
     RAGContext,
     get_model,
+    strip_think_blocks,
 )
 from unravel.services.storage import get_storage_dir
 from unravel.ui.components.chunk_viewer import (
     prepare_chunk_display_data,
     render_chunk_cards,
 )
+
+def _render_model_response(text: str) -> None:
+    answer = strip_think_blocks(text)
+    if answer:
+        st.markdown(answer)
+    else:
+        st.caption("No answer content returned.")
 
 
 def _open_folder_in_explorer(folder_path: Path) -> None:
@@ -216,7 +224,7 @@ def _render_query_variations(variations: list[str]) -> None:
         return
 
     with st.container(border=True):
-        st.markdown("#### Query Variations")
+        st.markdown(f"#### Query Variations ({len(variations)})")
         for variation in variations:
             st.markdown(f"- {variation}")
         st.caption("Retrieved chunks are the union of results from all variations.")
@@ -479,6 +487,9 @@ def render_query_step() -> None:
                 help="Instructions for how the model should behave.",
             )
 
+    # Variations display placeholder (kept near the top so it doesn't get lost).
+    variations_placeholder = st.empty()
+
     # === Process Query: Retrieve + Generate ===
     # Detect if retrieval parameters changed (to re-run query automatically)
     should_requery = False
@@ -534,8 +545,13 @@ def render_query_step() -> None:
                     st.warning(f"Query expansion failed: {str(e)}")
                     query_variations = []
 
-            if query_variations:
-                st.session_state.last_query_variations = query_variations
+            # Persist variations even if empty, so UI state matches what happened.
+            st.session_state.last_query_variations = query_variations
+
+            # Render variations immediately so the user can see them even if they
+            # scroll past the retrieved chunks.
+            with variations_placeholder.container():
+                _render_query_variations(query_variations)
 
         # Step 2: Retrieve chunks using configured strategy
         with st.spinner("Retrieving context..."):
@@ -651,7 +667,6 @@ def render_query_step() -> None:
 
         # Display retrieved chunks immediately in the bottom container
         with chunks_container:
-            _render_query_variations(st.session_state.last_query_variations)
             if search_results:
                 _render_retrieved_chunks(search_results)
             else:
@@ -667,8 +682,9 @@ def render_query_step() -> None:
 
             # Use a nice card for the response
             with st.container(border=True):
-                response_placeholder = st.empty()
-                full_response = ""
+                answer_placeholder = st.empty()
+                raw_response = ""
+                visible_answer = ""
 
                 try:
                     # Build RAG context
@@ -691,13 +707,19 @@ def render_query_step() -> None:
                     # Stream response
                     with st.spinner("Generating response..."):
                         for chunk in model.stream(context, system_prompt):
-                            full_response += chunk
-                            # Update placeholder for streaming effect
-                            response_placeholder.markdown(full_response + "▌")
+                            raw_response += chunk
 
-                    # Final update without cursor
-                    response_placeholder.markdown(full_response)
-                    st.session_state.current_response = full_response
+                            # If we have a complete response, filter and stream the answer only.
+                            # This keeps behavior simple and avoids showing any <think> blocks.
+                            visible_answer = strip_think_blocks(raw_response)
+                            answer_placeholder.markdown(visible_answer + "▌")
+
+                    # Final render (answer only).
+                    answer_placeholder.empty()
+                    with st.container():
+                        _render_model_response(raw_response)
+
+                    st.session_state.current_response = raw_response
 
                 except ImportError as e:
                     st.error(f"Missing Dependency: {str(e)}")
@@ -710,15 +732,18 @@ def render_query_step() -> None:
 
     # === Display Previous Results ===
     elif st.session_state.current_query:
+        # Show previously generated variations near the top.
+        with variations_placeholder.container():
+            _render_query_variations(st.session_state.last_query_variations)
+
         # Show previous response first
        
         if st.session_state.current_response:
             st.markdown("#### Model Response")
             with st.container(border=True):
-                st.markdown(st.session_state.current_response)
+                _render_model_response(st.session_state.current_response)
            
 
         # Show previous chunks below
         if "last_search_results" in st.session_state:
-            _render_query_variations(st.session_state.last_query_variations)
             _render_retrieved_chunks(st.session_state.last_search_results)

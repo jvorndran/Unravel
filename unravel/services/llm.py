@@ -55,6 +55,26 @@ LLM_PROVIDERS: dict[str, dict[str, Any]] = {
         "env_key": "GEMINI_API_KEY",
         "description": "Google's Gemini models",
     },
+    "Groq": {
+        # LiteLLM uses `groq/<model>` under the hood. Here we store bare model IDs.
+        # Groq supports many models; this is a curated list aligned with LiteLLM docs.
+        "models": [
+            "llama3-8b-8192",
+            "llama3-70b-8192",
+            "llama-3.3-70b-versatile",
+            "llama-3.1-8b-instant",
+            "meta-llama/llama-4-scout-17b-16e-instruct",
+            "meta-llama/llama-4-maverick-17b-128e-instruct",
+            "meta-llama/llama-guard-4-12b",
+            "qwen/qwen3-32b",
+            "moonshotai/kimi-k2-instruct-0905",
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+        ],
+        "default": "llama3-8b-8192",
+        "env_key": "GROQ_API_KEY",
+        "description": "Groq hosted models (groq.com)",
+    },
     "OpenRouter": {
         "models": [],  # User specifies model name
         "default": "",
@@ -84,6 +104,10 @@ VISION_CAPABLE_MODELS: dict[str, list[str]] = {
         "gemini-3-pro-preview",
         "gemini-2.5-flash",
         "gemini-2.5-pro",
+    ],
+    "Groq": [
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        "meta-llama/llama-4-maverick-17b-128e-instruct",
     ],
     "OpenRouter": [],  # Assume user knows if their model supports vision
     "OpenAI-Compatible": [],  # Assume user knows if their model supports vision
@@ -137,6 +161,7 @@ _PROVIDER_PREFIX: dict[str, str] = {
     "OpenAI": "",  # LiteLLM uses bare model names for OpenAI
     "Anthropic": "anthropic/",
     "Gemini": "gemini/",
+    "Groq": "groq/",
     "OpenRouter": "openrouter/",
     "OpenAI-Compatible": "openai/",
 }
@@ -153,6 +178,7 @@ def _litellm_kwargs(config: LLMConfig) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     if config.provider == "OpenAI-Compatible" and config.base_url:
         kwargs["api_base"] = config.base_url
+        # OpenAI-compatible endpoints typically require some api_key value.
         kwargs["api_key"] = config.api_key or "not-needed"
     elif config.api_key:
         kwargs["api_key"] = config.api_key
@@ -209,6 +235,59 @@ def _parse_rewrite_variations(text: str, max_count: int) -> list[str]:
         if len(lines) >= max_count:
             break
     return lines
+
+
+def strip_think_blocks(text: str, *, keep_trailing_list_lines: bool = False) -> str:
+    """Remove any <think>...</think> blocks from model output.
+
+    If an opening <think> is present but the closing tag is missing, we avoid
+    leaking chain-of-thought by dropping the ambiguous block. As a best-effort
+    fallback, we keep any trailing lines that look like "final output" (e.g.
+    bullet/numbered lists), which is important for query variation generation.
+    """
+    if not text:
+        return ""
+
+    lower = text.lower()
+    open_tag = "<think>"
+    close_tag = "</think>"
+
+    parts: list[str] = []
+    i = 0
+    while True:
+        start = lower.find(open_tag, i)
+        if start == -1:
+            parts.append(text[i:])
+            break
+
+        parts.append(text[i:start])
+        after_open = start + len(open_tag)
+        end = lower.find(close_tag, after_open)
+        if end == -1:
+            # Missing closing tag — drop the ambiguous block.
+            # Optionally keep only "output-looking" trailing lines (useful for rewrite output).
+            if not keep_trailing_list_lines:
+                break
+
+            tail = text[after_open:]
+            keep_lines: list[str] = []
+            for line in tail.splitlines():
+                s = line.strip()
+                if not s:
+                    continue
+                if s.startswith(("-", "*", "•")):
+                    keep_lines.append(line)
+                    continue
+                if s[0].isdigit():
+                    keep_lines.append(line)
+                    continue
+            if keep_lines:
+                parts.append("\n".join(keep_lines))
+            break
+
+        i = end + len(close_tag)
+
+    return "".join(parts).strip()
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +366,8 @@ def rewrite_query_variations(
     )
     user_prompt = prompt.format(query=query, count=count)
     response = _complete(rewrite_config, _make_messages(system_prompt, user_prompt))
-    return _parse_rewrite_variations(response, count)
+    cleaned = strip_think_blocks(response, keep_trailing_list_lines=True)
+    return _parse_rewrite_variations(cleaned, count)
 
 
 def generate_response(
@@ -423,7 +503,7 @@ def get_model(
     """Get a model instance with unified interface.
 
     Args:
-        provider: LLM provider name (OpenAI, Anthropic, Gemini, OpenRouter, OpenAI-Compatible)
+        provider: LLM provider name (OpenAI, Anthropic, Gemini, Groq, OpenRouter, OpenAI-Compatible)
         model: Model name/identifier
         api_key: API key for the provider
         base_url: Optional base URL (required for OpenAI-Compatible)

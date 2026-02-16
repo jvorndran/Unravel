@@ -1,6 +1,8 @@
+![Unravel Demo](docs/unravel_logo.png)
+
 # Unravel
 
-A visual sandbox for experimenting with RAG (Retrieval-Augmented Generation) configurations.
+Visualize your RAG pipeline's retrieval and generation steps in real-time.
 
 ## Overview
 
@@ -61,23 +63,60 @@ unravel
 
 This opens the app in your browser at `http://localhost:8501`.
 
-### API Key Setup
+### LLM Setup
 
-To use LLM features (query generation with OpenAI, Anthropic, etc.), configure your API keys:
+Unravel can use **hosted LLM providers** (API key) or a **local/self-hosted LLM** (OpenAI-compatible server).
 
-1. Run `unravel` once to create the configuration directory
-2. Navigate to `~/.unravel/` (or `%USERPROFILE%\.unravel\` on Windows)
-3. Edit the `.env` file and add your API key:
-   ```bash
-   # For OpenAI
-   OPENAI_API_KEY=sk-your-key-here
+Unravel only loads keys from `~/.unravel/.env` (Windows: `%USERPROFILE%\.unravel\.env`) and **never** stores them in session/config files.
 
-   # For Anthropic
-   ANTHROPIC_API_KEY=sk-ant-your-key-here
-   ```
-4. Save the file and refresh the app
+#### Option A: Hosted providers (API keys)
 
-**Note:** API keys are stored securely in `.env` and never saved to session files. For local models (Ollama, LM Studio), no API key is required.
+**Recommended:** Start with **Groq** (`GROQ_API_KEY`) — it’s usually the fastest path to “it works”, and does **not** require adding a credit card to get started. Sign up at [groq.com](https://console.groq.com/keys).
+
+1. Run `unravel` once to create `~/.unravel/`
+2. Edit `~/.unravel/.env` and add one or more keys:
+
+```bash
+# OpenAI
+OPENAI_API_KEY=sk-...
+
+# Anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Google Gemini
+GEMINI_API_KEY=...
+
+# Groq
+GROQ_API_KEY=...
+
+# OpenRouter (access many models via one API)
+OPENROUTER_API_KEY=...
+```
+
+3. Refresh the app and open **Sidebar → LLM Config** to choose:
+   - **Provider**: OpenAI / Anthropic / Gemini / Groq / OpenRouter
+   - **Model**: select from the list (or enter a model name for OpenRouter)
+
+#### Option B: Local LLM (Ollama / LM Studio / any OpenAI-compatible server)
+
+In **Sidebar → LLM Config**, choose **Provider: OpenAI-Compatible**. This routes requests to any server that implements the OpenAI Chat Completions API.
+
+- **Ollama**
+  - Install Ollama and pull a model:
+
+```bash
+ollama pull llama3.1
+```
+
+  - Base URL: `http://localhost:11434/v1`
+  - Model name: `llama3.1` (or whatever you pulled)
+
+- **LM Studio**
+  - Start the local server in LM Studio
+  - Base URL (common default): `http://localhost:1234/v1`
+  - Model name: the model identifier LM Studio exposes (shown in its server UI)
+
+**Note:** Local servers typically don’t require a real API key. Unravel will use a placeholder value when needed for compatibility.
 
 ### Running as a Python Module
 

@@ -577,10 +577,13 @@ def render_llm_sidebar() -> None:
     if previous_provider and previous_provider != provider:
         default_model = cast(str, LLM_PROVIDERS[provider].get("default", ""))
         st.session_state.llm_model = default_model
+        st.session_state.llm_base_url = ""
         # Clear model widget keys so they re-initialize with new options/defaults
         for key in (WidgetKeys.SIDEBAR_MODEL_SELECT, WidgetKeys.SIDEBAR_MODEL_INPUT):
             if key in st.session_state:
                 del st.session_state[key]
+        if WidgetKeys.SIDEBAR_BASE_URL in st.session_state:
+            del st.session_state[WidgetKeys.SIDEBAR_BASE_URL]
     st.session_state._last_llm_provider = provider
     st.session_state.llm_provider = provider
 
@@ -658,10 +661,11 @@ def render_llm_sidebar() -> None:
 
     # Base URL (for OpenAI-Compatible only; OpenRouter uses a hardcoded URL)
     if provider == "OpenAI-Compatible":
+        default_base_url = "http://localhost:11434/v1"
         base_url = st.text_input(
             "Base URL",
-            value=st.session_state.llm_base_url or "http://localhost:11434/v1",
-            placeholder="http://localhost:11434/v1",
+            value=st.session_state.llm_base_url or default_base_url,
+            placeholder=default_base_url,
             key=WidgetKeys.SIDEBAR_BASE_URL,
         )
         st.session_state.llm_base_url = base_url

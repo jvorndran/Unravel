@@ -88,7 +88,8 @@ def render_embeddings_step() -> None:
         return
 
     # --- Qdrant Status Header ---
-    qdrant_status = get_qdrant_status()
+    with st.spinner("Checking Qdrant status..."):
+        qdrant_status = get_qdrant_status()
     is_running = qdrant_status.get("running", False)
 
     # Modern, minimal status card

@@ -33,29 +33,34 @@ def _docker_available() -> bool:
             check=False,
             capture_output=True,
             text=True,
+            timeout=5.0,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return False
     return result.returncode == 0
 
 
 def _container_status() -> str | None:
-    result = subprocess.run(
-        [
-            "docker",
-            "ps",
-            "-a",
-            "--filter",
-            f"name={QDRANT_CONTAINER_NAME}",
-            "--format",
-            "{{.Status}}",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    status = result.stdout.strip()
-    return status or None
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "ps",
+                "-a",
+                "--filter",
+                f"name={QDRANT_CONTAINER_NAME}",
+                "--format",
+                "{{.Status}}",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+        status = result.stdout.strip()
+        return status or None
+    except subprocess.TimeoutExpired:
+        return None
 
 
 def _start_or_create_container() -> None:
@@ -104,20 +109,24 @@ def _is_healthy(url: str) -> bool:
 
 
 def _inspect_mount_type() -> str | None:
-    result = subprocess.run(
-        [
-            "docker",
-            "inspect",
-            "--format",
-            "{{range .Mounts}}{{.Type}}{{end}}",
-            QDRANT_CONTAINER_NAME,
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    mount_type = result.stdout.strip()
-    return mount_type or None
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{range .Mounts}}{{.Type}}{{end}}",
+                QDRANT_CONTAINER_NAME,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+        mount_type = result.stdout.strip()
+        return mount_type or None
+    except subprocess.TimeoutExpired:
+        return None
 
 
 def get_qdrant_status() -> dict[str, str | bool | None]:
