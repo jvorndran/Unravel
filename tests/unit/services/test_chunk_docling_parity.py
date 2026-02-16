@@ -3,6 +3,8 @@
 This test verifies that:
 - HTML format: chunks match native DoclingDocument chunks
 - Markdown format: chunks are from raw text (expected to differ from DoclingDocument chunks)
+
+Uses real example documents from tests/fixtures/documents/ to test realistic scenarios.
 """
 
 import tempfile
@@ -15,58 +17,25 @@ from unravel.utils.parsers import parse_document
 
 
 @pytest.fixture
-def sample_html_document() -> bytes:
-    """Create a sample HTML document for testing."""
-    html_content = """<!DOCTYPE html>
-<html>
-<head><title>Test Document</title></head>
-<body>
-<h1>Main Title</h1>
-<p>This is the first paragraph with some content.</p>
-
-<h2>Section 1</h2>
-<p>This is a paragraph in section 1.</p>
-<p>This is another paragraph in section 1.</p>
-
-<h2>Section 2</h2>
-<p>This is a paragraph in section 2.</p>
-<ul>
-<li>List item 1</li>
-<li>List item 2</li>
-</ul>
-
-<h3>Subsection 2.1</h3>
-<p>This is content in a subsection.</p>
-</body>
-</html>"""
-    return html_content.encode("utf-8")
+def fixtures_dir() -> Path:
+    """Get the fixtures directory path."""
+    return Path(__file__).parent.parent.parent / "fixtures" / "documents"
 
 
 @pytest.fixture
-def sample_markdown_document() -> bytes:
-    """Create a sample markdown document for testing."""
-    markdown_content = """# Main Title
+def sample_html_document(fixtures_dir) -> bytes:
+    """Load real HTML document from fixtures."""
+    html_file = fixtures_dir / "sample_document.html"
+    assert html_file.exists(), f"HTML fixture not found: {html_file}"
+    return html_file.read_bytes()
 
-This is the first paragraph with some content.
 
-## Section 1
-
-This is a paragraph in section 1.
-
-This is another paragraph in section 1.
-
-## Section 2
-
-This is a paragraph in section 2.
-
-- List item 1
-- List item 2
-
-### Subsection 2.1
-
-This is content in a subsection.
-"""
-    return markdown_content.encode("utf-8")
+@pytest.fixture
+def sample_markdown_document(fixtures_dir) -> bytes:
+    """Load real markdown document from fixtures."""
+    md_file = fixtures_dir / "sample_document.md"
+    assert md_file.exists(), f"Markdown fixture not found: {md_file}"
+    return md_file.read_bytes()
 
 
 def test_html_chunks_match_docling_native(sample_html_document):
@@ -144,7 +113,7 @@ def test_markdown_chunks_use_raw_text_chunking(sample_markdown_document):
     """
     # Parse document with markdown output format
     parsed_text, output_format, _ = parse_document(
-        filename="test.md",
+        filename="sample_document.md",
         content=sample_markdown_document,
         params={
             "output_format": "markdown",
@@ -154,25 +123,33 @@ def test_markdown_chunks_use_raw_text_chunking(sample_markdown_document):
     assert output_format.lower() == "markdown"
     assert parsed_text is not None
 
-    # Get chunks using our chunking service
+    # Get chunks using HybridChunker with token limit to ensure multiple chunks
+    # (HierarchicalChunker might merge everything into one chunk)
     ui_chunks = get_chunks(
         provider="Docling",
-        splitter="HierarchicalChunker",
+        splitter="HybridChunker",
         text=parsed_text,
         output_format="markdown",
-        merge_small_chunks=True,
+        max_tokens=512,
+        chunk_overlap=50,
     )
 
-    # Verify we got multiple chunks
-    assert len(ui_chunks) > 1, "Should have multiple chunks for structured markdown"
+    # Verify we got multiple chunks due to token limit
+    assert len(ui_chunks) > 1, f"Should have multiple chunks for structured markdown, got {len(ui_chunks)}"
 
     # Verify chunks contain markdown text (not HTML)
     for chunk in ui_chunks:
         chunk_text = chunk.text
-        # Should have markdown headings, not HTML tags
-        assert "#" in chunk_text or "List item" in chunk_text or "paragraph" in chunk_text
+        # Should have markdown headings or content
+        # Not all chunks will have headings, but they should have markdown content
+        assert (
+            "#" in chunk_text
+            or "RAG" in chunk_text
+            or "retrieval" in chunk_text.lower()
+            or "chunk" in chunk_text.lower()
+        ), f"Chunk doesn't contain expected markdown content: {chunk_text[:100]}"
 
-    # Verify heading metadata was extracted
+    # Verify heading metadata was extracted from raw text parsing
     has_heading_metadata = any(
         "section_hierarchy" in chunk.metadata or "heading_text" in chunk.metadata
         for chunk in ui_chunks
