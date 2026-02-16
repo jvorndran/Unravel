@@ -22,8 +22,13 @@ from unravel.ui.constants import WidgetKeys
 def upload_app_script() -> str:
     """Return app script for testing the upload step."""
     return """
+import os
 import streamlit as st
 from unravel.ui.steps.upload import render_upload_step
+
+# Ensure demo mode is disabled for tests
+if "DEMO_MODE" in os.environ:
+    del os.environ["DEMO_MODE"]
 
 # Initialize session state
 if "document_metadata" not in st.session_state:

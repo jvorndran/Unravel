@@ -54,19 +54,24 @@ class _DummyResponse:
 
 @pytest.mark.unit
 def test_get_api_key_from_env_reads_only_unravel_dotenv(tmp_path, monkeypatch):
-    """System environment should not affect API key status (dotenv-only)."""
+    """System environment takes precedence over dotenv file."""
     # Patch Path.home() as used in unravel.services.llm
     monkeypatch.setattr("unravel.services.llm.Path.home", lambda: tmp_path)
 
-    # Even if set in system environment, key should be ignored when ~/.unravel/.env is missing
+    # System environment should be checked first
     monkeypatch.setenv("GEMINI_API_KEY", "system-key")
-    assert get_api_key_from_env("Gemini") is None
+    assert get_api_key_from_env("Gemini") == "system-key"
 
-    # Create ~/.unravel/.env and ensure value is read from there
+    # Create ~/.unravel/.env with different value
     unravel_dir = tmp_path / ".unravel"
     unravel_dir.mkdir(parents=True, exist_ok=True)
     (unravel_dir / ".env").write_text("GEMINI_API_KEY=dotenv-key\n")
 
+    # System environment should still take precedence
+    assert get_api_key_from_env("Gemini") == "system-key"
+
+    # When system environment is not set, dotenv should be used
+    monkeypatch.delenv("GEMINI_API_KEY")
     assert get_api_key_from_env("Gemini") == "dotenv-key"
 
 

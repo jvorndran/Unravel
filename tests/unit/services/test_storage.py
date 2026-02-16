@@ -444,8 +444,9 @@ class TestLLMConfigPersistence:
 class TestRAGConfigPersistence:
     """Test RAG configuration save/load operations."""
 
-    def test_save_rag_config_creates_file(self, tmp_path):
+    def test_save_rag_config_creates_file(self, tmp_path, monkeypatch):
         """save_rag_config saves configuration to file."""
+        monkeypatch.delenv("DEMO_MODE", raising=False)
         with patch("unravel.services.storage.DEFAULT_STORAGE_DIR", tmp_path):
             ensure_storage_dir()
 
@@ -460,8 +461,9 @@ class TestRAGConfigPersistence:
             config_file = tmp_path / "config" / "rag_config.json"
             assert config_file.exists()
 
-    def test_load_rag_config_returns_data(self, tmp_path):
+    def test_load_rag_config_returns_data(self, tmp_path, monkeypatch):
         """load_rag_config returns saved configuration."""
+        monkeypatch.delenv("DEMO_MODE", raising=False)
         with patch("unravel.services.storage.DEFAULT_STORAGE_DIR", tmp_path):
             ensure_storage_dir()
 
