@@ -10,3 +10,4 @@ tmpclaude-*
 .pytest_cache
 nul
 .env
+.coverage
