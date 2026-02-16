@@ -98,6 +98,31 @@ def _extract_docling_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _extract_html_body(html_text: str) -> str:
+    """Extract body content from full HTML document or return as-is if fragment.
+
+    Args:
+        html_text: HTML string (either full document or fragment)
+
+    Returns:
+        HTML content (body content if full document, otherwise the original)
+    """
+    if not html_text:
+        return ""
+
+    import re
+
+    # Check if this looks like a full HTML document or has body tags
+    lower_text = html_text.lower()
+    if "<html" in lower_text or "<!doctype" in lower_text or "<body" in lower_text:
+        # Extract body content
+        body_match = re.search(r'<body[^>]*>(.*?)</body>', html_text, re.IGNORECASE | re.DOTALL)
+        if body_match:
+            return body_match.group(1).strip()
+
+    return html_text
+
+
 def _normalize_element_type(value: Any) -> str:
     if not value:
         return ""
@@ -542,28 +567,63 @@ def render_chunk_cards(
             )
 
         # Render chunk content by format
+        overlap_text = data.get("overlap_text", "")
+        main_text = data.get("main_text", display_text)
+
         if normalized_format == "html":
-            rendered_html = display_text
+            # For HTML format, render HTML directly (like markdown rendering)
+            # Extract body content if full HTML document is provided
+            display_html = _extract_html_body(display_text)
+            overlap_html_content = _extract_html_body(overlap_text) if overlap_text else ""
+            main_html_content = _extract_html_body(main_text)
+
+            if overlap_html_content and show_overlap:
+                # Wrap overlap portion with highlight styling
+                overlap_highlighted = (
+                    f'<div style="background-color: rgba(156, 163, 175, 0.2); '
+                    f'border-left: 2px solid #9ca3af; padding-left: 4px;">{overlap_html_content}</div>'
+                )
+                rendered_html = overlap_highlighted + main_html_content
+            else:
+                rendered_html = display_html
             render_failed = False
         elif normalized_format in ("json", "doctags"):
             rendered_html = f'<pre class="chunk-raw">{html.escape(display_text)}</pre>'
             render_failed = False
         else:
-            try:
-                rendered_html = markdown.markdown(
-                    display_text,
-                    extensions=[
-                        "nl2br",
-                        "tables",
-                        "fenced_code",
-                        "sane_lists",
-                    ],
-                )
-                render_failed = False
-            except Exception:
-                # Fallback to plain text if markdown fails
-                rendered_html = html.escape(display_text)
-                render_failed = True
+            # Markdown format with overlap highlighting
+            if overlap_text and show_overlap:
+                try:
+                    overlap_rendered = markdown.markdown(
+                        overlap_text,
+                        extensions=["nl2br", "tables", "fenced_code", "sane_lists"],
+                    )
+                    # Wrap overlap in gray highlight
+                    overlap_html = (
+                        f'<span style="background-color: rgba(156, 163, 175, 0.2); '
+                        f'border-left: 2px solid #9ca3af; padding-left: 4px;">{overlap_rendered}</span>'
+                    )
+                    main_rendered = markdown.markdown(
+                        main_text,
+                        extensions=["nl2br", "tables", "fenced_code", "sane_lists"],
+                    )
+                    rendered_html = overlap_html + main_rendered
+                    render_failed = False
+                except Exception:
+                    rendered_html = html.escape(display_text)
+                    render_failed = True
+            else:
+                try:
+                    rendered_html = markdown.markdown(
+                        display_text,
+                        extensions=["nl2br", "tables", "fenced_code", "sane_lists"],
+                    )
+                    render_failed = False
+                except Exception:
+                    # Fallback to plain text if markdown fails
+                    rendered_html = html.escape(display_text)
+                    render_failed = True
+
         if render_failed:
             chunks_html_parts.append(
                 '<div style="font-size: 0.7rem; color: #b45309; margin-top: 4px;">'
