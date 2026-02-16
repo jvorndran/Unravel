@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import http.client
+import os
 import socket
 import subprocess
 import time
@@ -18,6 +19,22 @@ QDRANT_PORT = 6333
 QDRANT_URL = f"http://{QDRANT_HOST}:{QDRANT_PORT}"
 QDRANT_CONTAINER_NAME = "unravel-qdrant"
 QDRANT_VOLUME_NAME = "unravel-qdrant-data"
+
+
+def get_qdrant_config() -> tuple[str, str | None]:
+    """Get Qdrant URL and API key from environment or use defaults.
+
+    Returns:
+        Tuple of (url, api_key). API key is None for local Docker instance.
+    """
+    # Check for cloud Qdrant URL (for demo deployments)
+    cloud_url = os.getenv("QDRANT_URL")
+    if cloud_url:
+        api_key = os.getenv("QDRANT_API_KEY")
+        return (cloud_url, api_key)
+
+    # Default to local Docker
+    return (QDRANT_URL, None)
 
 
 def _is_port_open(host: str, port: int) -> bool:
@@ -142,11 +159,11 @@ def get_qdrant_status() -> dict[str, str | bool | None]:
     }
 
 
-def restart_qdrant_server() -> str:
+def restart_qdrant_server() -> tuple[str, str | None]:
     """Restart the Qdrant server container.
 
     Returns:
-        Qdrant URL after restart
+        Tuple of (url, api_key) after restart
 
     Raises:
         RuntimeError: If Docker is unavailable or restart fails
@@ -170,20 +187,34 @@ def restart_qdrant_server() -> str:
 
 
 @st.cache_resource(show_spinner=False)
-def ensure_qdrant_server() -> str:
-    """Ensure Qdrant server is running and return its URL.
+def ensure_qdrant_server() -> tuple[str, str | None]:
+    """Ensure Qdrant server is running and return its URL and API key.
+
+    Checks for cloud Qdrant first (via QDRANT_URL env var), then falls back
+    to local Docker instance.
 
     Returns:
-        Qdrant URL if server is running or was started successfully
+        Tuple of (url, api_key). API key is None for local Docker instance.
 
     Raises:
-        RuntimeError: If Docker is unavailable or server fails to start
+        RuntimeError: If Docker is unavailable or server fails to start (local only)
     """
+    # Check for cloud Qdrant URL (for demo deployments)
+    cloud_url = os.getenv("QDRANT_URL")
+    if cloud_url:
+        api_key = os.getenv("QDRANT_API_KEY")
+        st.session_state.pop("qdrant_start_error", None)
+        st.session_state["qdrant_startup_status"] = "cloud"
+        st.session_state["qdrant_api_key"] = api_key
+        return (cloud_url, api_key)
+
+    # Local Docker mode
     # Check if already running
     if _is_port_open(QDRANT_HOST, QDRANT_PORT):
         st.session_state.pop("qdrant_start_error", None)
         st.session_state["qdrant_startup_status"] = "running"
-        return QDRANT_URL
+        st.session_state["qdrant_api_key"] = None
+        return (QDRANT_URL, None)
 
     # Check Docker availability
     if not _docker_available():
@@ -212,7 +243,8 @@ def ensure_qdrant_server() -> str:
         if _is_port_open(QDRANT_HOST, QDRANT_PORT) and _is_healthy(QDRANT_URL):
             st.session_state.pop("qdrant_start_error", None)
             st.session_state["qdrant_startup_status"] = "running"
-            return QDRANT_URL
+            st.session_state["qdrant_api_key"] = None
+            return (QDRANT_URL, None)
         time.sleep(0.5)
 
     # Timeout - server didn't become healthy
@@ -225,5 +257,6 @@ def ensure_qdrant_server() -> str:
 
     # If port is at least open, return URL as it may still be usable
     if _is_port_open(QDRANT_HOST, QDRANT_PORT):
-        return QDRANT_URL
+        st.session_state["qdrant_api_key"] = None
+        return (QDRANT_URL, None)
     raise RuntimeError(error_msg)

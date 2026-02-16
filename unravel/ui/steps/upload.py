@@ -280,6 +280,11 @@ def _render_url_scraping() -> None:
 
 
 def render_upload_step() -> None:
+    import os
+
+    # Check if demo mode is enabled
+    is_demo_mode = os.getenv("DEMO_MODE") == "true"
+
     # Initialize session state for document metadata
     if "document_metadata" not in st.session_state:
         st.session_state.document_metadata = None
@@ -297,82 +302,91 @@ def render_upload_step() -> None:
         st.session_state.document_metadata = None
 
     # Source selection (File Upload or URL Scraping)
-    with st.container(border=True):
-        st.markdown("### Add Document")
+    # Hide upload UI in demo mode
+    if not is_demo_mode:
+        with st.container(border=True):
+            st.markdown("### Add Document")
 
-        source_mode = st.radio(
-            "Source",
-            options=["File Upload", "URL Scraping"],
-            horizontal=True,
-            label_visibility="collapsed",
-        )
-
-       
-
-        if source_mode == "File Upload":
-            st.caption("Supported formats: PDF, DOCX, PPTX, XLSX, HTML, MD, TXT, PNG, JPG")
-
-            uploaded_file = st.file_uploader(
-                "Choose a file to upload",
-                type=[
-                    "pdf",
-                    "docx",
-                    "pptx",
-                    "xlsx",
-                    "html",
-                    "htm",
-                    "md",
-                    "txt",
-                    "png",
-                    "jpg",
-                    "jpeg",
-                    "bmp",
-                    "tiff",
-                    "tif",
-                ],
-                accept_multiple_files=False,
+            source_mode = st.radio(
+                "Source",
+                options=["File Upload", "URL Scraping"],
+                horizontal=True,
                 label_visibility="collapsed",
             )
 
-            if uploaded_file is not None:
-                is_new_file = (
-                    st.session_state.document_metadata is None
-                    or st.session_state.document_metadata.get("name") != uploaded_file.name
+
+
+            if source_mode == "File Upload":
+                st.caption("Supported formats: PDF, DOCX, PPTX, XLSX, HTML, MD, TXT, PNG, JPG")
+
+                uploaded_file = st.file_uploader(
+                    "Choose a file to upload",
+                    type=[
+                        "pdf",
+                        "docx",
+                        "pptx",
+                        "xlsx",
+                        "html",
+                        "htm",
+                        "md",
+                        "txt",
+                        "png",
+                        "jpg",
+                        "jpeg",
+                        "bmp",
+                        "tiff",
+                        "tif",
+                    ],
+                    accept_multiple_files=False,
+                    label_visibility="collapsed",
                 )
 
-                if is_new_file:
-                    try:
-                        content = uploaded_file.read()
-                        doc_path = save_document(uploaded_file.name, content)
+                if uploaded_file is not None:
+                    is_new_file = (
+                        st.session_state.document_metadata is None
+                        or st.session_state.document_metadata.get("name") != uploaded_file.name
+                    )
 
-                        file_format = Path(uploaded_file.name).suffix.upper().lstrip(".")
-                        size_bytes = len(content)
+                    if is_new_file:
+                        try:
+                            content = uploaded_file.read()
+                            doc_path = save_document(uploaded_file.name, content)
 
-                        st.session_state.document_metadata = {
-                            "name": uploaded_file.name,
-                            "format": file_format,
-                            "size_bytes": size_bytes,
-                            "path": str(doc_path),
-                            "source": "file",
-                        }
-                        st.session_state.doc_name = uploaded_file.name
+                            file_format = Path(uploaded_file.name).suffix.upper().lstrip(".")
+                            size_bytes = len(content)
 
-                        for key in [
-                            "chunks",
-                            "last_embeddings_result",
-                            "search_results",
-                            "bm25_index",
-                        ]:
-                            if key in st.session_state:
-                                del st.session_state[key]
+                            st.session_state.document_metadata = {
+                                "name": uploaded_file.name,
+                                "format": file_format,
+                                "size_bytes": size_bytes,
+                                "path": str(doc_path),
+                                "source": "file",
+                            }
+                            st.session_state.doc_name = uploaded_file.name
 
-                        st.success(f"Uploaded: {uploaded_file.name}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed to upload {uploaded_file.name}: {str(e)}")
+                            for key in [
+                                "chunks",
+                                "last_embeddings_result",
+                                "search_results",
+                                "bm25_index",
+                            ]:
+                                if key in st.session_state:
+                                    del st.session_state[key]
 
-        else:
-            _render_url_scraping()
+                            st.success(f"Uploaded: {uploaded_file.name}")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed to upload {uploaded_file.name}: {str(e)}")
+
+            else:
+                _render_url_scraping()
+    else:
+        # Demo mode: Show message instead of upload UI
+        st.info(
+            "**Demo Mode** – Document upload is disabled. "
+            "This demo uses a pre-loaded document to showcase Unravel's features. "
+            "[Install locally](https://github.com/jvorndran/unravel) to use your own documents."
+        )
 
     # Load metadata for existing document if not in session state
     if current_doc and st.session_state.document_metadata is None:
@@ -442,7 +456,14 @@ def render_upload_step() -> None:
                     st.caption(f"{file_format} | {size_str}")
 
             with col2:
-                if ui.button("Delete", variant="destructive", key=WidgetKeys.UPLOAD_DELETE_BTN):
+                # Disable delete button in demo mode
+                delete_disabled = is_demo_mode
+                if ui.button(
+                    "Delete",
+                    variant="destructive",
+                    key=WidgetKeys.UPLOAD_DELETE_BTN,
+                    disabled=delete_disabled,
+                ):
                     clear_documents()
                     st.session_state.document_metadata = None
                     st.session_state.doc_name = None
@@ -450,6 +471,9 @@ def render_upload_step() -> None:
                         if key in st.session_state:
                             del st.session_state[key]
                     st.rerun()
+                if delete_disabled:
+                    st.caption("Delete disabled in demo mode")
 
     else:
-        st.info("No document uploaded yet. Use the file uploader above to add a document.")
+        if not is_demo_mode:
+            st.info("No document uploaded yet. Use the file uploader above to add a document.")

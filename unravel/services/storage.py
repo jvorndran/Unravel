@@ -88,7 +88,18 @@ def ensure_storage_dir() -> Path:
 # OpenRouter API Key (for OpenRouter models)
 # OPENROUTER_API_KEY=sk-or-...
 
+# Groq API Key (for Groq models - fast inference)
+# GROQ_API_KEY=gsk_...
+
 # For local models (Ollama, LM Studio, etc.), no API key is usually needed
+
+# --- Cloud Deployment (Optional) ---
+# Qdrant Cloud (for demo deployments without Docker)
+# QDRANT_URL=https://your-cluster.qdrant.io
+# QDRANT_API_KEY=your-api-key
+
+# Demo Mode (auto-load sample document on startup)
+# DEMO_MODE=true
 """
         env_file.write_text(env_template)
 
@@ -347,7 +358,13 @@ def save_session_state(state_data: dict[str, Any]) -> None:
     Args:
         state_data: Dictionary containing session state to persist
     """
+    import os
+
     import numpy as np
+
+    # Skip saving in demo mode
+    if os.getenv("DEMO_MODE") == "true":
+        return
 
     ensure_storage_dir()
     state_dir = get_storage_dir() / "session"
@@ -525,7 +542,10 @@ def load_session_state() -> dict[str, Any] | None:
                 pass
             else:
                 try:
-                    emb_result["vector_store"] = VectorStore.load(vs_path, url=qdrant_url)
+                    qdrant_api_key = st.session_state.get("qdrant_api_key")
+                    emb_result["vector_store"] = VectorStore.load(
+                        vs_path, url=qdrant_url, api_key=qdrant_api_key
+                    )
                 except Exception as exc:
                     # Log but don't crash - vector store can be regenerated
                     emb_result["vector_store_error"] = str(exc)
@@ -580,6 +600,12 @@ def save_llm_config(config_data: dict[str, Any]) -> None:
         ~/.unravel/.env file using environment variable names like
         OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.
     """
+    import os
+
+    # Skip saving in demo mode
+    if os.getenv("DEMO_MODE") == "true":
+        return
+
     ensure_storage_dir()
     config_dir = get_storage_dir() / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -638,6 +664,12 @@ def save_rag_config(config_data: dict[str, Any]) -> None:
                     Should include: doc_name, embedding_model_name,
                     chunking_params, parsing_params
     """
+    import os
+
+    # Skip saving in demo mode
+    if os.getenv("DEMO_MODE") == "true":
+        return
+
     ensure_storage_dir()
     config_dir = get_storage_dir() / "config"
     config_dir.mkdir(parents=True, exist_ok=True)

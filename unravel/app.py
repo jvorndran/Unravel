@@ -1,6 +1,7 @@
 """Main Streamlit application for Unravel."""
 
 import os
+from pathlib import Path
 
 import streamlit as st
 import streamlit_shadcn_ui as ui
@@ -13,6 +14,7 @@ from unravel.services.storage import (
     load_llm_config,
     load_rag_config,
     load_session_state,
+    save_document,
 )
 from unravel.ui.sidebar import render_sidebar
 from unravel.ui.steps import (
@@ -27,6 +29,36 @@ from unravel.utils.ui import apply_custom_styles, render_step_nav
 
 os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(os.cpu_count() or 1))
 
+
+def load_demo_document() -> None:
+    """Load demo document if in demo mode and no document exists."""
+    if os.getenv("DEMO_MODE") != "true":
+        return
+
+    # Check if a document already exists
+    if list_documents():
+        return
+
+    # Load the demo document from docs/demo.md
+    demo_path = Path(__file__).parent.parent / "docs" / "demo.md"
+    if not demo_path.exists():
+        st.warning("Demo mode enabled but demo document not found at docs/demo.md")
+        return
+
+    try:
+        demo_content = demo_path.read_bytes()
+        save_document("demo.md", demo_content)
+        st.session_state.doc_name = "demo.md"
+        st.session_state.document_metadata = {
+            "name": "demo.md",
+            "format": "MD",
+            "size_bytes": len(demo_content),
+            "path": str(demo_path),
+            "source": "demo",
+        }
+    except Exception as e:
+        st.error(f"Failed to load demo document: {e}")
+
 # Page configuration
 st.set_page_config(
     page_title="Unravel",
@@ -38,13 +70,19 @@ st.set_page_config(
 # Ensure storage directory exists
 ensure_storage_dir()
 
-# Ensure local Qdrant server is available (Docker)
+# Load demo document if in demo mode (before session state restoration)
+load_demo_document()
+
+# Ensure Qdrant server is available (Cloud or local Docker)
 if "qdrant_url" not in st.session_state:
     try:
         with st.spinner("Starting Qdrant vector database..."):
-            st.session_state.qdrant_url = ensure_qdrant_server()
+            qdrant_url, qdrant_api_key = ensure_qdrant_server()
+            st.session_state.qdrant_url = qdrant_url
+            st.session_state.qdrant_api_key = qdrant_api_key
     except RuntimeError as e:
         st.session_state.qdrant_url = None
+        st.session_state.qdrant_api_key = None
         st.session_state.qdrant_startup_status = "unavailable"
 
 # --- Restore persisted session state on refresh ---
@@ -149,6 +187,14 @@ st.markdown(
 </div>""",
     unsafe_allow_html=True,
 )
+
+# Show demo mode banner if enabled
+if os.getenv("DEMO_MODE") == "true":
+    st.info(
+        "**Demo Mode** – You're viewing a demo with a pre-loaded document. "
+        "[Install locally](https://github.com/jvorndran/unravel) to use your own documents.",
+        icon="ℹ️",
+    )
 
 
 @st.fragment

@@ -416,7 +416,9 @@ def generate_response_stream(
 def get_api_key_from_env(provider: str) -> str | None:
     """Get API key from environment variable for a provider.
 
-    Loads from ~/.unravel/.env only (by design).
+    Checks in this order:
+    1. System environment variables (for deployed environments like Streamlit Cloud)
+    2. ~/.unravel/.env file (for local development)
 
     Args:
         provider: LLM provider name
@@ -424,6 +426,8 @@ def get_api_key_from_env(provider: str) -> str | None:
     Returns:
         API key if found, None otherwise
     """
+    import os
+
     if provider not in LLM_PROVIDERS:
         return None
 
@@ -431,6 +435,12 @@ def get_api_key_from_env(provider: str) -> str | None:
     if not env_key:
         return None
 
+    # First, check system environment variables (for deployments)
+    env_value = os.getenv(env_key)
+    if env_value:
+        return env_value
+
+    # Fall back to ~/.unravel/.env file (for local development)
     dotenv_path = Path.home() / ".unravel" / ".env"
     if not dotenv_path.exists():
         return None

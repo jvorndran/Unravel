@@ -55,6 +55,12 @@ def save_parsed_text(doc_name: str, parsing_params: dict[str, Any], parsed_text:
     Raises:
         OSError: If the file cannot be written (e.g., permission denied, disk full)
     """
+    import os
+
+    # Skip saving in demo mode
+    if os.getenv("DEMO_MODE") == "true":
+        return
+
     storage_dir = get_storage_dir()
     parsed_dir = storage_dir / "parsed_texts"
     parsed_dir.mkdir(parents=True, exist_ok=True)

@@ -17,15 +17,18 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
 _PATH_CLIENTS: dict[Path, QdrantClient] = {}
-_URL_CLIENTS: dict[str, QdrantClient] = {}
+_URL_CLIENTS: dict[tuple[str, str | None], QdrantClient] = {}
 
 
-def _get_client(storage_path: Path | None = None, url: str | None = None) -> QdrantClient:
+def _get_client(
+    storage_path: Path | None = None, url: str | None = None, api_key: str | None = None
+) -> QdrantClient:
     if url:
-        client = _URL_CLIENTS.get(url)
+        cache_key = (url, api_key)
+        client = _URL_CLIENTS.get(cache_key)
         if client is None:
-            client = QdrantClient(url=url)
-            _URL_CLIENTS[url] = client
+            client = QdrantClient(url=url, api_key=api_key)
+            _URL_CLIENTS[cache_key] = client
         return client
 
     if storage_path is None:
@@ -61,6 +64,7 @@ class VectorStore:
         storage_path: Path | None = None,
         collection_name: str = "unravel_chunks",
         url: str | None = None,
+        api_key: str | None = None,
     ) -> None:
         """Initialize the vector store.
 
@@ -69,17 +73,20 @@ class VectorStore:
             metric: Distance metric ('cosine', 'l2', or 'ip' for inner product)
             storage_path: Optional path for Qdrant local storage
             collection_name: Qdrant collection name
+            url: Optional Qdrant server URL (for cloud or remote instances)
+            api_key: Optional API key for Qdrant cloud
         """
         self.dimension = dimension
         self.metric = metric
         self.collection_name = collection_name
         self._url = url
+        self._api_key = api_key
         self._storage_path = (
             Path(storage_path)
             if storage_path is not None
             else Path(tempfile.mkdtemp(prefix="unravel_qdrant_"))
         )
-        self._client = _get_client(storage_path=self._storage_path, url=url)
+        self._client = _get_client(storage_path=self._storage_path, url=url, api_key=api_key)
         self._ensure_collection()
 
         self._texts: list[str] = []
@@ -346,11 +353,15 @@ class VectorStore:
             json.dump(metadata, f, indent=2, default=str)
 
     @classmethod
-    def load(cls, path: Path, url: str | None = None) -> "VectorStore":
+    def load(
+        cls, path: Path, url: str | None = None, api_key: str | None = None
+    ) -> "VectorStore":
         """Load a vector store from disk.
 
         Args:
             path: Directory path to load from
+            url: Optional Qdrant server URL
+            api_key: Optional API key for Qdrant cloud
 
         Returns:
             Loaded VectorStore instance
@@ -368,6 +379,7 @@ class VectorStore:
             storage_path=path,
             collection_name=metadata.get("collection_name", "unravel_chunks"),
             url=url,
+            api_key=api_key,
         )
         store._load_payload_cache()
         return store
@@ -383,11 +395,22 @@ def _resolve_qdrant_url(url: str | None) -> str | None:
     return st.session_state.get("qdrant_url")
 
 
+def _resolve_qdrant_api_key(api_key: str | None) -> str | None:
+    if api_key:
+        return api_key
+    try:
+        import streamlit as st
+    except ModuleNotFoundError:
+        return None
+    return st.session_state.get("qdrant_api_key")
+
+
 def create_vector_store(
     dimension: int,
     metric: str = "cosine",
     storage_path: Path | None = None,
     url: str | None = None,
+    api_key: str | None = None,
 ) -> VectorStore:
     """Factory function to create a vector store.
 
@@ -396,6 +419,7 @@ def create_vector_store(
         metric: Distance metric ('cosine', 'l2', or 'ip')
         storage_path: Optional path for Qdrant local storage
         url: Optional Qdrant server URL
+        api_key: Optional API key for Qdrant cloud
 
     Returns:
         New VectorStore instance
@@ -403,6 +427,8 @@ def create_vector_store(
     Raises:
         RuntimeError: If Qdrant server is not available
     """
+    import os
+
     resolved_url = _resolve_qdrant_url(url)
     if not resolved_url:
         raise RuntimeError(
@@ -410,14 +436,54 @@ def create_vector_store(
             "embeddings functionality. Please start Docker Desktop and restart the app."
         )
 
+    resolved_api_key = _resolve_qdrant_api_key(api_key)
+
     from unravel.services.storage import ensure_storage_dir, get_indices_dir
 
     ensure_storage_dir()
     storage_path = get_indices_dir()
+
+    # In demo mode, use session-specific collection names to avoid conflicts
+    collection_name = "unravel_chunks"
+    if os.getenv("DEMO_MODE") == "true":
+        try:
+            import streamlit as st
+
+            # Try multiple methods to get session ID (for compatibility across Streamlit versions)
+            session_id = None
+
+            # Method 1: Modern Streamlit (>= 1.28)
+            try:
+                from streamlit.runtime.scriptrunner import get_script_run_ctx
+                ctx = get_script_run_ctx()
+                if ctx:
+                    session_id = ctx.session_id
+            except (ImportError, AttributeError):
+                pass
+
+            # Method 2: Older Streamlit
+            if not session_id:
+                try:
+                    session_id = st.runtime.scriptrunner.script_run_context.get_script_run_ctx().session_id
+                except AttributeError:
+                    pass
+
+            if session_id:
+                collection_name = f"unravel_demo_{session_id[:8]}"
+            else:
+                # Fallback: use random UUID
+                import uuid
+                collection_name = f"unravel_demo_{uuid.uuid4().hex[:8]}"
+        except Exception:
+            # Final fallback
+            import uuid
+            collection_name = f"unravel_demo_{uuid.uuid4().hex[:8]}"
 
     return VectorStore(
         dimension=dimension,
         metric=metric,
         storage_path=storage_path,
         url=resolved_url,
+        api_key=resolved_api_key,
+        collection_name=collection_name,
     )

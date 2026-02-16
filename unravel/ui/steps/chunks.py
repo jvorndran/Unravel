@@ -18,15 +18,20 @@ from unravel.utils.parsers import parse_document
 
 
 def render_chunks_step() -> None:
+    import os
+
+    # Check if demo mode is enabled
+    is_demo_mode = os.getenv("DEMO_MODE") == "true"
+
     st.markdown("## Document Processing & Text Splitting")
     st.caption("Configure document parsing and text splitting")
 
     # Render chunking configuration
-   
+
     with st.expander("Configuration", expanded=False):
         new_parsing_params, new_chunking_params, has_changes = render_chunking_configuration()
 
-       
+
         if st.button(
             "Apply Configuration",
             type="primary",
@@ -49,15 +54,16 @@ def render_chunks_step() -> None:
                 if key in st.session_state:
                     del st.session_state[key]
 
-            # Persist to disk
-            save_rag_config(
-                {
-                    "doc_name": st.session_state.doc_name,
-                    "parsing_params": new_parsing_params,
-                    "chunking_params": new_chunking_params,
-                    "embedding_model_name": st.session_state.embedding_model_name,
-                }
-            )
+            # Persist to disk (skip in demo mode)
+            if not is_demo_mode:
+                save_rag_config(
+                    {
+                        "doc_name": st.session_state.doc_name,
+                        "parsing_params": new_parsing_params,
+                        "chunking_params": new_chunking_params,
+                        "embedding_model_name": st.session_state.embedding_model_name,
+                    }
+                )
 
             st.success("Configuration applied successfully!")
             st.rerun()
@@ -148,8 +154,9 @@ def render_chunks_step() -> None:
                             )
                             # Cache parsed text in session state
                             st.session_state[new_parsed_text_key] = parsed_text
-                            # Save to persistent storage
-                            save_parsed_text(selected_doc, new_applied_params, parsed_text)
+                            # Save to persistent storage (skip in demo mode)
+                            if not is_demo_mode:
+                                save_parsed_text(selected_doc, new_applied_params, parsed_text)
                             st.rerun()
                         else:
                             st.error(f"Failed to load document: {selected_doc}")

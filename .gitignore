@@ -9,3 +9,4 @@ tmpclaude-*
 .pypirc
 .pytest_cache
 nul
+.env
