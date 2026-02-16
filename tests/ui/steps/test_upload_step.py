@@ -19,16 +19,12 @@ from unravel.ui.constants import WidgetKeys
 
 
 @pytest.fixture
-def upload_app_script() -> str:
+def upload_app_script(monkeypatch) -> str:
     """Return app script for testing the upload step."""
+    monkeypatch.delenv("DEMO_MODE", raising=False)
     return """
-import os
 import streamlit as st
 from unravel.ui.steps.upload import render_upload_step
-
-# Ensure demo mode is disabled for tests
-if "DEMO_MODE" in os.environ:
-    del os.environ["DEMO_MODE"]
 
 # Initialize session state
 if "document_metadata" not in st.session_state:
@@ -367,15 +363,12 @@ class TestUploadStepDemoMode:
     """Test demo mode functionality."""
 
     @pytest.fixture
-    def demo_app_script(self) -> str:
+    def demo_app_script(self, monkeypatch) -> str:
         """Return app script for testing demo mode."""
+        monkeypatch.setenv("DEMO_MODE", "true")
         return """
-import os
 import streamlit as st
 from unravel.ui.steps.upload import render_upload_step
-
-# Enable demo mode
-os.environ["DEMO_MODE"] = "true"
 
 # Initialize session state
 if "document_metadata" not in st.session_state:
