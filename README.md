@@ -17,6 +17,8 @@ Unravel is designed for developers who want to **visualize RAG** workflows and e
 
 ## Demo
 
+[**Live Demo**](https://unravel-swdurxfrvrtv96vretcssx.streamlit.app/?step=chunks)
+
 ![Unravel Demo](docs/demo.gif)
 
 ## Installation
