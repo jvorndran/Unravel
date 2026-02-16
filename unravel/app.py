@@ -43,7 +43,6 @@ if "qdrant_url" not in st.session_state:
     try:
         with st.spinner("Starting Qdrant vector database..."):
             st.session_state.qdrant_url = ensure_qdrant_server()
-        st.toast("Qdrant server is ready", icon="✅")
     except RuntimeError as e:
         st.session_state.qdrant_url = None
         st.session_state.qdrant_startup_status = "unavailable"
