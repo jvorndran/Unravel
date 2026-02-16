@@ -483,6 +483,9 @@ def _build_html_heading_index(
 ) -> tuple[list[int], list[list[str]], list[str]]:
     """Build an index of HTML headings for section hierarchy lookup.
 
+    NOTE: Currently unused. HTML format uses native Docling chunking instead of raw text chunking.
+    This function is kept for potential future use if raw HTML text chunking is needed.
+
     Parses HTML heading tags (h1-h6) and builds a hierarchy similar to markdown headings.
     """
     positions: list[int] = []
@@ -698,17 +701,14 @@ class DoclingProvider(ChunkingProvider):
 
         output_format = params.pop("output_format", "markdown")
         normalized_format = (output_format or "markdown").strip().lower()
-        if normalized_format in ("markdown", "html"):
+        # Only use raw text chunking for markdown format
+        # HTML format uses native Docling chunking to preserve document structure
+        if normalized_format == "markdown":
             include_metadata = params.get("include_metadata", DEFAULT_METADATA)
             if include_metadata is None:
                 include_metadata = DEFAULT_METADATA
-            # Build heading index for both markdown and HTML formats
-            if normalized_format == "markdown":
-                heading_index = _build_markdown_heading_index(text)
-            elif normalized_format == "html":
-                heading_index = _build_html_heading_index(text)
-            else:
-                heading_index = None
+            # Build heading index for markdown
+            heading_index = _build_markdown_heading_index(text)
             if splitter_name == "HierarchicalChunker":
                 merge_small_chunks = params.get("merge_small_chunks", True)
                 min_chunk_size = int(params.get("min_chunk_size", 50) or 50)
