@@ -1,6 +1,6 @@
 ![Unravel Demo](docs/unravel_logo.png)
 
-# Unravel
+# Unravel: Visualize RAG Pipelines in Real-Time
 
 [![PyPI version](https://img.shields.io/pypi/v/unravel-rag.svg)](https://pypi.org/project/unravel-rag/)
 [![Python Version](https://img.shields.io/pypi/pyversions/unravel-rag.svg)](https://pypi.org/project/unravel-rag/)
@@ -9,11 +9,11 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-Visualize your RAG pipeline's retrieval and generation steps in real-time.
+**Unravel** is an interactive tool to **visualize RAG (Retrieval-Augmented Generation)** pipelines. It helps developers understand, debug, and optimize their RAG systems through real-time visual inspection of document parsing, chunking, embeddings, and retrieval steps.
 
 ## Overview
 
-Unravel helps developers understand and optimize their RAG pipelines through interactive visualizations. Experiment with document parsing, chunking strategies, embedding models, and retrieval configurations—all running locally on your machine.
+Unravel is designed for developers who want to **visualize RAG** workflows and experiment with different configurations locally. Whether you are testing new chunking strategies, comparing embedding models, or fine-tuning retrieval parameters, Unravel provides the visual clarity needed to build better RAG applications.
 
 ## Demo
 
