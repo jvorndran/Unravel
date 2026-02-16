@@ -13,6 +13,7 @@ from unravel.ui.components.chunk_viewer import (
 )
 from unravel.ui.components.chunking_config import render_chunking_configuration
 from unravel.ui.components.progress_bar import timed_progress_bar
+from unravel.ui.components.scroll_utils import scroll_to_element
 from unravel.utils.cache import (
     get_parsed_text_key,
     load_parsed_text,
@@ -211,6 +212,8 @@ def render_chunks_step() -> None:
                         # Save to persistent storage (skip in demo mode)
                         if not is_demo_mode:
                             save_parsed_text(selected_doc, new_applied_params, parsed_text)
+                        # Set flag to trigger scroll after rerun
+                        st.session_state["trigger_scroll_to_chunks"] = True
                         st.rerun()
                     else:
                         st.error(f"Failed to load document: {selected_doc}")
@@ -252,6 +255,13 @@ def render_chunks_step() -> None:
 
     # Main Visualization
 
+    # Add anchor element for auto-scroll
+    st.markdown('<div id="chunks-visualization-section"></div>', unsafe_allow_html=True)
+
+    # Trigger scroll if flag is set (after parsing completes)
+    if st.session_state.get("trigger_scroll_to_chunks", False):
+        scroll_to_element("chunks-visualization-section")
+        st.session_state["trigger_scroll_to_chunks"] = False
 
     # Prepare chunk display data (includes overlap calculation)
     chunk_display_data = prepare_chunk_display_data(
