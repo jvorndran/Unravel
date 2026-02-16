@@ -25,6 +25,7 @@ from unravel.ui.components.chunk_viewer import (
     prepare_chunk_display_data,
     render_chunk_cards,
 )
+from unravel.ui.components.progress_bar import timed_progress_bar
 from unravel.utils.parsers import parse_document
 from unravel.utils.qdrant_manager import (
     get_qdrant_status,
@@ -37,7 +38,30 @@ from unravel.utils.visualization import (
 )
 
 
-@st.cache_data(show_spinner="Generating embeddings...")
+def estimate_embedding_time(model_name: str, num_chunks: int) -> float:
+    """Estimate embedding generation time based on model size and chunk count."""
+    # Base overhead for model loading (seconds)
+    base_overhead = 2.0
+
+    # Estimated seconds per chunk based on model size/complexity
+    # These are rough heuristics for CPU inference
+    rate_per_chunk = 0.1  # Default (medium speed)
+
+    if "MiniLM" in model_name or "small" in model_name.lower():
+        rate_per_chunk = 0.05  # Fast
+    elif "large" in model_name.lower():
+        rate_per_chunk = 0.5  # Slow
+    elif "base" in model_name.lower():
+        rate_per_chunk = 0.2  # Medium
+
+    # Adjust for API-based models if we add them later (usually slower due to network)
+    if "openai" in model_name.lower():
+        rate_per_chunk = 0.5
+
+    return base_overhead + (num_chunks * rate_per_chunk)
+
+
+@st.cache_data(show_spinner=False)
 def generate_embeddings(texts: list[str], model_name: str) -> tuple[NDArray[Any], int]:
     """Generate embeddings for texts using specified model.
 
@@ -165,7 +189,7 @@ def render_embeddings_step() -> None:
         )
         if ui.button("Go to Upload Step", key=WidgetKeys.EMBEDDINGS_GOTO_UPLOAD):
             st.session_state.current_step = "upload"
-            st.rerun()
+            st.rerun(scope="app")
         return
 
     # Document Processing Logic (Runs if chunks are missing)
@@ -247,7 +271,7 @@ def render_embeddings_step() -> None:
         )
         if ui.button("Go to Chunks Step", key=WidgetKeys.EMBEDDINGS_GOTO_CHUNKS):
             st.session_state.current_step = "chunks"
-            st.rerun()
+            st.rerun(scope="app")
         return
 
     # 2. Embedding Generation (if needed)
@@ -316,20 +340,34 @@ def render_embeddings_step() -> None:
                     needs_regeneration = True
 
     if needs_regeneration:
+        
+        # Estimate time
+        est_time = estimate_embedding_time(selected_model, len(chunks))
 
-        with st.spinner(f"Generating embeddings for {len(chunks)} chunks..."):
+        def embedding_task(texts, model_name):
+            return generate_embeddings(texts, model_name)
+
+        try:
+            texts = [c.text for c in chunks]
+            
+            # Use timed progress bar instead of spinner
+            result = timed_progress_bar(
+                task=embedding_task,
+                args=(texts, selected_model),
+                label=f"Generating embeddings for {len(chunks)} chunks using {selected_model}...",
+                estimated_time=est_time
+            )
+            
+            embeddings, dimension = result
+
+            vector_store_path = get_storage_dir() / "session" / "current_vector_store"
             try:
-                texts = [c.text for c in chunks]
-                embeddings, dimension = generate_embeddings(texts, selected_model)
-
-                vector_store_path = get_storage_dir() / "session" / "current_vector_store"
-                try:
-                    vector_store = create_vector_store(
-                        dimension=dimension,
-                        storage_path=vector_store_path,
-                    )
-                    vector_store.clear()
-                except RuntimeError as exc:
+                vector_store = create_vector_store(
+                    dimension=dimension,
+                    storage_path=vector_store_path,
+                )
+                vector_store.clear()
+            except RuntimeError as exc:
                     # Docker/Qdrant not available
                     st.error(str(exc))
                     with st.expander("How to fix this"):
@@ -341,58 +379,58 @@ def render_embeddings_step() -> None:
                             """)
                     return
 
-                vector_store.add(embeddings, texts, metadata=[c.metadata for c in chunks])
+            vector_store.add(embeddings, texts, metadata=[c.metadata for c in chunks])
 
-                # Initial 3D projection
-                reduced_embeddings, reducer = reduce_dimensions(embeddings, n_components=3)
+            # Initial 3D projection
+            reduced_embeddings, reducer = reduce_dimensions(embeddings, n_components=3)
 
-                st.session_state["last_embeddings_result"] = {
-                    "key": current_state_key,
-                    "vector_store": vector_store,
-                    "embeddings": embeddings,  # Keep original embeddings for re-projection
-                    "projections": {3: (reduced_embeddings, reducer)},
+            st.session_state["last_embeddings_result"] = {
+                "key": current_state_key,
+                "vector_store": vector_store,
+                "embeddings": embeddings,  # Keep original embeddings for re-projection
+                "projections": {3: (reduced_embeddings, reducer)},
+                "chunks": chunks,
+                "model": selected_model,
+            }
+
+            # Build BM25 index if needed for sparse/hybrid retrieval
+            retrieval_config_raw = st.session_state.get("retrieval_config")
+            retrieval_config = (
+                retrieval_config_raw if isinstance(retrieval_config_raw, dict) else {}
+            )
+            if retrieval_config.get("strategy") in [
+                "SparseRetriever",
+                "HybridRetriever",
+            ]:
+                with st.spinner("Building BM25 index for sparse/hybrid retrieval..."):
+                    try:
+                        from unravel.services.retrieval import preprocess_retriever
+
+                        bm25_data = preprocess_retriever(
+                            "SparseRetriever",
+                            vector_store,
+                            **retrieval_config.get("params", {}),
+                        )
+                        st.session_state["bm25_index_data"] = bm25_data
+                    except Exception as e:
+                        st.warning(f"Failed to build BM25 index: {str(e)}")
+
+            # Persist session state to disk for refresh resilience
+            save_session_state(
+                {
+                    "doc_name": st.session_state.get("doc_name"),
+                    "embedding_model_name": selected_model,
+                    "chunking_params": st.session_state.get("chunking_params"),
                     "chunks": chunks,
-                    "model": selected_model,
+                    "last_embeddings_result": st.session_state["last_embeddings_result"],
+                    "retrieval_config": st.session_state.get("retrieval_config"),
+                    "reranking_config": st.session_state.get("reranking_config"),
+                    "bm25_index_data": st.session_state.get("bm25_index_data"),
                 }
-
-                # Build BM25 index if needed for sparse/hybrid retrieval
-                retrieval_config_raw = st.session_state.get("retrieval_config")
-                retrieval_config = (
-                    retrieval_config_raw if isinstance(retrieval_config_raw, dict) else {}
-                )
-                if retrieval_config.get("strategy") in [
-                    "SparseRetriever",
-                    "HybridRetriever",
-                ]:
-                    with st.spinner("Building BM25 index for sparse/hybrid retrieval..."):
-                        try:
-                            from unravel.services.retrieval import preprocess_retriever
-
-                            bm25_data = preprocess_retriever(
-                                "SparseRetriever",
-                                vector_store,
-                                **retrieval_config.get("params", {}),
-                            )
-                            st.session_state["bm25_index_data"] = bm25_data
-                        except Exception as e:
-                            st.warning(f"Failed to build BM25 index: {str(e)}")
-
-                # Persist session state to disk for refresh resilience
-                save_session_state(
-                    {
-                        "doc_name": st.session_state.get("doc_name"),
-                        "embedding_model_name": selected_model,
-                        "chunking_params": st.session_state.get("chunking_params"),
-                        "chunks": chunks,
-                        "last_embeddings_result": st.session_state["last_embeddings_result"],
-                        "retrieval_config": st.session_state.get("retrieval_config"),
-                        "reranking_config": st.session_state.get("reranking_config"),
-                        "bm25_index_data": st.session_state.get("bm25_index_data"),
-                    }
-                )
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
-                return
+            )
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+            return
 
     # Load data from state
     state_data = st.session_state["last_embeddings_result"]

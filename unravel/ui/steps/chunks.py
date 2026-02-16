@@ -1,20 +1,63 @@
 import streamlit as st
 import streamlit_shadcn_ui as ui
 
+from pathlib import Path
+from typing import Any
+
 from unravel.services.chunking import get_chunks
-from unravel.services.storage import load_document, save_rag_config
+from unravel.services.storage import get_documents_dir, load_document, save_rag_config
 from unravel.ui.constants import WidgetKeys
 from unravel.ui.components.chunk_viewer import (
     prepare_chunk_display_data,
     render_chunk_cards,
 )
 from unravel.ui.components.chunking_config import render_chunking_configuration
+from unravel.ui.components.progress_bar import timed_progress_bar
 from unravel.utils.cache import (
     get_parsed_text_key,
     load_parsed_text,
     save_parsed_text,
 )
 from unravel.utils.parsers import parse_document
+
+# Seconds per MB by file extension
+_RATE_PER_MB: dict[str, float] = {
+    ".pdf": 80.0,  # ~1 min for 0.8MB
+    ".docx": 10.0,
+    ".pptx": 10.0,
+    ".xlsx": 10.0,
+    ".html": 10.0,
+    ".htm": 10.0,
+    ".png": 20.0,
+    ".jpg": 20.0,
+    ".jpeg": 20.0,
+    ".bmp": 20.0,
+    ".tiff": 20.0,
+    ".tif": 20.0,
+    ".md": 2.0,
+    ".markdown": 2.0,
+    ".txt": 2.0,
+}
+_BASE_OVERHEAD_SECONDS = 10.0
+_OCR_RATE_PER_MB = 150.0
+
+
+def estimate_parsing_time(doc_path: Path, params: dict[str, Any]) -> float:
+    """Estimate parsing duration based on file size, type, and OCR setting."""
+    try:
+        size_mb = doc_path.stat().st_size / (1024 * 1024)
+    except (FileNotFoundError, OSError):
+        # If file doesn't exist (e.g., in tests), use a default size estimate
+        size_mb = 0.5  # Default to 0.5MB
+
+    ext = doc_path.suffix.lower()
+
+    if ext == ".pdf" and params.get("docling_enable_ocr"):
+        rate = _OCR_RATE_PER_MB
+    else:
+        rate = _RATE_PER_MB.get(ext, 2.0)
+
+    return _BASE_OVERHEAD_SECONDS + (size_mb * rate)
 
 
 def render_chunks_step() -> None:
@@ -102,7 +145,7 @@ def render_chunks_step() -> None:
         )
         if st.button("Go to Upload Step", key=WidgetKeys.CHUNKS_GOTO_UPLOAD, type="primary"):
             st.session_state.current_step = "upload"
-            st.rerun()
+            st.rerun(scope="app")
         return
 
     # Check if parsing settings have changed (compare current vs applied)
@@ -135,33 +178,44 @@ def render_chunks_step() -> None:
                 "Reparse Document" if parsing_settings_changed and source_text else "Parse Document"
             )
             if st.button(button_text, key=WidgetKeys.CHUNKS_PARSE_BTN, type="primary"):
-                with st.spinner("Parsing document..."):
-                    try:
-                        content = load_document(selected_doc)
-                        if content:
-                            # Use current parsing params for parsing
-                            parsed_text, _, _ = parse_document(
-                                selected_doc, content, current_parsing_params
-                            )
-                            # Update applied params to match current
-                            # (so they're in sync after reparse)
-                            st.session_state["applied_parsing_params"] = (
-                                current_parsing_params.copy()
-                            )
-                            new_applied_params = current_parsing_params.copy()
-                            new_parsed_text_key = get_parsed_text_key(
-                                selected_doc, new_applied_params
-                            )
-                            # Cache parsed text in session state
-                            st.session_state[new_parsed_text_key] = parsed_text
-                            # Save to persistent storage (skip in demo mode)
-                            if not is_demo_mode:
-                                save_parsed_text(selected_doc, new_applied_params, parsed_text)
-                            st.rerun()
-                        else:
-                            st.error(f"Failed to load document: {selected_doc}")
-                    except Exception as e:
-                        st.error(f"Error parsing document: {str(e)}")
+                try:
+                    doc_path = get_documents_dir() / selected_doc
+                    estimated_time = estimate_parsing_time(doc_path, current_parsing_params)
+
+                    def parse_task(doc_name, params):
+                        content = load_document(doc_name)
+                        if not content:
+                            return None
+                        return parse_document(doc_name, content, params)
+
+                    result = timed_progress_bar(
+                        task=parse_task,
+                        args=(selected_doc, current_parsing_params),
+                        label="Parsing document...",
+                        estimated_time=estimated_time,
+                    )
+
+                    if result:
+                        parsed_text, _, _ = result
+                        # Update applied params to match current
+                        # (so they're in sync after reparse)
+                        st.session_state["applied_parsing_params"] = (
+                            current_parsing_params.copy()
+                        )
+                        new_applied_params = current_parsing_params.copy()
+                        new_parsed_text_key = get_parsed_text_key(
+                            selected_doc, new_applied_params
+                        )
+                        # Cache parsed text in session state
+                        st.session_state[new_parsed_text_key] = parsed_text
+                        # Save to persistent storage (skip in demo mode)
+                        if not is_demo_mode:
+                            save_parsed_text(selected_doc, new_applied_params, parsed_text)
+                        st.rerun()
+                    else:
+                        st.error(f"Failed to load document: {selected_doc}")
+                except Exception as e:
+                    st.error(f"Error parsing document: {str(e)}")
 
         if parsing_settings_changed and source_text:
             st.info(
@@ -197,9 +251,7 @@ def render_chunks_step() -> None:
         st.session_state["chunks"] = []
 
     # Main Visualization
-   
-    st.markdown("### Generated Chunks")
-    st.caption(f"Source: {doc_display_name} | Total characters: {len(source_text)}")
+
 
     # Prepare chunk display data (includes overlap calculation)
     chunk_display_data = prepare_chunk_display_data(

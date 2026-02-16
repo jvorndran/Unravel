@@ -136,7 +136,7 @@ def _render_empty_state() -> None:
        
         if ui.button("Go to Embeddings Step", key=WidgetKeys.QUERY_GOTO_EMBEDDINGS):
             st.session_state.current_step = "embeddings"
-            st.rerun()
+            st.rerun(scope="app")
 
 
 def _render_retrieved_chunks(results: list[Any], show_scores: bool = True) -> None:

@@ -38,7 +38,7 @@ def render_export_step() -> None:
         )
         if ui.button("Go to Text Splitting", key=WidgetKeys.EXPORT_GOTO_CHUNKS):
             st.session_state.current_step = "chunks"
-            st.rerun()
+            st.rerun(scope="app")
         return
 
     # Determine file format from current document

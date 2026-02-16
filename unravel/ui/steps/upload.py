@@ -380,13 +380,6 @@ def render_upload_step() -> None:
 
             else:
                 _render_url_scraping()
-    else:
-        # Demo mode: Show message instead of upload UI
-        st.info(
-            "**Demo Mode** – Document upload is disabled. "
-            "This demo uses a pre-loaded document to showcase Unravel's features. "
-            "[Install locally](https://github.com/jvorndran/unravel) to use your own documents."
-        )
 
     # Load metadata for existing document if not in session state
     if current_doc and st.session_state.document_metadata is None:

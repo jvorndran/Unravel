@@ -153,6 +153,24 @@ if "session_restored" not in st.session_state:
         if docs:
             st.session_state.doc_name = docs[0]
 
+    # Ensure document_metadata is initialized if a document exists
+    # This fixes demo mode where the document exists but metadata isn't set until upload step is visited
+    if st.session_state.doc_name and "document_metadata" not in st.session_state:
+        from unravel.services.storage import get_current_document
+
+        current_doc = get_current_document()
+        if current_doc:
+            doc_name, content = current_doc
+            file_format = Path(doc_name).suffix.upper().lstrip(".")
+            size_bytes = len(content)
+            st.session_state.document_metadata = {
+                "name": doc_name,
+                "format": file_format,
+                "size_bytes": size_bytes,
+                "path": "",
+                "source": "demo" if os.getenv("DEMO_MODE") == "true" else "file",
+            }
+
     if "chunking_params" not in st.session_state:
         st.session_state.chunking_params = {
             "provider": "Docling",
@@ -197,7 +215,7 @@ if os.getenv("DEMO_MODE") == "true":
     )
 
 
-@st.fragment
+# @st.fragment
 def render_main_content() -> None:
     """Render step navigation and content as a fragment.
 
