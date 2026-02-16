@@ -578,10 +578,10 @@ def render_chunk_cards(
             main_html_content = _extract_html_body(main_text)
 
             if overlap_html_content and show_overlap:
-                # Wrap overlap portion with highlight styling
+                # Wrap overlap portion with highlight styling (use span like markdown for inline flow)
                 overlap_highlighted = (
-                    f'<div style="background-color: rgba(156, 163, 175, 0.2); '
-                    f'border-left: 2px solid #9ca3af; padding-left: 4px;">{overlap_html_content}</div>'
+                    f'<span style="background-color: rgba(156, 163, 175, 0.2); '
+                    f'border-left: 2px solid #9ca3af; padding-left: 4px;">{overlap_html_content}</span>'
                 )
                 rendered_html = overlap_highlighted + main_html_content
             else:

@@ -478,6 +478,45 @@ def _build_markdown_heading_index(
     return positions, hierarchies, headings
 
 
+def _build_html_heading_index(
+    text: str,
+) -> tuple[list[int], list[list[str]], list[str]]:
+    """Build an index of HTML headings for section hierarchy lookup.
+
+    Parses HTML heading tags (h1-h6) and builds a hierarchy similar to markdown headings.
+    """
+    positions: list[int] = []
+    hierarchies: list[list[str]] = []
+    headings: list[str] = []
+    current: list[str] = []
+
+    # Match HTML heading tags (h1-h6) and extract text content
+    for match in re.finditer(r"<h([1-6])[^>]*>(.*?)</h\1>", text, flags=re.IGNORECASE | re.DOTALL):
+        level = int(match.group(1))
+        # Extract text content and strip HTML tags from it
+        raw_title = match.group(2)
+        # Remove any nested HTML tags and decode entities
+        title = re.sub(r"<[^>]+>", "", raw_title).strip()
+        # Decode common HTML entities
+        title = (
+            title.replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", '"')
+            .replace("&#39;", "'")
+        )
+        if not title:
+            continue
+        current = current[: level - 1]
+        current.append(title)
+        positions.append(match.start())
+        hierarchies.append(current.copy())
+        headings.append(title)
+
+    return positions, hierarchies, headings
+
+
 def _build_raw_chunk(
     text: str,
     start: int,
@@ -663,9 +702,13 @@ class DoclingProvider(ChunkingProvider):
             include_metadata = params.get("include_metadata", DEFAULT_METADATA)
             if include_metadata is None:
                 include_metadata = DEFAULT_METADATA
-            heading_index = (
-                _build_markdown_heading_index(text) if normalized_format == "markdown" else None
-            )
+            # Build heading index for both markdown and HTML formats
+            if normalized_format == "markdown":
+                heading_index = _build_markdown_heading_index(text)
+            elif normalized_format == "html":
+                heading_index = _build_html_heading_index(text)
+            else:
+                heading_index = None
             if splitter_name == "HierarchicalChunker":
                 merge_small_chunks = params.get("merge_small_chunks", True)
                 min_chunk_size = int(params.get("min_chunk_size", 50) or 50)
