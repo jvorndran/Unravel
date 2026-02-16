@@ -302,11 +302,14 @@ def render_upload_step() -> None:
         st.session_state.document_metadata = None
 
     # Source selection (File Upload or URL Scraping)
-    # Hide upload UI in demo mode
-    if not is_demo_mode:
-        with st.container(border=True):
-            st.markdown("### Add Document")
+    with st.container(border=True):
+        st.markdown("### Add Document")
 
+        # In demo mode, show URL scraping only
+        if is_demo_mode:
+            _render_url_scraping()
+        else:
+            # In normal mode, allow choosing between file upload and URL scraping
             source_mode = st.radio(
                 "Source",
                 options=["File Upload", "URL Scraping"],

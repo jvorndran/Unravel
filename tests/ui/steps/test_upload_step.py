@@ -19,16 +19,12 @@ from unravel.ui.constants import WidgetKeys
 
 
 @pytest.fixture
-def upload_app_script() -> str:
+def upload_app_script(monkeypatch) -> str:
     """Return app script for testing the upload step."""
+    monkeypatch.delenv("DEMO_MODE", raising=False)
     return """
-import os
 import streamlit as st
 from unravel.ui.steps.upload import render_upload_step
-
-# Ensure demo mode is disabled for tests
-if "DEMO_MODE" in os.environ:
-    del os.environ["DEMO_MODE"]
 
 # Initialize session state
 if "document_metadata" not in st.session_state:
@@ -361,6 +357,69 @@ class TestUploadStepURLCrawling:
             mock_crawl.assert_called_once()
             call_kwargs = mock_crawl.call_args[1]
             assert call_kwargs["method"] == "crawler"
+
+
+class TestUploadStepDemoMode:
+    """Test demo mode functionality."""
+
+    @pytest.fixture
+    def demo_app_script(self, monkeypatch) -> str:
+        """Return app script for testing demo mode."""
+        monkeypatch.setenv("DEMO_MODE", "true")
+        return """
+import streamlit as st
+from unravel.ui.steps.upload import render_upload_step
+
+# Initialize session state
+if "document_metadata" not in st.session_state:
+    st.session_state.document_metadata = None
+if "doc_name" not in st.session_state:
+    st.session_state.doc_name = None
+
+render_upload_step()
+"""
+
+    @patch("unravel.ui.steps.upload.get_current_document")
+    def test_demo_mode_shows_url_scraping_only(self, mock_get_doc, demo_app_script):
+        """Test that demo mode shows URL scraping but not file upload radio."""
+        mock_get_doc.return_value = None
+
+        at = AppTest.from_string(demo_app_script).run()
+
+        # Should not have a radio button for source selection (no choice between upload/scraping)
+        # In demo mode, we skip the radio and show URL scraping directly
+        source_radios = [r for r in at.radio if hasattr(r, "label") and r.label == "Source"]
+        assert len(source_radios) == 0
+
+        # Should have URL input (from URL scraping UI)
+        assert len(at.text_input) > 0
+
+    @patch("unravel.ui.steps.upload.scrape_url_to_markdown")
+    @patch("unravel.ui.steps.upload.save_document")
+    def test_demo_mode_url_scraping_works(
+        self, mock_save_doc, mock_scrape, demo_app_script, mock_storage_dir
+    ):
+        """Test that URL scraping works in demo mode."""
+        mock_scrape.return_value = (
+            b"# Test Content\n\nSample text",
+            {"title": "Test", "domain": "example.com", "scraping_method": "trafilatura"},
+        )
+        mock_save_doc.return_value = mock_storage_dir / "documents" / "test.md"
+
+        with patch("unravel.services.storage.DEFAULT_STORAGE_DIR", mock_storage_dir):
+            at = AppTest.from_string(demo_app_script).run()
+
+            # Set URL
+            at.text_input[0].set_value("https://example.com/test").run()
+
+            # Click scrape button
+            for btn in at.button:
+                if btn.label == "Scrape URL":
+                    btn.click().run()
+                    break
+
+            # Verify scraping was called
+            mock_scrape.assert_called_once()
 
 
 class TestUploadStepDocumentManagement:
