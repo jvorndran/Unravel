@@ -91,21 +91,34 @@ def render_embeddings_step() -> None:
     with st.spinner("Checking Qdrant status..."):
         qdrant_status = get_qdrant_status()
     is_running = qdrant_status.get("running", False)
+    is_cloud = qdrant_status.get("status") == "cloud"
 
     # Modern, minimal status card
     with st.container(border=True):
         # Layout: Status & URL (80%) | Action (20%)
-        col_status, col_action = st.columns([4, 1], vertical_alignment="center")
+        # Hide action column in cloud mode (no restart needed)
+        if is_cloud:
+            col_status = st.container()
+        else:
+            col_status, col_action = st.columns([4, 1], vertical_alignment="center")
 
         with col_status:
             if is_running:
                 url = qdrant_status.get("url", "")
                 if url:
-                    dashboard_url = url + "/dashboard"
-                    st.markdown(
-                        f"**Qdrant Status** &nbsp; <span style='color: #16a34a; background-color: #dcfce7; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Running</span> &nbsp; <a href='{dashboard_url}' target='_blank' style='color: #4b5563; text-decoration: none; border-bottom: 1px dotted #9ca3af;'>{dashboard_url} ↗</a>",
-                        unsafe_allow_html=True,
-                    )
+                    if is_cloud:
+                        # Cloud mode: show status only, hide URL for security
+                        st.markdown(
+                            "**Qdrant Status** &nbsp; <span style='color: #16a34a; background-color: #dcfce7; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Cloud</span>",
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        # Local mode: show URL and dashboard link
+                        dashboard_url = url + "/dashboard"
+                        st.markdown(
+                            f"**Qdrant Status** &nbsp; <span style='color: #16a34a; background-color: #dcfce7; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;'>Running</span> &nbsp; <a href='{dashboard_url}' target='_blank' style='color: #4b5563; text-decoration: none; border-bottom: 1px dotted #9ca3af;'>{dashboard_url} ↗</a>",
+                            unsafe_allow_html=True,
+                        )
             else:
                 error_msg = (
                     "Docker not found"
@@ -117,14 +130,16 @@ def render_embeddings_step() -> None:
                     unsafe_allow_html=True,
                 )
 
-        with col_action:
-            if st.button("Restart", key=WidgetKeys.EMBEDDINGS_RESTART_QDRANT_BTN, use_container_width=True):
-                with st.spinner("..."):
-                    try:
-                        restart_qdrant_server()
-                        st.rerun()
-                    except RuntimeError as e:
-                        st.error(str(e))
+        # Only show restart button for local Docker mode
+        if not is_cloud:
+            with col_action:
+                if st.button("Restart", key=WidgetKeys.EMBEDDINGS_RESTART_QDRANT_BTN, use_container_width=True):
+                    with st.spinner("..."):
+                        try:
+                            restart_qdrant_server()
+                            st.rerun()
+                        except RuntimeError as e:
+                            st.error(str(e))
 
         # Contextual Warnings/Errors
         if not is_running and qdrant_status.get("error"):

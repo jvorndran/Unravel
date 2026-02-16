@@ -147,6 +147,19 @@ def _inspect_mount_type() -> str | None:
 
 
 def get_qdrant_status() -> dict[str, str | bool | None]:
+    # Check if using cloud Qdrant (for demo deployments)
+    cloud_url = os.getenv("QDRANT_URL")
+    if cloud_url:
+        return {
+            "running": True,
+            "status": "cloud",
+            "url": cloud_url,
+            "docker_available": False,
+            "mount_type": None,
+            "error": None,
+        }
+
+    # Local Docker mode
     status = _container_status()
     running = bool(status and status.lower().startswith("up"))
     return {
