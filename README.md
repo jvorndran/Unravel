@@ -2,6 +2,13 @@
 
 # Unravel
 
+[![PyPI version](https://img.shields.io/pypi/v/unravel-rag.svg)](https://pypi.org/project/unravel-rag/)
+[![Python Version](https://img.shields.io/pypi/pyversions/unravel-rag.svg)](https://pypi.org/project/unravel-rag/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://img.shields.io/pypi/dm/unravel-rag.svg)](https://pypi.org/project/unravel-rag/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 Visualize your RAG pipeline's retrieval and generation steps in real-time.
 
 ## Overview
