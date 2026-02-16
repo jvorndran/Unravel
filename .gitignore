@@ -11,6 +11,3 @@ tmpclaude-*
 nul
 .env
 .coverage
-# Personal writing
-blog_post.md
-linkedin_post.md
