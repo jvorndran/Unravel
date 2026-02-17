@@ -160,7 +160,7 @@ def test_markdown_chunks_use_raw_text_chunking(sample_markdown_document):
 def test_html_chunks_preserve_docling_metadata(sample_html_document):
     """Test that HTML chunks preserve DoclingDocument metadata."""
     # Parse document with HTML output format
-    parsed_text, output_format, _ = parse_document(
+    parsed_text, _, _ = parse_document(
         filename="test.html",
         content=sample_html_document,
         params={
