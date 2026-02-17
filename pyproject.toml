@@ -46,6 +46,7 @@ dependencies = [
     "FlagEmbedding>=1.0",
     "trafilatura>=1.6",
     "selenium>=4.6",
+    "google-cloud-aiplatform>=1.60.0",
 ]
 
 [project.optional-dependencies]
