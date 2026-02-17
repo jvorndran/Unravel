@@ -10153,7 +10153,7 @@ requires-dist = [
     { name = "docling", specifier = ">=1.0" },
     { name = "flagembedding", specifier = ">=1.0" },
     { name = "flashrank", specifier = ">=0.2.0" },
-    { name = "google-cloud-aiplatform", specifier = ">=1.38.0" },
+    { name = "google-cloud-aiplatform", specifier = ">=1.60.0" },
     { name = "litellm", specifier = ">=1.60" },
     { name = "markdown", specifier = ">=3.5" },
     { name = "nltk", specifier = ">=3.8" },
