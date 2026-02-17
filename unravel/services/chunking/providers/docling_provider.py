@@ -478,48 +478,6 @@ def _build_markdown_heading_index(
     return positions, hierarchies, headings
 
 
-def _build_html_heading_index(
-    text: str,
-) -> tuple[list[int], list[list[str]], list[str]]:
-    """Build an index of HTML headings for section hierarchy lookup.
-
-    NOTE: Currently unused. HTML format uses native Docling chunking instead of raw text chunking.
-    This function is kept for potential future use if raw HTML text chunking is needed.
-
-    Parses HTML heading tags (h1-h6) and builds a hierarchy similar to markdown headings.
-    """
-    positions: list[int] = []
-    hierarchies: list[list[str]] = []
-    headings: list[str] = []
-    current: list[str] = []
-
-    # Match HTML heading tags (h1-h6) and extract text content
-    for match in re.finditer(r"<h([1-6])[^>]*>(.*?)</h\1>", text, flags=re.IGNORECASE | re.DOTALL):
-        level = int(match.group(1))
-        # Extract text content and strip HTML tags from it
-        raw_title = match.group(2)
-        # Remove any nested HTML tags and decode entities
-        title = re.sub(r"<[^>]+>", "", raw_title).strip()
-        # Decode common HTML entities
-        title = (
-            title.replace("&nbsp;", " ")
-            .replace("&amp;", "&")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&quot;", '"')
-            .replace("&#39;", "'")
-        )
-        if not title:
-            continue
-        current = current[: level - 1]
-        current.append(title)
-        positions.append(match.start())
-        hierarchies.append(current.copy())
-        headings.append(title)
-
-    return positions, hierarchies, headings
-
-
 def _build_raw_chunk(
     text: str,
     start: int,
