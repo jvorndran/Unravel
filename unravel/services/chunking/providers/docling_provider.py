@@ -560,25 +560,23 @@ class DoclingProvider(ChunkingProvider):
             SplitterInfo(
                 name="HierarchicalChunker",
                 display_name="Hierarchical",
-                description="Structure-aware chunking that creates one chunk per document element (paragraph, header, list, code block). Best for preserving document structure.",
+                description="Structure-aware chunking that creates chunks based on document elements (paragraphs, headers, lists, code blocks). Best for preserving document hierarchy and semantic structure.",
                 category="Structure-Aware",
                 parameters=[
                     ParameterInfo(
                         "merge_small_chunks",
                         "bool",
                         True,
-                        "Merge very small adjacent chunks",
+                        "Merge list items and small adjacent elements into larger chunks",
                     ),
                     ParameterInfo(
                         "min_chunk_size",
                         "int",
                         50,
-                        "Minimum chunk size in characters before merging",
+                        "Minimum chunk size in characters (for backward compatibility, not used by native chunker)",
                         min_value=10,
                         max_value=500,
                     ),
-                    # Note: min_chunk_size kept for backwards compatibility with export templates
-                    # Native HierarchicalChunker doesn't use this parameter directly
                     ParameterInfo(
                         "include_metadata",
                         "multiselect",
@@ -591,7 +589,7 @@ class DoclingProvider(ChunkingProvider):
             SplitterInfo(
                 name="HybridChunker",
                 display_name="Hybrid",
-                description="Token-aware chunking that respects structure while maintaining token limits. Best for embedding models with fixed context windows.",
+                description="Token-aware chunking that respects document structure while maintaining token limits. Best for embedding models with fixed context windows.",
                 category="Token-Aware",
                 parameters=[
                     ParameterInfo(
@@ -606,7 +604,7 @@ class DoclingProvider(ChunkingProvider):
                         "chunk_overlap",
                         "int",
                         50,
-                        "Token overlap between chunks",
+                        "Enable merging of peer chunks (0 = disabled, >0 = enabled)",
                         min_value=0,
                         max_value=512,
                     ),
@@ -616,30 +614,6 @@ class DoclingProvider(ChunkingProvider):
                         "cl100k_base",
                         "Tokenizer to use for counting",
                         options=["cl100k_base", "p50k_base", "o200k_base"],
-                    ),
-                    ParameterInfo(
-                        "paragraph_aligned",
-                        "bool",
-                        False,
-                        "Prefer chunk boundaries at blank lines when possible",
-                    ),
-                    ParameterInfo(
-                        "merge_list_items",
-                        "bool",
-                        False,
-                        "Keep contiguous list items together",
-                    ),
-                    ParameterInfo(
-                        "keep_code_blocks",
-                        "bool",
-                        False,
-                        "Avoid splitting fenced code blocks",
-                    ),
-                    ParameterInfo(
-                        "keep_tables",
-                        "bool",
-                        False,
-                        "Avoid splitting markdown tables",
                     ),
                     ParameterInfo(
                         "include_metadata",
@@ -658,47 +632,8 @@ class DoclingProvider(ChunkingProvider):
             return []
 
         output_format = params.pop("output_format", "markdown")
-        normalized_format = (output_format or "markdown").strip().lower()
-        # Only use raw text chunking for markdown format
-        # HTML format uses native Docling chunking to preserve document structure
-        if normalized_format == "markdown":
-            include_metadata = params.get("include_metadata", DEFAULT_METADATA)
-            if include_metadata is None:
-                include_metadata = DEFAULT_METADATA
-            # Build heading index for markdown
-            heading_index = _build_markdown_heading_index(text)
-            if splitter_name == "HierarchicalChunker":
-                merge_small_chunks = params.get("merge_small_chunks", True)
-                min_chunk_size = int(params.get("min_chunk_size", 50) or 50)
-                return _chunk_raw_hierarchical(
-                    text=text,
-                    merge_small_chunks=merge_small_chunks,
-                    min_chunk_size=min_chunk_size,
-                    include_metadata=include_metadata,
-                    heading_index=heading_index,
-                )
-            if splitter_name == "HybridChunker":
-                tokenizer_name = params.get("tokenizer", "cl100k_base")
-                max_tokens = params.get("max_tokens", 512)
-                chunk_overlap = params.get("chunk_overlap", 50)
-                paragraph_aligned = params.get("paragraph_aligned", False)
-                merge_list_items = params.get("merge_list_items", False)
-                keep_code_blocks = params.get("keep_code_blocks", False)
-                keep_tables = params.get("keep_tables", False)
-                return _chunk_raw_hybrid(
-                    text=text,
-                    tokenizer_name=tokenizer_name,
-                    max_tokens=max_tokens,
-                    chunk_overlap=chunk_overlap,
-                    include_metadata=include_metadata,
-                    heading_index=heading_index,
-                    paragraph_aligned=paragraph_aligned,
-                    merge_list_items=merge_list_items,
-                    keep_code_blocks=keep_code_blocks,
-                    keep_tables=keep_tables,
-                )
 
-        # Convert text to DoclingDocument
+        # Convert text to DoclingDocument (unified path for both markdown and HTML)
         try:
             doc = _text_to_docling_document(text, output_format)
         except Exception as e:

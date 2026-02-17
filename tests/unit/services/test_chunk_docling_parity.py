@@ -1,8 +1,7 @@
-"""Test that chunks shown in UI match DoclingDocument chunks.
+"""Test that chunks use native Docling chunking.
 
-This test verifies that:
-- HTML format: chunks match native DoclingDocument chunks
-- Markdown format: chunks are from raw text (expected to differ from DoclingDocument chunks)
+This test verifies that both HTML and Markdown formats use native DoclingDocument chunking.
+The UI layer filters out header-only chunks during rendering.
 
 Uses real example documents from tests/fixtures/documents/ to test realistic scenarios.
 """
@@ -105,11 +104,11 @@ def test_html_chunks_match_docling_native(sample_html_document):
         Path(temp_path).unlink(missing_ok=True)
 
 
-def test_markdown_chunks_use_raw_text_chunking(sample_markdown_document):
-    """Test that markdown format uses raw text chunking (not native DoclingDocument chunks).
+def test_markdown_chunks_match_docling_native(sample_markdown_document):
+    """Test that markdown format uses native DoclingDocument chunking.
 
-    This verifies markdown chunks are created from the exported text, which is expected
-    and allows for markdown-specific features like heading detection.
+    This verifies markdown chunks are created using Docling's native chunkers,
+    ensuring consistent behavior with HTML format and proper document structure extraction.
     """
     # Parse document with markdown output format
     parsed_text, output_format, _ = parse_document(
@@ -123,38 +122,62 @@ def test_markdown_chunks_use_raw_text_chunking(sample_markdown_document):
     assert output_format.lower() == "markdown"
     assert parsed_text is not None
 
-    # Get chunks using HybridChunker with token limit to ensure multiple chunks
-    # (HierarchicalChunker might merge everything into one chunk)
+    # Get chunks using our chunking service
     ui_chunks = get_chunks(
         provider="Docling",
-        splitter="HybridChunker",
+        splitter="HierarchicalChunker",
         text=parsed_text,
         output_format="markdown",
-        max_tokens=512,
-        chunk_overlap=50,
+        merge_small_chunks=True,
     )
 
-    # Verify we got multiple chunks due to token limit
+    # Verify we got multiple chunks
     assert len(ui_chunks) > 1, f"Should have multiple chunks for structured markdown, got {len(ui_chunks)}"
 
-    # Verify chunks contain markdown text (not HTML)
-    for chunk in ui_chunks:
-        chunk_text = chunk.text
-        # Should have markdown headings or content
-        # Not all chunks will have headings, but they should have markdown content
-        assert (
-            "#" in chunk_text
-            or "RAG" in chunk_text
-            or "retrieval" in chunk_text.lower()
-            or "chunk" in chunk_text.lower()
-        ), f"Chunk doesn't contain expected markdown content: {chunk_text[:100]}"
+    # Get native DoclingDocument chunks for comparison
+    from docling.document_converter import DocumentConverter
+    from docling.chunking import HierarchicalChunker
 
-    # Verify heading metadata was extracted from raw text parsing
+    # Create temp file for Docling to parse
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as f:
+        f.write(parsed_text)
+        temp_path = f.name
+
+    try:
+        # Parse with Docling
+        converter = DocumentConverter()
+        result = converter.convert(Path(temp_path))
+        doc = result.document
+
+        # Chunk with native Docling chunker
+        chunker = HierarchicalChunker(merge_list_items=True)
+        docling_chunks = list(chunker.chunk(doc))
+
+        # Verify chunk counts match
+        assert len(ui_chunks) == len(
+            docling_chunks
+        ), f"Chunk count mismatch: UI has {len(ui_chunks)}, Docling has {len(docling_chunks)}"
+
+        # Verify chunk text matches (allowing for minor whitespace differences)
+        for i, (ui_chunk, docling_chunk) in enumerate(zip(ui_chunks, docling_chunks)):
+            ui_text = ui_chunk.text.strip()
+            docling_text = docling_chunk.text.strip()
+
+            # Compare chunk text
+            assert (
+                ui_text == docling_text
+            ), f"Chunk {i} text mismatch:\nUI: {ui_text[:200]}...\nDocling: {docling_text[:200]}..."
+
+    finally:
+        # Cleanup
+        Path(temp_path).unlink(missing_ok=True)
+
+    # Verify heading metadata was extracted from document structure
     has_heading_metadata = any(
         "section_hierarchy" in chunk.metadata or "heading_text" in chunk.metadata
         for chunk in ui_chunks
     )
-    assert has_heading_metadata, "Markdown chunks should have heading metadata from raw text parsing"
+    assert has_heading_metadata, "Markdown chunks should have heading metadata from document structure"
 
 
 def test_html_chunks_preserve_docling_metadata(sample_html_document):

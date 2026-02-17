@@ -335,6 +335,33 @@ def render_chunk_cards(
         )
         return
 
+    # Filter out header-only chunks (chunks where text is just the heading)
+    filtered_data = []
+    for data in chunk_display_data:
+        meta = data["docling_metadata"]
+        display_text = data.get("display_text", data["chunk"].text)
+
+        # Check if chunk is header-only
+        is_header_only = False
+        if "heading_text" in meta:
+            chunk_text_stripped = display_text.strip()
+            heading_stripped = str(meta["heading_text"]).strip()
+            # Skip chunks that are just headers
+            if chunk_text_stripped == heading_stripped or chunk_text_stripped.endswith(heading_stripped):
+                is_header_only = True
+
+        if not is_header_only:
+            filtered_data.append(data)
+
+    chunk_display_data = filtered_data
+
+    if not chunk_display_data:
+        st.markdown(
+            '<div style="color: #666; font-style: italic;">No chunks to display.</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
     # Palette for chunk backgrounds (pastel colors) - used in continuous mode
     colors = [
         "#fef2f2",  # Reddish
