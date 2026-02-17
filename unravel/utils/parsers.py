@@ -544,6 +544,7 @@ def parse_with_docling(
 
     max_pages = params.get("max_pages")
     max_pages_value = int(max_pages) if isinstance(max_pages, int) and max_pages > 0 else None
+    page_range = _build_page_range(max_pages_value)
 
     try:
         import tempfile

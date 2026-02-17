@@ -659,13 +659,14 @@ class DoclingProvider(ChunkingProvider):
 
         output_format = params.pop("output_format", "markdown")
         normalized_format = (output_format or "markdown").strip().lower()
-        if normalized_format in ("markdown", "html"):
+        # Only use raw text chunking for markdown format
+        # HTML format uses native Docling chunking to preserve document structure
+        if normalized_format == "markdown":
             include_metadata = params.get("include_metadata", DEFAULT_METADATA)
             if include_metadata is None:
                 include_metadata = DEFAULT_METADATA
-            heading_index = (
-                _build_markdown_heading_index(text) if normalized_format == "markdown" else None
-            )
+            # Build heading index for markdown
+            heading_index = _build_markdown_heading_index(text)
             if splitter_name == "HierarchicalChunker":
                 merge_small_chunks = params.get("merge_small_chunks", True)
                 min_chunk_size = int(params.get("min_chunk_size", 50) or 50)

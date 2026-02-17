@@ -591,3 +591,38 @@ class TestChunksStepIntegration:
 
         # Verify chunks are generated
         assert len(at.session_state.chunks) == 2
+
+    @patch("unravel.ui.steps.chunks.get_chunks")
+    @patch("unravel.ui.steps.chunks.load_document")
+    @patch("unravel.ui.steps.chunks.load_parsed_text")
+    def test_html_format_rendering(
+        self, mock_load_parsed, mock_load_doc, mock_get_chunks, chunks_app_script
+    ):
+        """Test that HTML format chunks are rendered correctly."""
+        mock_load_doc.return_value = b"test content"
+        # HTML format content
+        html_content = "<p>This is <strong>HTML</strong> content</p>"
+        mock_load_parsed.return_value = html_content
+
+        # Create chunks with HTML content
+        mock_chunks = [
+            Chunk(text="<p>First chunk</p>", metadata={}, start_index=0, end_index=17),
+            Chunk(text="<strong>Second</strong>", metadata={}, start_index=18, end_index=40),
+        ]
+        mock_get_chunks.return_value = mock_chunks
+
+        # Set output format to HTML
+        script_with_html = chunks_app_script.replace(
+            'st.session_state.doc_name = None',
+            'st.session_state.doc_name = "test.html"',
+        )
+        script_with_html = script_with_html.replace(
+            '"output_format": "markdown"',
+            '"output_format": "html"',
+        )
+
+        at = AppTest.from_string(script_with_html).run()
+
+        # Verify chunks are generated with HTML format
+        assert len(at.session_state.chunks) == 2
+        assert at.session_state.applied_parsing_params["output_format"] == "html"
