@@ -503,24 +503,23 @@ def parse_with_docling(
     extension: str,
     params: dict[str, Any] | None = None,
 ) -> tuple[str, list[ExtractedImage]]:
-    """Parse document content using Docling for supported formats.
-
-    Supports PPTX, XLSX, HTML, and image formats.
-
-    Args:
-        content: File content as bytes
-        extension: File extension (e.g., ".pptx", ".xlsx")
-        params: Optional parsing configuration including:
-            - output_format: Export format (markdown, html, doctags, json)
-            - docling_filter_labels: Labels to filter out (markdown only)
-            - docling_extract_images: Extract images from document
-            - max_pages: Maximum number of pages to parse
-
+    """
+    Parse a non-PDF document using Docling and return exported text and any extracted images.
+    
+    Parameters:
+        content (bytes): File content.
+        extension (str): File extension including leading dot (e.g., ".pptx", ".xlsx", ".html", ".png").
+        params (dict[str, Any] | None): Optional settings:
+            - output_format: "markdown", "html", "doctags", or "json" (default "markdown").
+            - docling_filter_labels: list[str] of label names to include when exporting markdown.
+            - docling_extract_images: bool to enable image extraction.
+            - max_pages: positive int to limit pages parsed.
+    
     Returns:
-        Tuple of (exported_text, extracted_images)
-
+        tuple[str, list[ExtractedImage]]: Exported document text and a list of extracted images.
+    
     Raises:
-        ValueError: If format is not supported or parsing fails
+        ValueError: If the file extension is not supported by Docling or if parsing fails.
     """
     params = params or {}
     extension = extension.lower()

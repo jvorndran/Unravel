@@ -458,7 +458,14 @@ def _extract_metadata_from_chunk(
 def _build_markdown_heading_index(
     text: str,
 ) -> tuple[list[int], list[list[str]], list[str]]:
-    """Build an index of markdown headings for section hierarchy lookup."""
+    """
+    Builds an index of Markdown headings for mapping character positions to heading hierarchies.
+    
+    Returns:
+        positions (list[int]): Start character indices of each Markdown heading in document order.
+        hierarchies (list[list[str]]): Parallel list where each entry is the full heading path (ancestor titles, including the heading) for the corresponding position.
+        headings (list[str]): List of heading titles in document order.
+    """
     positions: list[int] = []
     hierarchies: list[list[str]] = []
     headings: list[str] = []
@@ -481,12 +488,19 @@ def _build_markdown_heading_index(
 def _build_html_heading_index(
     text: str,
 ) -> tuple[list[int], list[list[str]], list[str]]:
-    """Build an index of HTML headings for section hierarchy lookup.
-
-    NOTE: Currently unused. HTML format uses native Docling chunking instead of raw text chunking.
-    This function is kept for potential future use if raw HTML text chunking is needed.
-
-    Parses HTML heading tags (h1-h6) and builds a hierarchy similar to markdown headings.
+    """
+    Build an index of HTML heading positions and their section hierarchies.
+    
+    Parses HTML <h1>–<h6> tags in the input and records each heading's start position,
+    its title text, and the hierarchical path of headings up to that level. Empty or
+    purely-tagged headings are skipped. This function is currently unused by the
+    live chunking path but preserved for potential raw-HTML processing.
+    
+    Returns:
+        tuple[list[int], list[list[str]], list[str]]: 
+            - positions: list of character start indices for each heading.
+            - hierarchies: parallel list of heading path lists (section hierarchy) for each heading.
+            - headings: list of heading titles in document order.
     """
     positions: list[int] = []
     hierarchies: list[list[str]] = []
@@ -529,6 +543,25 @@ def _build_raw_chunk(
     include_metadata: list[str],
     heading_index: tuple[list[int], list[list[str]], list[str]] | None,
 ) -> Chunk:
+    """
+    Create a Chunk representing the substring text[start:end] and attach basic Docling metadata.
+    
+    Parameters:
+        text (str): The full source text.
+        start (int): Start character index (inclusive) of the chunk within text.
+        end (int): End character index (exclusive) of the chunk within text.
+        chunk_index (int): Sequential index assigned to this chunk.
+        strategy (str): Chunking strategy name (e.g., "Hierarchical" or "Hybrid") stored in metadata.
+        include_metadata (list[str]): Requested metadata keys (accepted but not used by this helper).
+        heading_index (tuple[list[int], list[list[str]], list[str]] | None):
+            Optional heading index as (positions, hierarchies, headings). If provided,
+            the nearest heading at or before `start` is used to populate `section_hierarchy`
+            and `heading_text` metadata.
+    
+    Returns:
+        Chunk: A Chunk with the sliced text, start_index, end_index, and metadata containing
+        "strategy", "provider" ("Docling"), "chunk_index", and "size", plus heading metadata when available.
+    """
     metadata: dict[str, Any] = {
         "strategy": strategy,
         "provider": "Docling",
@@ -695,7 +728,33 @@ class DoclingProvider(ChunkingProvider):
         ]
 
     def chunk(self, splitter_name: str, text: str, **params: Any) -> list[Chunk]:  # noqa: ANN401
-        """Split text using specified Docling chunking strategy."""
+        """
+        Chunk the given text using the specified Docling-based strategy.
+        
+        Determines whether to perform raw-text Markdown chunking (for "markdown" output_format) or convert the input to a Docling document and use native Docling chunkers for other formats, then applies the selected splitter to produce chunks.
+        
+        Parameters:
+            splitter_name (str): Name of the splitter to use. Supported values: "HierarchicalChunker", "HybridChunker".
+            text (str): The input text to chunk.
+            **params: Any: Additional options that control chunking behavior. Meaningful keys include:
+                output_format (str): "markdown" (default) to use raw-text Markdown chunking; other values trigger Docling document conversion.
+                include_metadata (list[str] | None): Which metadata fields to include; defaults to module DEFAULT_METADATA when omitted or None.
+                For "HierarchicalChunker" (when using markdown raw path):
+                    merge_small_chunks (bool): Whether to merge adjacent small blocks (default True).
+                    min_chunk_size (int): Minimum character size for merging (default 50).
+                For "HybridChunker" (when using markdown raw path):
+                    tokenizer (str): Tokenizer name (default "cl100k_base").
+                    max_tokens (int): Maximum tokens per chunk (default 512).
+                    chunk_overlap (int): Token overlap between chunks (default 50).
+                    paragraph_aligned (bool): Align chunks to paragraph boundaries (default False).
+                    merge_list_items (bool): Merge list items into paragraphs (default False).
+                    keep_code_blocks (bool): Preserve fenced code blocks as protected ranges (default False).
+                    keep_tables (bool): Preserve Markdown tables as protected ranges (default False).
+                Any other params are forwarded to the native chunking methods when using Docling conversion.
+        
+        Returns:
+            list[Chunk]: A list of Chunk objects produced by the selected strategy. If document conversion fails, returns a single Chunk spanning the original text with an "error" entry in its metadata. Raises ValueError for unknown splitter_name.
+        """
         if not text:
             return []
 

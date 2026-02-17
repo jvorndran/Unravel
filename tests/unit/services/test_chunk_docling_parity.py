@@ -18,13 +18,26 @@ from unravel.utils.parsers import parse_document
 
 @pytest.fixture
 def fixtures_dir() -> Path:
-    """Get the fixtures directory path."""
+    """
+    Get the path to the test fixtures' documents directory.
+    
+    Returns:
+        fixtures_path (Path): Absolute path to the `tests/fixtures/documents` directory.
+    """
     return Path(__file__).parent.parent.parent / "fixtures" / "documents"
 
 
 @pytest.fixture
 def sample_html_document(fixtures_dir) -> bytes:
-    """Load real HTML document from fixtures."""
+    """
+    Load and return the sample HTML fixture as bytes.
+    
+    Parameters:
+    	fixtures_dir (Path): Path to the fixtures directory containing "sample_document.html".
+    
+    Returns:
+    	bytes: Contents of the sample HTML fixture file.
+    """
     html_file = fixtures_dir / "sample_document.html"
     assert html_file.exists(), f"HTML fixture not found: {html_file}"
     return html_file.read_bytes()
@@ -32,7 +45,15 @@ def sample_html_document(fixtures_dir) -> bytes:
 
 @pytest.fixture
 def sample_markdown_document(fixtures_dir) -> bytes:
-    """Load real markdown document from fixtures."""
+    """
+    Load the sample Markdown fixture file and return its raw bytes.
+    
+    Parameters:
+    	fixtures_dir (Path): Directory containing fixture files; the function expects a file named "sample_document.md" inside it.
+    
+    Returns:
+    	file_bytes (bytes): Raw bytes of the Markdown fixture file.
+    """
     md_file = fixtures_dir / "sample_document.md"
     assert md_file.exists(), f"Markdown fixture not found: {md_file}"
     return md_file.read_bytes()
@@ -191,7 +212,11 @@ def test_html_chunks_preserve_docling_metadata(sample_html_document):
 
 
 def test_hybrid_chunker_html_vs_markdown():
-    """Test that HybridChunker works correctly for both HTML and markdown."""
+    """
+    Validate that the HybridChunker produces token-based chunks and preserves strategy metadata for both HTML and Markdown inputs.
+    
+    Asserts that sufficiently long Markdown and HTML inputs are split into more than one chunk when using token limits and that every produced chunk contains "Hybrid" in its metadata `strategy` field.
+    """
     # Create a longer document to test token-based chunking
     long_content = """# Introduction
 

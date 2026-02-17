@@ -49,14 +49,21 @@ def _normalized_prefix_length(text: str, normalized_len: int) -> int:
 
 
 def _extract_docling_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
-    """Extract Docling-specific metadata from chunk metadata.
-
-    Returns a dict with:
-        - section_hierarchy: List of section headers
-        - element_type: Type of document element (paragraph, header, code, etc.)
-        - strategy: Chunking strategy used (Hierarchical or Hybrid)
-        - size: Character count
-        - page_number: Source page (if available)
+    """
+    Extract Docling-specific fields from a chunk metadata dictionary.
+    
+    Only recognized fields are included in the returned dictionary. If a Docling-style
+    "section_hierarchy" is absent, a legacy LangChain fallback collects "Header 1"–"Header 3"
+    values (if present) into a section_hierarchy list.
+    
+    Returns:
+        dict: A dictionary containing zero or more of the following keys:
+            - section_hierarchy (list[str]): Ordered section headers for the chunk.
+            - element_type (str): Normalized label for the document element (e.g., "paragraph", "header", "code").
+            - heading_text (str): The heading text associated with the chunk, if any.
+            - strategy (str): Chunking strategy used (e.g., "Hierarchical", "Hybrid").
+            - size (int): Character count or declared size of the chunk.
+            - page_number (int | str): Source page identifier (from "page_number" or legacy "page").
     """
     result = {}
 
@@ -99,13 +106,14 @@ def _extract_docling_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
 
 
 def _extract_html_body(html_text: str) -> str:
-    """Extract body content from full HTML document or return as-is if fragment.
-
-    Args:
-        html_text: HTML string (either full document or fragment)
-
+    """
+    Return the content inside the <body> tag when html_text contains a full HTML document, otherwise return the input unchanged.
+    
+    Parameters:
+        html_text (str): HTML string which may be a complete document or an HTML fragment.
+    
     Returns:
-        HTML content (body content if full document, otherwise the original)
+        str: The inner HTML of the <body> element if present; otherwise the original html_text. Returns an empty string when html_text is empty.
     """
     if not html_text:
         return ""
@@ -124,6 +132,15 @@ def _extract_html_body(html_text: str) -> str:
 
 
 def _normalize_element_type(value: Any) -> str:
+    """
+    Normalize an element type value into a single string label.
+    
+    Parameters:
+        value (Any): The element type input which may be a string, an iterable of strings, or any other value.
+    
+    Returns:
+        str: The first non-empty string found (the input itself if it's a string, or the first string element for iterables); an empty string if the input is falsy or no valid string is found; otherwise the string representation of the input.
+    """
     if not value:
         return ""
     if isinstance(value, str):
@@ -317,16 +334,16 @@ def render_chunk_cards(
     display_mode: str = "continuous",
     render_format: str = "markdown",
 ) -> None:
-    """Render chunk cards as HTML with expandable metadata.
-
-    Args:
-        chunk_display_data: List of dicts from prepare_chunk_display_data()
-        custom_badges: Optional list of badges per chunk.
-                      Can be a list of single badges (dict) or a list of lists of badges.
-                      Each badge dict keys: {"label": "Score", "value": "0.85", "color": "#..."}
-        show_overlap: Whether to render overlap highlighting (default: True)
-        display_mode: Display style - "continuous" (colored flow) or "card" (individual cards with borders)
-        render_format: Chunk render format (markdown, html, doctags, json)
+    """
+    Render chunk cards as HTML with expandable metadata.
+    
+    Parameters:
+        chunk_display_data: List of chunk display dictionaries (as produced by prepare_chunk_display_data).
+        custom_badges: Optional per-chunk badges. Provide either a single badge dict or a list of badge dicts for each chunk;
+            each badge dict may include "label", "value", and optional "color".
+        show_overlap: Whether to highlight overlapping text segments when present.
+        display_mode: Visualization style — "continuous" for flowing colored bands or "card" for individual bordered cards.
+        render_format: Content render mode: "markdown" (default), "html", "json", or "doctags".
     """
     if not chunk_display_data:
         st.markdown(
