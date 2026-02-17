@@ -55,6 +55,19 @@ LLM_PROVIDERS: dict[str, dict[str, Any]] = {
         "env_key": "GEMINI_API_KEY",
         "description": "Google's Gemini models",
     },
+    "Vertex AI": {
+        "models": [
+            "gemini-2.5-pro",
+            "gemini-2.5-flash-preview-09-2025",
+            "gemini-2.5-flash-lite-preview-09-2025",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash-preview-0514",
+        ],
+        "default": "gemini-2.5-pro",
+        "env_key": "VERTEXAI_PROJECT",
+        "description": "Google Vertex AI Gemini models (requires gcloud auth)",
+        "requires_location": True,
+    },
     "Groq": {
         # LiteLLM uses `groq/<model>` under the hood. Here we store bare model IDs.
         # Groq supports many models; this is a curated list aligned with LiteLLM docs.
@@ -104,6 +117,13 @@ VISION_CAPABLE_MODELS: dict[str, list[str]] = {
         "gemini-3-pro-preview",
         "gemini-2.5-flash",
         "gemini-2.5-pro",
+    ],
+    "Vertex AI": [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash-preview-09-2025",
+        "gemini-2.5-flash-lite-preview-09-2025",
+        "gemini-1.5-pro",
+        "gemini-1.5-flash-preview-0514",
     ],
     "Groq": [
         "meta-llama/llama-4-scout-17b-16e-instruct",
@@ -161,6 +181,7 @@ _PROVIDER_PREFIX: dict[str, str] = {
     "OpenAI": "",  # LiteLLM uses bare model names for OpenAI
     "Anthropic": "anthropic/",
     "Gemini": "gemini/",
+    "Vertex AI": "vertex_ai/",
     "Groq": "groq/",
     "OpenRouter": "openrouter/",
     "OpenAI-Compatible": "openai/",
@@ -173,10 +194,40 @@ def _litellm_model(config: LLMConfig) -> str:
     return f"{prefix}{config.model}"
 
 
+def _get_env_value(key: str, default: str | None = None) -> str | None:
+    """Get value from system env or ~/.unravel/.env file."""
+    import os
+
+    # First check system environment
+    value = os.getenv(key)
+    if value:
+        return value
+
+    # Fall back to ~/.unravel/.env
+    dotenv_path = Path.home() / ".unravel" / ".env"
+    if not dotenv_path.exists():
+        return default
+
+    values = dotenv_values(dotenv_path)
+    return cast(str | None, values.get(key, default))
+
+
 def _litellm_kwargs(config: LLMConfig) -> dict[str, Any]:
     """Build extra kwargs for litellm.completion based on provider."""
     kwargs: dict[str, Any] = {}
-    if config.provider == "OpenAI-Compatible" and config.base_url:
+
+    if config.provider == "Vertex AI":
+        # Vertex AI requires project and location from environment
+        project = _get_env_value("VERTEXAI_PROJECT")
+        location = _get_env_value("VERTEXAI_LOCATION", "us-central1")
+
+        if project:
+            kwargs["vertex_project"] = project
+        if location:
+            kwargs["vertex_location"] = location
+        # ADC is used automatically by LiteLLM, no explicit credentials needed
+
+    elif config.provider == "OpenAI-Compatible" and config.base_url:
         kwargs["api_base"] = config.base_url
         # OpenAI-compatible endpoints typically require some api_key value.
         kwargs["api_key"] = config.api_key or "not-needed"
@@ -474,12 +525,18 @@ def validate_config(config: LLMConfig) -> tuple[bool, str]:
     if not config.model:
         return False, "Model name is required"
 
-    if config.provider == "OpenAI-Compatible" and not config.base_url:
+    if config.provider == "Vertex AI":
+        project = _get_env_value("VERTEXAI_PROJECT")
+        if not project:
+            return False, "VERTEXAI_PROJECT is required. Set it in ~/.unravel/.env"
+        # VERTEXAI_LOCATION has a default, so not strictly required
+
+    elif config.provider == "OpenAI-Compatible" and not config.base_url:
         return False, "Base URL is required for OpenAI-Compatible provider"
 
     provider_info = LLM_PROVIDERS.get(config.provider, {})
     env_key = cast(str, provider_info.get("env_key", ""))
-    if env_key and not config.api_key:
+    if env_key and not config.api_key and config.provider != "Vertex AI":
         return False, f"{env_key} is required. Set it in ~/.unravel/.env"
 
     return True, ""

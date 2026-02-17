@@ -605,6 +605,15 @@ def render_llm_sidebar() -> None:
                 "Enter any model identifier from [openrouter.ai/models](https://openrouter.ai/models)."
             )
 
+        if provider == "Vertex AI":
+            st.info(
+                "**Vertex AI** uses Google Cloud authentication.\n\n"
+                "**Setup Steps:**\n"
+                "1. Authenticate: `gcloud auth application-default login`\n"
+                "2. Set `VERTEXAI_PROJECT=your-project-id` in `~/.unravel/.env`\n"
+                "3. (Optional) Set `VERTEXAI_LOCATION=us-central1` (default: us-central1)"
+            )
+
         # Model selection
         models = get_provider_models(provider)
         if provider == "OpenAI-Compatible":
@@ -647,11 +656,18 @@ def render_llm_sidebar() -> None:
         # API Key status
         api_key_from_env = get_api_key_from_env(provider)
         if api_key_from_env:
-            st.caption("✅ API key loaded")
+            if provider == "Vertex AI":
+                st.caption(f"✅ Project ID loaded: {api_key_from_env[:20]}...")
+            else:
+                st.caption("✅ API key loaded")
             api_key = api_key_from_env
         else:
             if provider == "OpenAI-Compatible":
                 api_key = "not-needed"
+            elif provider == "Vertex AI":
+                st.caption("⚠️ Set `VERTEXAI_PROJECT` in `~/.unravel/.env`")
+                st.caption("💡 Run: `gcloud auth application-default login`")
+                api_key = ""
             else:
                 st.caption(f"⚠️ Set `{LLM_PROVIDERS[provider]['env_key']}` in `~/.unravel/.env`")
                 api_key = ""

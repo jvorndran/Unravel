@@ -74,6 +74,19 @@ def _ensure_env_file_exists() -> Path:
 # Anthropic API Key
 # ANTHROPIC_API_KEY=sk-ant-your-key-here
 
+# Google AI Studio (for Gemini provider)
+# GEMINI_API_KEY=your-key-here
+
+# Google Cloud Vertex AI (for Vertex AI provider)
+# VERTEXAI_PROJECT=your-project-id
+# VERTEXAI_LOCATION=us-central1
+
+# Groq API Key
+# GROQ_API_KEY=your-key-here
+
+# OpenRouter API Key
+# OPENROUTER_API_KEY=your-key-here
+
 # For local models (Ollama, LM Studio), no API key is usually needed
 """
         get_storage_dir().mkdir(parents=True, exist_ok=True)
