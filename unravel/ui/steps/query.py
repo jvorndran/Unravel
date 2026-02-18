@@ -251,7 +251,6 @@ def _get_llm_config_from_sidebar() -> tuple[LLMConfig, str]:
     api_key = st.session_state.get("llm_api_key", "")
     base_url = st.session_state.get("llm_base_url", "")
     temperature = st.session_state.get("llm_temperature", 0.7)
-    max_tokens = st.session_state.get("llm_max_tokens", 1024)
     system_prompt = st.session_state.get("llm_system_prompt", DEFAULT_SYSTEM_PROMPT)
 
     # Check for env var API key
@@ -267,7 +266,6 @@ def _get_llm_config_from_sidebar() -> tuple[LLMConfig, str]:
         api_key=api_key,
         base_url=base_url if base_url else None,
         temperature=temperature,
-        max_tokens=max_tokens,
     )
 
     return config, system_prompt
@@ -815,7 +813,6 @@ def render_query_step() -> None:
                         api_key=llm_config.api_key,
                         base_url=llm_config.base_url,
                         temperature=llm_config.temperature,
-                        max_tokens=llm_config.max_tokens,
                     )
 
                     # Stream response

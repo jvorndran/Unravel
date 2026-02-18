@@ -17,7 +17,6 @@ def test_generate_llm_code_uses_litellm_and_provider_prefix():
             "provider": "Anthropic",
             "model": "claude-opus-4-6",
             "temperature": 0.7,
-            "max_tokens": 1024,
         },
     )
     code = generate_llm_code(cfg)
@@ -38,7 +37,6 @@ def test_generate_llm_code_openai_compatible_includes_api_base():
             "model": "llama2",
             "base_url": "http://localhost:11434/v1",
             "temperature": 0.7,
-            "max_tokens": 1024,
         },
     )
     code = generate_llm_code(cfg)

@@ -233,7 +233,6 @@ st.session_state.doc_name = "test.pdf"
 st.session_state.llm_provider = "OpenAI"
 st.session_state.llm_model = "gpt-4"
 st.session_state.llm_temperature = 0.7
-st.session_state.llm_max_tokens = 1024
 
 render_export_step()
 '''

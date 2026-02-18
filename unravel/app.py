@@ -113,8 +113,6 @@ if "session_restored" not in st.session_state:
             st.session_state.llm_base_url = saved_llm_config.get("base_url", "")
         if "llm_temperature" not in st.session_state:
             st.session_state.llm_temperature = saved_llm_config.get("temperature", 0.7)
-        if "llm_max_tokens" not in st.session_state:
-            st.session_state.llm_max_tokens = saved_llm_config.get("max_tokens", 1024)
         if "llm_system_prompt" not in st.session_state:
             st.session_state.llm_system_prompt = saved_llm_config.get(
                 "system_prompt", DEFAULT_SYSTEM_PROMPT

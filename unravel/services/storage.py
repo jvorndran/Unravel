@@ -631,7 +631,7 @@ def save_llm_config(config_data: dict[str, Any]) -> None:
     Args:
         config_data: Dictionary containing LLM config to persist.
                     Should include: provider, model, base_url (optional),
-                    temperature, max_tokens, system_prompt (optional)
+                    temperature, system_prompt (optional)
 
     Note:
         API keys are NEVER saved to this file. They must be set in the

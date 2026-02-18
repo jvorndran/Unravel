@@ -391,7 +391,6 @@ def generate_llm_code(config: ExportConfig) -> str | None:
     provider = llm_config.get("provider")
     model = llm_config.get("model")
     temperature = llm_config.get("temperature", 0.7)
-    max_tokens = llm_config.get("max_tokens", 1024)
     base_url = llm_config.get("base_url")
     system_prompt = llm_config.get(
         "system_prompt",
@@ -427,8 +426,7 @@ def generate_llm_code(config: ExportConfig) -> str | None:
             {{"role": "system", "content": system_prompt}},
             {{"role": "user", "content": user_message}},
         ],
-        temperature=temperature,
-        max_tokens=max_tokens,{extra_kwargs}
+        temperature=temperature,{extra_kwargs}
     )
 
     return response.choices[0].message.content"""
@@ -437,7 +435,6 @@ def generate_llm_code(config: ExportConfig) -> str | None:
         provider=provider,
         model=model,
         temperature=temperature,
-        max_tokens=max_tokens,
         base_url_display=base_url_display,
         system_prompt=system_prompt,
         import_statement=import_statement,

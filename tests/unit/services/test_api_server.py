@@ -62,7 +62,6 @@ def mock_llm_config() -> LLMConfig:
         model="gpt-4",
         api_key="test-key",
         temperature=0.7,
-        max_tokens=2000,
     )
 
 

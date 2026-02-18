@@ -69,7 +69,6 @@ def render_export_step() -> None:
             "provider": st.session_state.get("llm_provider"),
             "model": st.session_state.get("llm_model"),
             "temperature": st.session_state.get("llm_temperature", 0.7),
-            "max_tokens": st.session_state.get("llm_max_tokens", 1024),
             "base_url": st.session_state.get("llm_base_url"),
             "system_prompt": st.session_state.get(
                 "llm_system_prompt",
