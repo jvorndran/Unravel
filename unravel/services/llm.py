@@ -2,8 +2,8 @@
 LLM service for RAG response generation.
 
 Uses LiteLLM as a unified interface across all providers.
-LiteLLM automatically handles parameter normalization (max_tokens vs
-max_completion_tokens, unsupported temperature values, etc.) via drop_params.
+LiteLLM automatically handles parameter normalization (unsupported temperature
+values, etc.) via drop_params.
 """
 
 import base64
@@ -161,7 +161,6 @@ class LLMConfig:
     api_key: str
     base_url: str | None = None
     temperature: float = 0.7
-    max_tokens: int = 1024
 
 
 @dataclass
@@ -351,14 +350,12 @@ def _complete(
     messages: list[dict[str, Any]],
     *,
     temperature: float | None = None,
-    max_tokens: int | None = None,
 ) -> str:
     """Run a non-streaming completion via LiteLLM."""
     response = litellm.completion(
         model=_litellm_model(config),
         messages=messages,
         temperature=temperature if temperature is not None else config.temperature,
-        max_tokens=max_tokens or config.max_tokens,
         **_litellm_kwargs(config),
     )
     return cast(str, response.choices[0].message.content)
@@ -369,14 +366,12 @@ def _complete_stream(
     messages: list[dict[str, Any]],
     *,
     temperature: float | None = None,
-    max_tokens: int | None = None,
 ) -> Generator[str, None, None]:
     """Run a streaming completion via LiteLLM."""
     response = litellm.completion(
         model=_litellm_model(config),
         messages=messages,
         temperature=temperature if temperature is not None else config.temperature,
-        max_tokens=max_tokens or config.max_tokens,
         stream=True,
         **_litellm_kwargs(config),
     )
@@ -413,7 +408,6 @@ def rewrite_query_variations(
         api_key=config.api_key,
         base_url=config.base_url,
         temperature=0.2,
-        max_tokens=min(256, config.max_tokens),
     )
     user_prompt = prompt.format(query=query, count=count)
     response = _complete(rewrite_config, _make_messages(system_prompt, user_prompt))
@@ -565,7 +559,6 @@ def get_model(
     api_key: str,
     base_url: str | None = None,
     temperature: float = 0.7,
-    max_tokens: int = 1024,
 ) -> ModelWrapper:
     """Get a model instance with unified interface.
 
@@ -575,7 +568,6 @@ def get_model(
         api_key: API key for the provider
         base_url: Optional base URL (required for OpenAI-Compatible)
         temperature: Temperature setting (default: 0.7)
-        max_tokens: Maximum tokens (default: 1024)
 
     Returns:
         ModelWrapper instance with stream() and generate() methods
@@ -586,7 +578,6 @@ def get_model(
         api_key=api_key,
         base_url=base_url,
         temperature=temperature,
-        max_tokens=max_tokens,
     )
     return ModelWrapper(config)
 
@@ -663,4 +654,4 @@ def generate_image_caption(
         }
     ]
 
-    return _complete(config, messages, temperature=0.3, max_tokens=150)
+    return _complete(config, messages, temperature=0.3)

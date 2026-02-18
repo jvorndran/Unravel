@@ -1065,7 +1065,6 @@ Model: {model}
 
 Configuration:
 - Temperature: {temperature}
-- Max Tokens: {max_tokens}
 {base_url_display}
 """
 
@@ -1080,7 +1079,6 @@ def generate_rag_response(
     context_chunks: list[str],
     system_prompt: str = """{system_prompt}""",
     temperature: float = {temperature},
-    max_tokens: int = {max_tokens},
 ) -> str:
     """Generate RAG response using retrieved context.
 
@@ -1089,7 +1087,6 @@ def generate_rag_response(
         context_chunks: List of relevant text chunks
         system_prompt: System prompt for the LLM
         temperature: Sampling temperature
-        max_tokens: Maximum tokens to generate
 
     Returns:
         Generated response string

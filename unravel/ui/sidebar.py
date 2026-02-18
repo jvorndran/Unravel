@@ -515,7 +515,6 @@ def render_rag_config_sidebar() -> None:
             "llm_api_key",
             "llm_base_url",
             "llm_temperature",
-            "llm_max_tokens",
             "current_step",  # Keep current step to avoid navigation issues
         }
         keys_to_delete = [key for key in st.session_state.keys() if key not in keys_to_keep]
@@ -536,7 +535,6 @@ def render_llm_sidebar() -> None:
             st.session_state.llm_model = saved_config.get("model", "")
             st.session_state.llm_base_url = saved_config.get("base_url", "")
             st.session_state.llm_temperature = saved_config.get("temperature", 0.7)
-            st.session_state.llm_max_tokens = saved_config.get("max_tokens", 1024)
         st.session_state.llm_config_loaded = True
 
     # Initialize session state if not present
@@ -550,8 +548,6 @@ def render_llm_sidebar() -> None:
         st.session_state.llm_base_url = ""
     if "llm_temperature" not in st.session_state:
         st.session_state.llm_temperature = 0.7
-    if "llm_max_tokens" not in st.session_state:
-        st.session_state.llm_max_tokens = 1024
 
     # Provider selection
     providers = list(LLM_PROVIDERS.keys())
@@ -701,17 +697,6 @@ def render_llm_sidebar() -> None:
         )
         st.session_state.llm_temperature = temperature
 
-        max_tokens = st.slider(
-            "Max Tokens",
-            min_value=100,
-            max_value=4000,
-            value=st.session_state.llm_max_tokens,
-            step=100,
-            key=WidgetKeys.SIDEBAR_MAX_TOKENS,
-            help="Maximum number of tokens in the response.",
-        )
-        st.session_state.llm_max_tokens = max_tokens
-
     # Save button
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button(
@@ -724,7 +709,6 @@ def render_llm_sidebar() -> None:
             "model": model,
             "base_url": base_url if provider == "OpenAI-Compatible" else None,
             "temperature": temperature,
-            "max_tokens": max_tokens,
         }
         save_llm_config(config_data)
         st.success("Configuration saved")
@@ -736,7 +720,6 @@ def render_llm_sidebar() -> None:
         api_key=api_key,
         base_url=base_url,
         temperature=temperature,
-        max_tokens=max_tokens,
     )
     is_valid, error_msg = validate_config(config)
     if not is_valid:

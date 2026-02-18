@@ -81,7 +81,6 @@ class WidgetKeys:
     SIDEBAR_MODEL_INPUT = "sidebar_model_input"
     SIDEBAR_MODEL_SELECT = "sidebar_model_select"
     SIDEBAR_TEMPERATURE = "sidebar_temperature"
-    SIDEBAR_MAX_TOKENS = "sidebar_max_tokens"
     SIDEBAR_BASE_URL = "sidebar_base_url"
     SIDEBAR_SAVE_CONFIG_BTN = "save_config_btn"
 

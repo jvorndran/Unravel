@@ -205,7 +205,6 @@ def create_app() -> FastAPI:
                     api_key=pipeline_state.llm_config.api_key,
                     base_url=pipeline_state.llm_config.base_url,
                     temperature=pipeline_state.llm_config.temperature,
-                    max_tokens=pipeline_state.llm_config.max_tokens,
                 )
 
                 # Stream LLM response

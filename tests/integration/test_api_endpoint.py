@@ -44,7 +44,6 @@ def test_llm_config() -> LLMConfig:
         model="gpt-4",
         api_key="test-key-integration",
         temperature=0.5,
-        max_tokens=1500,
     )
 
 
