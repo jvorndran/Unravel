@@ -426,6 +426,14 @@ def render_embeddings_step() -> None:
                     "retrieval_config": st.session_state.get("retrieval_config"),
                     "reranking_config": st.session_state.get("reranking_config"),
                     "bm25_index_data": st.session_state.get("bm25_index_data"),
+                    # Query step settings
+                    "query_top_k": st.session_state.get("query_top_k"),
+                    "query_threshold": st.session_state.get("query_threshold"),
+                    "query_expansion_enabled": st.session_state.get("query_expansion_enabled"),
+                    "query_expansion_count": st.session_state.get("query_expansion_count"),
+                    "query_rewrite_prompt": st.session_state.get("query_rewrite_prompt"),
+                    "query_system_prompt": st.session_state.get("query_system_prompt"),
+                    "api_endpoint_enabled": st.session_state.get("api_endpoint_enabled"),
                 }
             )
         except Exception as e:

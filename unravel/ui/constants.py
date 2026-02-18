@@ -52,6 +52,7 @@ class WidgetKeys:
     QUERY_EXPANSION_COUNT = "query_expansion_count"
     QUERY_REWRITE_PROMPT = "query_rewrite_prompt"
     QUERY_SYSTEM_PROMPT = "query_system_prompt"
+    QUERY_API_ENDPOINT_TOGGLE = "api_endpoint_toggle"
 
     # =========================================================================
     # Export Step

@@ -21,7 +21,8 @@ from unravel.services.llm import (
     get_model,
     strip_think_blocks,
 )
-from unravel.services.storage import get_storage_dir
+from unravel.services.storage import get_storage_dir, save_session_state
+from unravel.ui.components.api_endpoint import render_api_endpoint_expander
 from unravel.ui.components.chunk_viewer import (
     prepare_chunk_display_data,
     render_chunk_cards,
@@ -272,6 +273,33 @@ def _get_llm_config_from_sidebar() -> tuple[LLMConfig, str]:
     return config, system_prompt
 
 
+def _save_query_settings() -> None:
+    """Save query step settings to session state for persistence."""
+    try:
+        save_session_state(
+            {
+                "doc_name": st.session_state.get("doc_name"),
+                "embedding_model_name": st.session_state.get("embedding_model_name"),
+                "chunking_params": st.session_state.get("chunking_params"),
+                "chunks": st.session_state.get("chunks"),
+                "last_embeddings_result": st.session_state.get("last_embeddings_result"),
+                "retrieval_config": st.session_state.get("retrieval_config"),
+                "reranking_config": st.session_state.get("reranking_config"),
+                "bm25_index_data": st.session_state.get("bm25_index_data"),
+                # Query step settings (use the actual stored values, not widget keys)
+                "query_top_k": st.session_state.get("query_top_k"),
+                "query_threshold": st.session_state.get("query_threshold"),
+                "query_expansion_enabled": st.session_state.get(WidgetKeys.QUERY_EXPANSION_ENABLED, False),
+                "query_expansion_count": st.session_state.get(WidgetKeys.QUERY_EXPANSION_COUNT, 4),
+                "query_rewrite_prompt": st.session_state.get(WidgetKeys.QUERY_REWRITE_PROMPT, ""),
+                "query_system_prompt": st.session_state.get(WidgetKeys.QUERY_SYSTEM_PROMPT, ""),
+                "api_endpoint_enabled": st.session_state.get("api_endpoint_enabled", False),
+            }
+        )
+    except Exception:
+        pass  # Silent fail - not critical
+
+
 def _merge_search_results(results_by_query: list[list[Any]]) -> list[Any]:
     """Merge results from multiple queries using Reciprocal Rank Fusion.
 
@@ -353,6 +381,27 @@ def render_query_step() -> None:
     if "last_query_variations" not in st.session_state:
         st.session_state.last_query_variations = []
 
+    # Initialize API endpoint state
+    if "api_endpoint_enabled" not in st.session_state:
+        st.session_state.api_endpoint_enabled = False
+
+    # Check if server is actually running on startup
+    if "api_server_manager" not in st.session_state:
+        st.session_state.api_server_manager = None
+
+        # If API was enabled in saved state, check if server is actually up
+        if st.session_state.api_endpoint_enabled:
+            import socket
+
+            def is_port_in_use(port: int = 8000) -> bool:
+                """Check if a port is in use."""
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    return s.connect_ex(("127.0.0.1", port)) == 0
+
+            if not is_port_in_use(8000):
+                # Port is not in use, server is not running
+                st.session_state.api_endpoint_enabled = False
+
     # === Header & Metrics ===
     st.subheader("Query & Retrieval")
     st.caption("Test your RAG pipeline with real-time retrieval and generation.")
@@ -372,7 +421,7 @@ def render_query_step() -> None:
             _render_api_key_setup_message(provider, env_key_name)
             return
 
-   
+
 
     # === Query Input Section ===
     with st.container(border=True):
@@ -394,13 +443,17 @@ def render_query_step() -> None:
         with st.expander("Retrieval Settings", expanded=False):
             col_k, col_threshold = st.columns(2)
             with col_k:
+                # Use saved value if available
+                default_top_k = st.session_state.get("query_top_k", min(5, vector_store.size))
                 top_k = st.slider(
                     "Top K Results",
                     min_value=1,
                     max_value=min(20, vector_store.size),
-                    value=min(5, vector_store.size),
+                    value=min(default_top_k, vector_store.size),
                     key=WidgetKeys.QUERY_TOP_K_SLIDER,
                 )
+                # Store in session state for persistence
+                st.session_state.query_top_k = top_k
 
             with col_threshold:
                 # Get retrieval strategy for threshold configuration
@@ -455,15 +508,24 @@ def render_query_step() -> None:
                     f"{retrieval_strategy}_{fusion_method}" if fusion_method else retrieval_strategy
                 )
 
+                # Use saved value if available and matches current strategy
+                saved_threshold = st.session_state.get("query_threshold")
+                default_threshold = threshold_cfg["default"]
+                if saved_threshold is not None and st.session_state.get("last_threshold_strategy") == strategy_key:
+                    default_threshold = saved_threshold
+
                 threshold = st.slider(
                     "Minimum Similarity Score",
                     min_value=threshold_cfg["min"],
                     max_value=threshold_cfg["max"],
-                    value=threshold_cfg["default"],
+                    value=default_threshold,
                     step=threshold_cfg["step"],
                     key=get_threshold_slider_key(retrieval_strategy, fusion_method),
                     help=f"Filter results below this threshold ({retrieval_strategy}{', ' + fusion_method if fusion_method else ''})",
                 )
+                # Store in session state for persistence
+                st.session_state.query_threshold = threshold
+                st.session_state.last_threshold_strategy = strategy_key
 
         with st.expander("Query Expansion", expanded=False):
             enable_query_expansion = st.checkbox(
@@ -500,8 +562,47 @@ def render_query_step() -> None:
                 help="Instructions for how the model should behave.",
             )
 
+        # API Endpoint expander
+        render_api_endpoint_expander(
+            vector_store=vector_store,
+            embedder=embedder,
+            query_system_prompt=query_system_prompt,
+        )
+
     # Variations display placeholder (kept near the top so it doesn't get lost).
     variations_placeholder = st.empty()
+
+    # === Update API server state if enabled ===
+    if st.session_state.api_endpoint_enabled and st.session_state.api_server_manager:
+        from unravel.services.api_server import update_pipeline_state
+
+        llm_config, system_prompt = _get_llm_config_from_sidebar()
+        retrieval_config = st.session_state.get("retrieval_config", {
+            "strategy": "DenseRetriever",
+            "params": {}
+        })
+        reranking_config = st.session_state.get("reranking_config", {
+            "enabled": False
+        })
+        bm25_data = st.session_state.get("bm25_index_data")
+
+        # Get current slider values for API
+        top_k = st.session_state.get("query_top_k", 5)
+        threshold = st.session_state.get("query_threshold", 0.3)
+
+        # Note: BM25 index will be built on-demand by API server if needed
+
+        update_pipeline_state(
+            vector_store=vector_store,
+            embedder=embedder,
+            llm_config=llm_config,
+            system_prompt=query_system_prompt,
+            retrieval_config=retrieval_config,
+            reranking_config=reranking_config,
+            bm25_index_data=bm25_data,
+            top_k=top_k,
+            threshold=threshold,
+        )
 
     # === Process Query: Retrieve + Generate ===
     # Detect if retrieval parameters changed (to re-run query automatically)
@@ -760,3 +861,6 @@ def render_query_step() -> None:
         # Show previous chunks below
         if "last_search_results" in st.session_state:
             _render_retrieved_chunks(st.session_state.last_search_results)
+
+    # Save query settings for persistence
+    _save_query_settings()

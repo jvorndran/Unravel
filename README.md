@@ -186,6 +186,7 @@ End-to-end RAG testing with multiple retrieval strategies:
 - 🤖 **LLM Answer Generation**: Integrate OpenAI, Anthropic, or local models (Ollama, LM Studio) to generate answers from retrieved chunks
 - 🎛️ **Flexible Configuration**: Customize temperature, max tokens, system prompts, and API keys
 - 📋 **Detailed Results**: View ranked chunks with similarity scores, source locations, and generated answers with full transparency
+- 🌐 **API Endpoint**: Expose the entire RAG pipeline as a REST API with streaming responses for programmatic access
 
 ### Step 5: Code Export 💾
 Generate production-ready Python code capturing your exact configuration:
