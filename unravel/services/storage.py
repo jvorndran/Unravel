@@ -459,6 +459,26 @@ def save_session_state(state_data: dict[str, Any]) -> None:
         save_bm25_index(state_data["bm25_index_data"])
         serializable["has_bm25_index"] = True
 
+    # Save query step settings
+    query_settings = {}
+    if "query_top_k" in state_data:
+        query_settings["top_k"] = state_data["query_top_k"]
+    if "query_threshold" in state_data:
+        query_settings["threshold"] = state_data["query_threshold"]
+    if "query_expansion_enabled" in state_data:
+        query_settings["expansion_enabled"] = state_data["query_expansion_enabled"]
+    if "query_expansion_count" in state_data:
+        query_settings["expansion_count"] = state_data["query_expansion_count"]
+    if "query_rewrite_prompt" in state_data:
+        query_settings["rewrite_prompt"] = state_data["query_rewrite_prompt"]
+    if "query_system_prompt" in state_data:
+        query_settings["system_prompt"] = state_data["query_system_prompt"]
+    if "api_endpoint_enabled" in state_data:
+        query_settings["api_endpoint_enabled"] = state_data["api_endpoint_enabled"]
+
+    if query_settings:
+        serializable["query_settings"] = query_settings
+
     # Write JSON state
     (state_dir / SESSION_STATE_FILE).write_text(json.dumps(serializable, indent=2))
 
@@ -569,6 +589,24 @@ def load_session_state() -> dict[str, Any] | None:
         bm25_data = load_bm25_index()
         if bm25_data:
             state_data["bm25_index_data"] = bm25_data
+
+    # Restore query step settings
+    if "query_settings" in serializable:
+        qs = serializable["query_settings"]
+        if "top_k" in qs:
+            state_data["query_top_k"] = qs["top_k"]
+        if "threshold" in qs:
+            state_data["query_threshold"] = qs["threshold"]
+        if "expansion_enabled" in qs:
+            state_data["query_expansion_enabled"] = qs["expansion_enabled"]
+        if "expansion_count" in qs:
+            state_data["query_expansion_count"] = qs["expansion_count"]
+        if "rewrite_prompt" in qs:
+            state_data["query_rewrite_prompt"] = qs["rewrite_prompt"]
+        if "system_prompt" in qs:
+            state_data["query_system_prompt"] = qs["system_prompt"]
+        if "api_endpoint_enabled" in qs:
+            state_data["api_endpoint_enabled"] = qs["api_endpoint_enabled"]
 
     return state_data
 

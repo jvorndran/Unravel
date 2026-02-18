@@ -6,14 +6,25 @@ Comprehensive test coverage for the RAG Visualizer application.
 
 ```
 tests/
-├── conftest.py             # Shared fixtures and test helpers
-├── test_infrastructure.py  # Infrastructure/setup tests
-├── unit/                   # Unit tests for service layer (TODO)
-│   └── services/
-├── ui/                     # UI component tests (TODO)
-│   ├── steps/             # Tests for each UI step
-│   └── sidebar/           # Sidebar component tests
-└── integration/            # Cross-layer integration tests (TODO)
+├── conftest.py                        # Shared fixtures and test helpers
+├── test_infrastructure.py             # Infrastructure/setup tests
+├── API_ENDPOINT_TESTS.md              # API endpoint test documentation
+├── unit/                              # Unit tests for service layer
+│   ├── services/
+│   │   ├── test_api_server.py        # API server unit tests
+│   │   ├── test_chunking_service.py
+│   │   ├── test_embedders.py
+│   │   ├── test_llm_service.py
+│   │   └── ...
+│   └── utils/
+│       └── test_server_manager.py    # Server manager unit tests
+├── ui/                                # UI component tests
+│   └── steps/
+│       ├── test_chunks_step.py
+│       ├── test_export_step.py
+│       └── test_upload_step.py
+└── integration/                       # Cross-layer integration tests
+    └── test_api_endpoint.py          # API endpoint integration tests
 ```
 
 ## Running Tests
@@ -42,6 +53,7 @@ open htmlcov/index.html
 ```bash
 pytest tests/test_infrastructure.py -v
 ```
+
 
 ## Test Markers
 
@@ -138,8 +150,35 @@ def test_full_rag_pipeline(mock_storage_dir, mock_qdrant_client):
     pass
 ```
 
+## Test Suites
+
+### API Endpoint Tests
+Comprehensive tests for the API endpoint feature that exposes the RAG pipeline as a REST API.
+
+**Files:**
+- `unit/services/test_api_server.py` - FastAPI server unit tests
+- `unit/utils/test_server_manager.py` - Server lifecycle management tests
+- `integration/test_api_endpoint.py` - End-to-end API tests
+
+**Quick Start:**
+```bash
+# Run all API endpoint tests
+bash scripts/run_api_tests.sh --verbose
+
+# Run with coverage
+bash scripts/run_api_tests.sh --coverage
+```
+
+**Documentation:** [API_ENDPOINT_TESTS.md](./API_ENDPOINT_TESTS.md)
+
+### Other Test Suites
+- UI component tests (`ui/steps/`)
+- Service layer tests (`unit/services/`)
+- Infrastructure tests (`test_infrastructure.py`)
+
 ## Coverage Goals
 
 - Service layer: >= 80%
 - UI steps: >= 70%
 - Overall: >= 75%
+- API endpoint: >= 85% ✅

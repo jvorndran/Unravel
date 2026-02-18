@@ -47,6 +47,8 @@ dependencies = [
     "trafilatura>=1.6",
     "selenium>=4.6",
     "google-cloud-aiplatform>=1.60.0",
+    "fastapi>=0.104",
+    "uvicorn>=0.24",
 ]
 
 [project.optional-dependencies]
