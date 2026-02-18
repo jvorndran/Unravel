@@ -586,6 +586,10 @@ def render_query_step() -> None:
         })
         bm25_data = st.session_state.get("bm25_index_data")
 
+        # Get current slider values for API
+        top_k = st.session_state.get("query_top_k", 5)
+        threshold = st.session_state.get("query_threshold", 0.3)
+
         # Note: BM25 index will be built on-demand by API server if needed
 
         update_pipeline_state(
@@ -596,6 +600,8 @@ def render_query_step() -> None:
             retrieval_config=retrieval_config,
             reranking_config=reranking_config,
             bm25_index_data=bm25_data,
+            top_k=top_k,
+            threshold=threshold,
         )
 
     # === Process Query: Retrieve + Generate ===

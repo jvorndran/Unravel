@@ -65,11 +65,11 @@ class ServerManager:
         if self.thread:
             self.thread.join(timeout=2)
 
-    def get_url(self) -> str:
-        """Get the server URL.
+    def get_base_url(self) -> str:
+        """Get the base server URL.
 
         Returns:
-            Full URL of the running server
+            Full base URL of the running server
         """
         return f"http://{self.host}:{self.port}"
 
@@ -79,4 +79,4 @@ class ServerManager:
         Returns:
             Full URL of the query endpoint
         """
-        return f"{self.get_url()}/query"
+        return f"{self.get_base_url()}/query"

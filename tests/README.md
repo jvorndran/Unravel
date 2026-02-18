@@ -160,17 +160,6 @@ Comprehensive tests for the API endpoint feature that exposes the RAG pipeline a
 - `unit/utils/test_server_manager.py` - Server lifecycle management tests
 - `integration/test_api_endpoint.py` - End-to-end API tests
 
-**Quick Start:**
-```bash
-# Run all API endpoint tests
-bash scripts/run_api_tests.sh --verbose
-
-# Run with coverage
-bash scripts/run_api_tests.sh --coverage
-```
-
-**Documentation:** [API_ENDPOINT_TESTS.md](./API_ENDPOINT_TESTS.md)
-
 ### Other Test Suites
 - UI component tests (`ui/steps/`)
 - Service layer tests (`unit/services/`)
